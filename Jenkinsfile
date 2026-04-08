@@ -2,22 +2,24 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main',
+                    credentialsId: 'github-credentials',
                     url: 'https://github.com/raniamaamer/Rania-Maamer-DXC'
             }
         }
 
         stage('Build') {
             steps {
-                sh 'mvn clean compile'
+                bat 'mvn clean compile'
             }
         }
 
         stage('Test') {
             steps {
-                sh 'mvn test'
+                bat 'mvn test'
             }
             post {
                 always {
@@ -28,14 +30,14 @@ pipeline {
 
         stage('Package') {
             steps {
-                sh 'mvn package -DskipTests'
+                bat 'mvn package -DskipTests'
             }
         }
     }
 
     post {
         success {
-            echo '✅ Build & Tests passed!'
+            echo '✅ Pipeline terminé avec succès!'
         }
         failure {
             echo '❌ Build failed. Check the logs.'
