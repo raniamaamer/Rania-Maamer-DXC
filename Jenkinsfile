@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        PYTHON = 'python'
-        NODE = 'node'
-    }
-
     stages {
 
         stage('Checkout') {
@@ -18,13 +13,13 @@ pipeline {
 
         stage('Backend - Install Dependencies') {
             steps {
-                bat 'python -m pip install -r requirements.txt'
+                bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe -m pip install -r requirements.txt'
             }
         }
 
         stage('Backend - Tests Django') {
             steps {
-                bat 'python manage.py test'
+                bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py test'
             }
         }
 
