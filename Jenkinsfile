@@ -40,14 +40,55 @@ pipeline {
                 }
             }
         }
+
+        stage('Deploy') {
+            steps {
+                echo '🚀 Déploiement en cours...'
+                bat 'if not exist backend\\staticfiles mkdir backend\\staticfiles'
+                bat 'xcopy /E /Y /I frontend\\dist\\* backend\\staticfiles\\'
+                dir('backend') {
+                    bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py collectstatic --noinput'
+                    bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py migrate --noinput'
+                }
+                echo '✅ Déploiement terminé!'
+            }
+        }
     }
 
     post {
         success {
             echo '✅ Pipeline terminé avec succès!'
+            mail to: 'raniamaamer@gmail.com',
+                 subject: "✅ BUILD SUCCESS — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: """
+Bonjour Rania,
+
+✅ Le build Jenkins a réussi !
+
+Projet  : ${env.JOB_NAME}
+Build   : #${env.BUILD_NUMBER}
+Durée   : ${currentBuild.durationString}
+Lien    : ${env.BUILD_URL}
+
+-- Jenkins CI
+                 """
         }
         failure {
-            echo '❌ Build failed. Check the logs.'
+            echo '❌ Build échoué.'
+            mail to: 'raniamaamer@gmail.com',
+                 subject: "❌ BUILD FAILED — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: """
+Bonjour Rania,
+
+❌ Le build Jenkins a échoué !
+
+Projet  : ${env.JOB_NAME}
+Build   : #${env.BUILD_NUMBER}
+Durée   : ${currentBuild.durationString}
+Logs    : ${env.BUILD_URL}console
+
+-- Jenkins CI
+                 """
         }
     }
 }
