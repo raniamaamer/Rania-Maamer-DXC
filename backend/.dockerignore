@@ -1,0 +1,46 @@
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Environnement virtuel ─────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Variables d'environnement ─────────────────────────────────
+.env
+# (le .env sera injecté via docker-compose env_file)
+
+# ── Données / Notebooks (trop lourds) ────────────────────────
+ML/data/
+ML/*.ipynb
+
+# ── Tests / Coverage ─────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Git ───────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Docker ───────────────────────────────────────────────────
+Dockerfile
+.dockerignore
+
+# ── Fichiers statiques collectés (générés au build) ──────────
+staticfiles/
