@@ -19,7 +19,9 @@ pipeline {
 
         stage('Backend - Tests Django') {
             steps {
-                bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py test'
+                dir('backend') {
+                    bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py test'
+                }
             }
         }
 
