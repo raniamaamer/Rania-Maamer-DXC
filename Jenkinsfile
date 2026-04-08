@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        PYTHON = 'python'
+        NODE = 'node'
+    }
+
     stages {
 
         stage('Checkout') {
@@ -11,26 +16,31 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Backend - Install Dependencies') {
             steps {
-                bat 'mvn clean compile'
+                bat 'python -m pip install -r requirements.txt'
             }
         }
 
-        stage('Test') {
+        stage('Backend - Tests Django') {
             steps {
-                bat 'mvn test'
+                bat 'python manage.py test'
             }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
+        }
+
+        stage('Frontend - Install Dependencies') {
+            steps {
+                dir('frontend') {
+                    bat 'npm install'
                 }
             }
         }
 
-        stage('Package') {
+        stage('Frontend - Build React') {
             steps {
-                bat 'mvn package -DskipTests'
+                dir('frontend') {
+                    bat 'npm run build'
+                }
             }
         }
     }
