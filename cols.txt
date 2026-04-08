@@ -1,0 +1,34 @@
+Queue
+StartInterval
+EndInterval
+Contacts abandoned in 20 seconds
+Contacts abandoned in 30 seconds
+Contacts abandoned in 45 seconds
+Contacts abandoned in 60 seconds
+Contacts abandoned in 90 seconds
+Contacts abandoned in 180 seconds
+Contacts answered in 20 seconds
+Contacts answered in 30 seconds
+Contacts answered in 45 seconds
+Contacts answered in 60 seconds
+Contacts answered in 90 seconds
+Contacts answered in 180 seconds
+Service level 60 seconds
+Service level 120 seconds
+Agent interaction time
+API contacts
+API contacts handled
+Average agent interaction time
+Average customer hold time
+Average handle time
+Average queue abandon time
+Average queue answer time
+Callback contacts
+Callback contacts handled
+Contacts abandoned
+Contacts handled incoming
+Contacts handled outbound
+Contacts put on hold
+Contacts queued
+Contacts abandoned 40 seconds
+Contacts answered 40 seconds
