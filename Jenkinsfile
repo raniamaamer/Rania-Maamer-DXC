@@ -56,13 +56,14 @@ pipeline {
     }
 
     post {
-        success {
-            echo '✅ Pipeline terminé avec succès!'
-            emailext(
-                to: 'raniamaamer@gmail.com',
-                subject: "✅ BUILD SUCCESS — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                mimeType: 'text/plain',
-                body: """
+    success {
+        echo '✅ Pipeline terminé avec succès!'
+        emailext(
+            from: 'raniamaaamer@gmail.com',
+            to: 'raniamaaamer@gmail.com',
+            subject: "✅ BUILD SUCCESS — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            mimeType: 'text/plain',
+            body: """
 Bonjour Rania,
 
 ✅ Le build Jenkins a réussi !
@@ -73,16 +74,17 @@ Durée   : ${currentBuild.durationString}
 Lien    : ${env.BUILD_URL}
 
 -- Jenkins CI
-                """
-            )
-        }
-        failure {
-            echo '❌ Build échoué.'
-            emailext(
-                to: 'raniamaamer@gmail.com',
-                subject: "❌ BUILD FAILED — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                mimeType: 'text/plain',
-                body: """
+            """
+        )
+    }
+    failure {
+        echo '❌ Build échoué.'
+        emailext(
+            from: 'raniamaaamer@gmail.com',
+            to: 'raniamaaamer@gmail.com',
+            subject: "❌ BUILD FAILED — ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            mimeType: 'text/plain',
+            body: """
 Bonjour Rania,
 
 ❌ Le build Jenkins a échoué !
@@ -93,8 +95,7 @@ Durée   : ${currentBuild.durationString}
 Logs    : ${env.BUILD_URL}console
 
 -- Jenkins CI
-                """
-            )
-        }
+            """
+        )
     }
 }
