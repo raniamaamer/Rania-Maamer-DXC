@@ -13,20 +13,17 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
 
 INSTALLED_APPS = [
-    'django_prometheus',                          # ← PREMIER (obligatoire)
+    'django_prometheus',        # une seule fois suffit
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Third-party
     'rest_framework',
     'corsheaders',
-    # Local
     'django_apscheduler',
     'api',
-    'django_prometheus',                          # ← DERNIER (obligatoire)
 ]
 
 MIDDLEWARE = [
