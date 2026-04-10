@@ -42,7 +42,20 @@ function normalizeFormula(val) {
 }
 
 // ── Badges & Tags ─────────────────────────────────────────────────────────
-function SLABadge({ value, isAns }) {
+function SLABadge({ value, isAns, ansSla }) {
+  if (isAns && ansSla === 'ASA') {
+    return (
+      <span
+        title="ASA ≤ 30s (Average Speed of Answer)"
+        style={{
+          padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 700,
+          background: 'rgba(52,211,153,0.15)', color: '#34d399',
+          border: '1px solid #34d39944',
+          fontFamily: 'JetBrains Mono, monospace',
+          whiteSpace: 'nowrap',
+        }}>ASA</span>
+    )
+  }
   if (!value || Number(value) === 0) return <span style={{ color: '#6b7280' }}>—</span>
   const pctVal = (Number(value) * 100).toFixed(1)
   return (
@@ -52,10 +65,10 @@ function SLABadge({ value, isAns }) {
       color: isAns ? '#10b981' : '#f59e0b',
       border: `1px solid ${isAns ? '#10b981' : '#f59e0b'}44`,
       fontFamily: 'JetBrains Mono, monospace',
+      whiteSpace: 'nowrap',
     }}>{pctVal}%</span>
   )
 }
-
 const FORMULA_LABELS = {
   SLA1:           { label: 'Ans in SLA / (Offered − Abd in SLA)', color: '#a78bfa' },
   'SLA1(30sec)':  { label: 'Ans in SLA 30s / (Offered − Abd)',    color: '#a78bfa' },
@@ -135,18 +148,18 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
   const isDel  = mode === 'delete'
 
   const [form, setForm] = useState({
-    account:         initial?.account      || '',
-    timeframe_bh:    initial?.timeframe_bh ?? 40,
-    ooh:             initial?.ooh          ?? 40,
-    // target stocké en décimal (0.9) → afficher en % (90.0)
-    target_ans_rate: initial?.target_ans_rate != null
+    account:          initial?.account      || '',
+    timeframe_bh:     initial?.timeframe_bh ?? 40,
+    ooh:              initial?.ooh          ?? 40,
+    target_ans_rate:  initial?.target_ans_rate != null
       ? (initial.target_ans_rate * 100).toFixed(1) : '',
-    target_abd_rate: initial?.target_abd_rate != null
+    target_abd_rate:  initial?.target_abd_rate != null
       ? (initial.target_abd_rate * 100).toFixed(1) : '',
-    // ✅ FIX : normaliser la formule longue vers code court pour le select
+    target_other_rate: initial?.target_other_rate != null
+      ? (initial.target_other_rate * 100).toFixed(1) : '',
     ans_sla: normalizeFormula(initial?.ans_sla || ''),
     abd_sla: normalizeFormula(initial?.abd_sla || ''),
-  })
+})
 
   const [busy, setBusy] = useState(false)
   const [err,  setErr]  = useState(null)
@@ -166,14 +179,14 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
 
       // ✅ Nettoyer et typer les données avant envoi
       const payload = isDel ? undefined : {
-        account:         form.account.trim(),
-        timeframe_bh:    parseInt(form.timeframe_bh, 10) || 40,
-        ooh:             parseInt(form.ooh, 10) || 40,
-        // Envoyer en % → backend parse_rate() divise par 100 si > 1
-        target_ans_rate: form.target_ans_rate !== '' ? parseFloat(form.target_ans_rate) : null,
-        target_abd_rate: form.target_abd_rate !== '' ? parseFloat(form.target_abd_rate) : null,
-        ans_sla:         (form.ans_sla || '').trim(),
-        abd_sla:         (form.abd_sla || '').trim(),
+        account:           form.account.trim(),
+        timeframe_bh:      parseInt(form.timeframe_bh, 10) || 40,
+        ooh:               parseInt(form.ooh, 10) || 40,
+        target_ans_rate:   form.target_ans_rate   !== '' ? parseFloat(form.target_ans_rate)   : null,
+        target_abd_rate:   form.target_abd_rate   !== '' ? parseFloat(form.target_abd_rate)   : null,
+        target_other_rate: form.target_other_rate !== '' ? parseFloat(form.target_other_rate) : null,
+        ans_sla:           (form.ans_sla || '').trim(),
+        abd_sla:           (form.abd_sla || '').trim(),
       }
 
       const res  = await fetch(url, {
@@ -286,6 +299,16 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
                   value={form.target_abd_rate}
                   onChange={e => set('target_abd_rate', e.target.value)}
                   placeholder="ex: 5"
+                />
+              </div>
+              {/* Objectif Other */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <label style={lStyle}>Objectif Other (%)</label>
+                <input
+                  style={iStyle} type="number" step="0.1" min="0" max="100"
+                  value={form.target_other_rate}
+                  onChange={e => set('target_other_rate', e.target.value)}
+                  placeholder="ex: 90  —  vide si N/A"
                 />
               </div>
             </div>
@@ -438,7 +461,7 @@ export default function SLAConfig() {
               <tr style={{ background: 'rgba(124,58,237,0.15)', borderBottom: '2px solid rgba(124,58,237,0.3)' }}>
                 {[
                   ['Compte', '140px'], ['Timeframe BH', '95px'], ['OOH', '75px'],
-                  ['Objectif SLA', '105px'], ['Objectif Abandon', '120px'],
+                  ['Objectif SLA', '105px'], ['Objectif Abandon', '120px'],['Objectif Other', '105px'],
                   ['Formule SLA (ANS)', null], ['Formule Abandon (ABD)', null],
                   ['Actions', '110px'],
                 ].map(([label, w]) => (
@@ -475,10 +498,13 @@ export default function SLAConfig() {
                     <TimeBadge value={c.ooh} />
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                    <SLABadge value={c.target_ans_rate} isAns={true} />
+                    <SLABadge value={c.target_ans_rate} isAns={true} ansSla={c.ans_sla} />
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                     <SLABadge value={c.target_abd_rate} isAns={false} />
+                  </td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                    <SLABadge value={c.target_other_rate} isAns={true} />
                   </td>
                   {/* ✅ FormulaTag normalise automatiquement la formule longue */}
                   <td style={{ padding: '15px 10px', textAlign: 'center', verticalAlign: 'middle' }}>

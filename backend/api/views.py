@@ -12,10 +12,11 @@ from .models import (
 )
 from .serializers import (
     SLAConfigSerializer,
-    DailySnapshotSerializer, 
+    DailySnapshotSerializer,
 )
 
 logger = logging.getLogger('api')
+
 
 def parse_int_param(request, key, default=None):
     val = request.GET.get(key)
@@ -34,7 +35,7 @@ def build_time_filter(request, prefix=''):
     week     = parse_int_param(request, 'week')
     day      = parse_int_param(request, 'day')
     language = request.GET.get('language')
-    interval = request.GET.get('interval')   # ← NOUVEAU : ex "08:00"
+    interval = request.GET.get('interval')
 
     if year:
         filters &= Q(**{f'{prefix}year': year})
@@ -49,31 +50,15 @@ def build_time_filter(request, prefix=''):
             filters &= Q(**{f'{prefix}day_of_week__iexact': day_name})
     if language and language != 'all':
         filters &= Q(**{f'{prefix}language': language})
-    # ✅ Filtre interval : hour stocké comme "HH:MM" dans la DB
     if interval and interval != 'all':
         filters &= Q(**{f'{prefix}hour': interval})
     return filters
 
+
+# ── SLA formula sets ───────────────────────────────────────────────────────
 _SLA2_ACCOUNTS = {'gf', 'saipem', 'dxc it', 'dxc', 'hpe'}
 _SLA3_ACCOUNTS = {'el store', 'luxottica'}
-
-def _recalc_sla_for_account(acc_name, ans_in_sla, abd_in_sla, ans_out_sla,
-                             offered, answered, abd_in_60=0):
-    name    = str(acc_name).lower()
-    ans     = float(ans_in_sla  or 0)
-    abd     = float(abd_in_sla  or 0)
-    abd60   = float(abd_in_60   or 0)
-    ans_out = float(ans_out_sla or 0)
-    off     = float(offered     or 0)
-    ans_d   = float(answered    or 0)
-
-    if any(k in name for k in _SLA3_ACCOUNTS):
-        denom = max(off - abd60, 1)  
-        sla = 1 - (ans_out / denom)
-        return round(max(0.0, min(sla, 1.0)), 4)
-    if any(k in name for k in _SLA2_ACCOUNTS):
-        return min(ans / max(ans_d, 1), 1.0)
-    return min(ans / max(off - abd, 1), 1.0)
+_ASA_ACCOUNTS  = {'sony'}
 
 _ABD1_ACCOUNTS = {'renault', 'nissan', 'benelux'}
 _ABD2_ACCOUNTS = {'mylan', 'viatris', 'xpo', 'dxc', 'hpe', 'spm',
@@ -82,9 +67,34 @@ _ABD3_ACCOUNTS = {'gf'}
 _ABD4_ACCOUNTS = {'saipem', 'sonova', 'servier'}
 _ABD5_ACCOUNTS = {'el store', 'luxottica'}
 
+
+def _recalc_sla_for_account(acc_name, ans_in_sla, abd_in_sla, ans_out_sla,
+                             offered, answered, abd_in_60=0, avg_answer_time=0):
+    name    = str(acc_name).lower()
+    ans     = float(ans_in_sla  or 0)
+    abd     = float(abd_in_sla  or 0)
+    abd60   = float(abd_in_60   or 0)
+    ans_out = float(ans_out_sla or 0)
+    off     = float(offered     or 0)
+    ans_d   = float(answered    or 0)
+
+    if any(k in name for k in _ASA_ACCOUNTS):
+        asa = float(avg_answer_time or 0)
+        return 1.0 if asa <= 30 else round(max(0.0, ans / max(ans_d, 1)), 4)
+
+    if any(k in name for k in _SLA3_ACCOUNTS):
+        denom = max(off - abd60, 1)
+        sla = 1 - (ans_out / denom)
+        return round(max(0.0, min(sla, 1.0)), 4)
+
+    if any(k in name for k in _SLA2_ACCOUNTS):
+        return min(ans / max(ans_d, 1), 1.0)
+
+    return min(ans / max(off - abd, 1), 1.0)
+
+
 def _abandon_rate(abandoned, offered, acc_name=None, abd_out_sla=None,
                   abd_in_sla=0, abd_out_60=None, answered=0):
-
     offered = int(offered or 0)
     if not offered:
         return 0.0
@@ -118,11 +128,8 @@ def _answer_rate(answered, offered):
     offered = int(offered or 0)
     return round(int(answered or 0) / offered, 4) if offered else 0.0
 
+
 def _weighted_times(agg_row):
-    """
-    AHT = Sum(handle_time)       / Sum(answered)
-    ASA = Sum(total_answer_time) / Sum(answered)
-    """
     answered = int(agg_row.get('total_answered') or 0)
     if answered == 0:
         return 0.0, 0.0
@@ -130,12 +137,36 @@ def _weighted_times(agg_row):
     asa = round((agg_row.get('sum_answer_time')  or 0) / answered, 1)
     return aht, asa
 
+
 def sec_to_mmss(seconds):
     try:
         s = int(round(float(seconds or 0)))
         return f"{s // 60:02d}:{s % 60:02d}"
     except (TypeError, ValueError):
         return "00:00"
+
+
+def _parse_rate(value, fallback=None):
+    """
+    Convertit une valeur en taux décimal [0..1].
+    - None / '' / 'null'           → fallback
+    - Valeurs textuelles ASA       → fallback
+    - Valeur > 1 (ex: 90.0)        → divisée par 100
+    - Valeur ≤ 1 (ex: 0.9)         → gardée telle quelle
+    """
+    if value is None or str(value).strip() in ('', 'null'):
+        return fallback
+    s = str(value).strip().lower()
+    if 'sec' in s or s == 'asa':
+        return fallback
+    try:
+        v = float(value)
+    except (ValueError, TypeError):
+        return fallback
+    return round(v / 100, 6) if v > 1 else round(v, 6)
+
+
+# ── Views ──────────────────────────────────────────────────────────────────
 
 class OverviewView(APIView):
     def get(self, request):
@@ -157,7 +188,8 @@ class OverviewView(APIView):
         total_abandoned = int(agg['total_abandoned'] or 0)
         total_answered  = int(agg['total_answered']  or 0)
         agg['total_answered'] = total_answered
-        aht, asa = _weighted_times(agg)
+        aht, asa_global = _weighted_times(agg)
+
         acc_agg = (
             qs.filter(target_ans_rate__gt=0)
             .values('account')
@@ -168,17 +200,23 @@ class OverviewView(APIView):
                 abd_in_60=Sum('abd_in_60'),
                 offered=Sum('offered'),
                 answered=Sum('answered'),
+                sum_answer_time=Sum('total_answer_time'),
                 acc_target=Max('target_ans_rate'),
             )
         )
-        compliant_accounts = sum(
-            1 for a in acc_agg
-            if _recalc_sla_for_account(
+        compliant_accounts = 0
+        for a in acc_agg:
+            ans_d = int(a['answered'] or 0)
+            a_asa = round((a.get('sum_answer_time') or 0) / max(ans_d, 1), 1)
+            sla = _recalc_sla_for_account(
                 a['account'], a['ans_in_sla'], a['abd_in_sla'],
-                a['ans_out_sla'], a['offered'], a['answered'],
+                a['ans_out_sla'], a['offered'], ans_d,
                 abd_in_60=float(a.get('abd_in_60') or 0),
-            ) >= (a['acc_target'] or 0)
-        )
+                avg_answer_time=a_asa,
+            )
+            if sla >= (a['acc_target'] or 0):
+                compliant_accounts += 1
+
         total_accounts = qs.values('account').distinct().count()
 
         return Response({
@@ -193,35 +231,19 @@ class OverviewView(APIView):
             'compliant_accounts': compliant_accounts,
             'breached_accounts':  total_accounts - compliant_accounts,
             'avg_handle_time':    aht,
-            'asa':                asa,
+            'asa':                asa_global,
             'total_callbacks':    int(agg.get('total_callbacks') or 0),
             'compliance_rate':    round(compliant_accounts / total_accounts, 4) if total_accounts else 0,
         })
+
+
 class AccountListView(APIView):
-    _SLA2 = {'gf', 'saipem', 'dxc it', 'dxc', 'hpe'}
-    _SLA3 = {'el store', 'luxottica'}
-
-    @staticmethod
-    def _recalc_sla(acc_name, ans_in_sla, abd_in_sla, ans_out_sla,
-                    offered, answered, abd_in_60=0):
-        name    = str(acc_name).lower()
-        ans     = float(ans_in_sla  or 0)
-        abd     = float(abd_in_sla  or 0)
-        abd60   = float(abd_in_60   or 0)
-        ans_out = float(ans_out_sla or 0)
-        off     = float(offered     or 0)
-        ans_d   = float(answered    or 0)
-        if any(k in name for k in AccountListView._SLA3):
-            return min(1.0 - ans_out / max(off - abd60, 1), 1.0)
-        if any(k in name for k in AccountListView._SLA2):
-            return min(ans / max(ans_d, 1), 1.0)
-        return min(ans / max(off - abd, 1), 1.0)
-
     def get(self, request):
         time_filter = build_time_filter(request)
         qs = QueueMetric.objects.all()  # pylint: disable=no-member
         if time_filter:
             qs = qs.filter(time_filter)
+
         accounts = (
             qs.values('account')
             .annotate(
@@ -241,6 +263,13 @@ class AccountListView(APIView):
                 timeframe_bh=Max('timeframe_bh'),
             )
         )
+
+        # Récupérer other_sla et target_other_rate depuis SLAConfig
+        sla_configs = {
+            c.account.lower(): c
+            for c in SLAConfig.objects.all()  # pylint: disable=no-member
+        }
+
         result = []
         for acc in accounts:
             if not acc['account']:
@@ -249,7 +278,11 @@ class AccountListView(APIView):
             abandoned = int(acc['abandoned'] or 0)
             answered  = int(acc['answered']  or 0)
             target    = float(acc['target_ans_rate'] or 0)
-            sla = self._recalc_sla(
+
+            acc['total_answered'] = answered
+            aht, asa = _weighted_times(acc)
+
+            sla = _recalc_sla_for_account(
                 acc['account'],
                 acc['ans_in_sla'],
                 acc['abd_in_sla'],
@@ -257,11 +290,11 @@ class AccountListView(APIView):
                 offered,
                 answered,
                 abd_in_60=float(acc.get('abd_in_60') or 0),
+                avg_answer_time=asa,
             )
             sla = max(0.0, min(sla, 1.0))
             compliant = (sla >= target) if target > 0 else False
-            acc['total_answered'] = answered
-            aht, asa = _weighted_times(acc)
+
             abd_rate = _abandon_rate(
                 abandoned, offered,
                 acc_name=acc['account'],
@@ -270,24 +303,29 @@ class AccountListView(APIView):
                 abd_out_60=float(acc.get('abd_out_60') or 0),
                 answered=answered,
             )
+
+            cfg = sla_configs.get(acc['account'].lower())
             result.append({
-                'account':          acc['account'],
-                'offered':          offered,
-                'abandoned':        abandoned,
-                'answered':         answered,
-                'ans_in_sla':       float(acc['ans_in_sla']  or 0),
-                'abd_in_sla':       float(acc['abd_in_sla']  or 0),
-                'sla_rate':         round(sla, 4),
-                'abandon_rate':     abd_rate,
-                'answer_rate':      _answer_rate(answered, offered),
-                'avg_handle_time':  aht,
-                'avg_answer_time':  asa,
-                'target_ans_rate':  round(target, 2) if target > 0 else None,
-                'target_abd_rate':  round(acc['target_abd_rate'] or 0, 3) if (acc['target_abd_rate'] or 0) > 0 else None,
-                'timeframe_bh':     int(acc['timeframe_bh'] or 40),
-                'sla_compliant':    compliant,
-                'abd_compliant':    abd_rate <= (acc['target_abd_rate'] or 0) if (acc['target_abd_rate'] or 0) > 0 else None,
-                'sla_gap':          round(sla - target, 4) if target > 0 else None,
+                'account':           acc['account'],
+                'offered':           offered,
+                'abandoned':         abandoned,
+                'answered':          answered,
+                'ans_in_sla':        float(acc['ans_in_sla']  or 0),
+                'abd_in_sla':        float(acc['abd_in_sla']  or 0),
+                'sla_rate':          round(sla, 4),
+                'abandon_rate':      abd_rate,
+                'answer_rate':       _answer_rate(answered, offered),
+                'avg_handle_time':   aht,
+                'avg_answer_time':   asa,
+                'target_ans_rate':   round(target, 2) if target > 0 else None,
+                'target_abd_rate':   round(acc['target_abd_rate'] or 0, 3) if (acc['target_abd_rate'] or 0) > 0 else None,
+                'timeframe_bh':      int(acc['timeframe_bh'] or 40),
+                'sla_compliant':     compliant,
+                'abd_compliant':     abd_rate <= (acc['target_abd_rate'] or 0) if (acc['target_abd_rate'] or 0) > 0 else None,
+                'sla_gap':           round(sla - target, 4) if target > 0 else None,
+                # ── Champs 3ème formule ───────────────────────────────────
+                'other_sla':         cfg.other_sla if cfg else None,
+                'target_other_rate': round(cfg.target_other_rate, 4) if cfg and cfg.target_other_rate is not None else None,
             })
 
         result.sort(key=lambda x: x['sla_rate'])
@@ -358,10 +396,11 @@ class QueueListView(APIView):
                 'sla_compliant':   (q['sla_rate'] or 0) >= (q['target_ans_rate'] or 0) if (q['target_ans_rate'] or 0) > 0 else None,
             })
         return Response(result)
+
+
 class HourlyTrendView(APIView):
     def get(self, request):
         qs = HourlyTrend.objects.all()  # pylint: disable=no-member
-
         account = request.GET.get('account')
         if account and account != 'all':
             qs = qs.filter(account=account)
@@ -390,6 +429,8 @@ class HourlyTrendView(APIView):
                 'abandoned':    abandoned,
             })
         return Response(result)
+
+
 class Bottom5View(APIView):
     def get(self, request):
         time_filter = build_time_filter(request)
@@ -412,22 +453,26 @@ class Bottom5View(APIView):
                 abd_in_60=Sum('abd_in_60'),
                 abd_out_60=Sum('abd_out_60'),
                 sum_handle_time=Sum('handle_time'),
+                sum_answer_time=Sum('total_answer_time'),
             )
             .filter(offered__gt=0)
             .order_by('sla_rate')
         )
         result = []
         for a in accounts:
+            ans_d = int(a['answered'] or 0)
+            a['total_answered'] = ans_d
+            aht, asa = _weighted_times(a)
+
             sla = _recalc_sla_for_account(
                 a['account'], a['ans_in_sla'], a['abd_in_sla'],
-                a['ans_out_sla'], a['offered'], a['answered'],
+                a['ans_out_sla'], a['offered'], ans_d,
                 abd_in_60=float(a.get('abd_in_60') or 0),
+                avg_answer_time=asa,
             )
             sla = max(0.0, min(sla, 1.0))
             gap = sla - (a['target_ans_rate'] or 0)
             if gap < 0:
-                a['total_answered'] = int(a['answered'] or 0)
-                aht, _ = _weighted_times(a)
                 result.append({
                     'account':         a['account'],
                     'sla_rate':        round(sla, 4),
@@ -440,15 +485,15 @@ class Bottom5View(APIView):
                         abd_out_sla=float(a.get('abd_out_sla') or 0),
                         abd_in_sla=float(a.get('abd_in_sla') or 0),
                         abd_out_60=float(a.get('abd_out_60') or 0),
-                        answered=int(a.get('answered') or 0),
+                        answered=ans_d,
                     ),
                 })
         return Response(result[:5])
 
+
 class Trend7DaysView(APIView):
     def get(self, request):
         qs = QueueMetric.objects.all()  # pylint: disable=no-member
-
         account = request.GET.get('account')
         if account and account != 'all':
             qs = qs.filter(account=account)
@@ -463,7 +508,6 @@ class Trend7DaysView(APIView):
             )
             .order_by('-start_date__date')[:100]
         )
-
         return Response([{
             'account':      t['account'],
             'date':         str(t['start_date__date']),
@@ -473,35 +517,38 @@ class Trend7DaysView(APIView):
             'abandon_rate': _abandon_rate(t['abandoned'], t['offered']),
             'target':       round(t['target'] or 0, 2) if (t['target'] or 0) > 0 else None,
         } for t in trends])
+
+
 class DailySnapshotView(APIView):
     def get(self, request):
         limit     = int(request.GET.get('days', 30))
         snapshots = DailySnapshot.objects.order_by('-date')[:limit]  # pylint: disable=no-member
         return Response(DailySnapshotSerializer(reversed(list(snapshots)), many=True).data)
+
+
 class SLAConfigView(APIView):
     def get(self, request):
         configs = SLAConfig.objects.all().order_by('account')  # pylint: disable=no-member
         return Response(SLAConfigSerializer(configs, many=True).data)
+
     def post(self, request):
         data    = request.data
         account = (data.get('account') or '').strip()
         if not account:
             return Response({'error': 'account is required'}, status=400)
-        def parse_rate(value):
-            if value is None or str(value).strip() in ('', 'null'):
-                return None
-            v = float(value)
-            return round(v / 100, 6) if v > 1 else round(v, 6)
         try:
             obj, created = SLAConfig.objects.update_or_create(  # pylint: disable=no-member
                 account=account,
                 defaults={
-                    'timeframe_bh':    int(data.get('timeframe_bh') or 40),
-                    'ooh':             int(data.get('ooh') or data.get('timeframe_bh') or 40),
-                    'target_ans_rate': parse_rate(data.get('target_ans_rate')),
-                    'target_abd_rate': parse_rate(data.get('target_abd_rate')),
-                    'ans_sla':         (data.get('ans_sla') or '').strip(),
-                    'abd_sla':         (data.get('abd_sla') or '').strip(),
+                    'timeframe_bh':      int(data.get('timeframe_bh') or 40),
+                    'ooh':               int(data.get('ooh') or data.get('timeframe_bh') or 40),
+                    'target_ans_rate':   _parse_rate(data.get('target_ans_rate')),
+                    'target_abd_rate':   _parse_rate(data.get('target_abd_rate')),
+                    'ans_sla':           (data.get('ans_sla') or '').strip(),
+                    'abd_sla':           (data.get('abd_sla') or '').strip(),
+                    # ── Nouveau : 3ème formule ────────────────────────────
+                    'other_sla':         (data.get('other_sla') or '').strip(),
+                    'target_other_rate': _parse_rate(data.get('target_other_rate')),
                 }
             )
             return Response(SLAConfigSerializer(obj).data, status=201 if created else 200)
@@ -515,24 +562,23 @@ class SLAConfigDetailView(APIView):
             return SLAConfig.objects.get(pk=pk)  # pylint: disable=no-member
         except ObjectDoesNotExist:
             return None
+
     def put(self, request, pk):
         obj = self._get(pk)
         if not obj:
             return Response({'error': 'Introuvable'}, status=404)
         data = request.data
-        def parse_rate(value, fallback):
-            if value is None or str(value).strip() in ('', 'null'):
-                return fallback
-            v = float(value)
-            return round(v / 100, 6) if v > 1 else round(v, 6)
         try:
             obj.account         = (data.get('account') or obj.account).strip()
             obj.timeframe_bh    = int(data.get('timeframe_bh') or obj.timeframe_bh)
             obj.ooh             = int(data.get('ooh') or obj.ooh)
-            obj.target_ans_rate = parse_rate(data.get('target_ans_rate'), obj.target_ans_rate)
-            obj.target_abd_rate = parse_rate(data.get('target_abd_rate'), obj.target_abd_rate)
+            obj.target_ans_rate = _parse_rate(data.get('target_ans_rate'), fallback=obj.target_ans_rate)
+            obj.target_abd_rate = _parse_rate(data.get('target_abd_rate'), fallback=obj.target_abd_rate)
             obj.ans_sla         = (data.get('ans_sla') or obj.ans_sla or '').strip()
             obj.abd_sla         = (data.get('abd_sla') or obj.abd_sla or '').strip()
+            # ── Nouveau : 3ème formule ────────────────────────────────────
+            obj.other_sla         = (data.get('other_sla') or obj.other_sla or '').strip()
+            obj.target_other_rate = _parse_rate(data.get('target_other_rate'), fallback=obj.target_other_rate)
             obj.save()
             return Response(SLAConfigSerializer(obj).data)
         except (ValueError, TypeError) as e:
@@ -556,6 +602,7 @@ def health_check(request):
         'version': '1.0.0',
     })
 
+
 @api_view(['POST'])
 def trigger_etl(request):
     logger.info("ETL refresh triggered by API request")
@@ -564,6 +611,8 @@ def trigger_etl(request):
         'message': 'ETL pipeline queued. Data will refresh in ~2 minutes.',
         'timestamp': timezone.now().isoformat(),
     }, status=status.HTTP_202_ACCEPTED)
+
+
 class HistoricalView(APIView):
     def get(self, request):
         qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
@@ -573,6 +622,7 @@ class HistoricalView(APIView):
         time_filter = build_time_filter(request)
         if time_filter:
             qs = qs.filter(time_filter)
+
         agg = qs.aggregate(
             total_offered=Sum('offered'),
             total_abandoned=Sum('abandoned'),
@@ -586,7 +636,8 @@ class HistoricalView(APIView):
         total_abandoned = int(agg['total_abandoned'] or 0)
         total_answered  = int(agg['total_answered']  or 0)
         agg['total_answered'] = total_answered
-        aht, asa = _weighted_times(agg)
+        aht, asa_global = _weighted_times(agg)
+
         by_account = (
             qs.values('account')
             .annotate(
@@ -601,11 +652,19 @@ class HistoricalView(APIView):
                 abd_out_60=Sum('abd_out_60'),
                 sla_rate=Avg('sla_rate'),
                 sum_handle_time=Sum('handle_time'),
+                sum_answer_time=Sum('total_answer_time'),
                 target_ans_rate=Max('target_ans_rate'),
                 target_abd_rate=Max('target_abd_rate'),
             )
             .order_by('sla_rate')
         )
+
+        # Récupérer other_sla et target_other_rate depuis SLAConfig
+        sla_configs = {
+            c.account.lower(): c
+            for c in SLAConfig.objects.all()  # pylint: disable=no-member
+        }
+
         accounts_list = []
         for a in by_account:
             if not a['account']:
@@ -615,14 +674,17 @@ class HistoricalView(APIView):
             ans    = int(a['answered']  or 0)
             target = float(a['target_ans_rate'] or 0)
 
+            a['total_answered'] = ans
+            a_aht, a_asa = _weighted_times(a)
+
             sla = _recalc_sla_for_account(
                 a['account'], a['ans_in_sla'], a['abd_in_sla'],
                 a['ans_out_sla'], off, ans,
                 abd_in_60=float(a.get('abd_in_60') or 0),
+                avg_answer_time=a_asa,
             )
             sla = max(0.0, min(sla, 1.0))
-            a['total_answered'] = ans
-            a_aht, _ = _weighted_times(a)
+
             abd_rate = _abandon_rate(
                 abd, off,
                 acc_name=a['account'],
@@ -631,20 +693,26 @@ class HistoricalView(APIView):
                 abd_out_60=float(a.get('abd_out_60') or 0),
                 answered=ans,
             )
+
+            cfg = sla_configs.get(a['account'].lower())
             accounts_list.append({
-                'account':         a['account'],
-                'offered':         off,
-                'abandoned':       abd,
-                'answered':        ans,
-                'sla_rate':        round(sla, 4),
-                'abandon_rate':    abd_rate,
-                'answer_rate':     _answer_rate(ans, off),
-                'avg_handle_time': a_aht,
-                'target_ans_rate': round(target, 2) if target > 0 else None,
-                'target_abd_rate': round(a['target_abd_rate'] or 0, 3) if (a['target_abd_rate'] or 0) > 0 else None,
-                'sla_compliant':   (sla >= target) if target > 0 else False,
-                'sla_gap':         round(sla - target, 4) if target > 0 else None,
+                'account':           a['account'],
+                'offered':           off,
+                'abandoned':         abd,
+                'answered':          ans,
+                'sla_rate':          round(sla, 4),
+                'abandon_rate':      abd_rate,
+                'answer_rate':       _answer_rate(ans, off),
+                'avg_handle_time':   a_aht,
+                'target_ans_rate':   round(target, 2) if target > 0 else None,
+                'target_abd_rate':   round(a['target_abd_rate'] or 0, 3) if (a['target_abd_rate'] or 0) > 0 else None,
+                'sla_compliant':     (sla >= target) if target > 0 else False,
+                'sla_gap':           round(sla - target, 4) if target > 0 else None,
+                # ── Champs 3ème formule ───────────────────────────────────
+                'other_sla':         cfg.other_sla if cfg else None,
+                'target_other_rate': round(cfg.target_other_rate, 4) if cfg and cfg.target_other_rate is not None else None,
             })
+
         total_accounts     = len(accounts_list)
         compliant_accounts = sum(1 for a in accounts_list if a['sla_compliant'])
         return Response({
@@ -656,7 +724,7 @@ class HistoricalView(APIView):
                 'abandon_rate':       _abandon_rate(total_abandoned, total_offered),
                 'answer_rate':        _answer_rate(total_answered,   total_offered),
                 'avg_handle_time':    aht,
-                'asa':                asa,
+                'asa':                asa_global,
                 'total_callbacks':    int(agg['total_callbacks'] or 0),
                 'total_accounts':     total_accounts,
                 'compliant_accounts': compliant_accounts,
@@ -665,6 +733,8 @@ class HistoricalView(APIView):
             },
             'by_account': accounts_list,
         })
+
+
 class RealtimeView(APIView):
     """GET /api/realtime/ | POST /api/realtime/"""
     def get(self, request):
@@ -735,6 +805,7 @@ class RealtimeView(APIView):
             },
             'queues': queues_list,
         })
+
     def post(self, request):
         data     = request.data
         required = ['queue', 'account', 'captured_at', 'offered', 'sla_rate']
@@ -778,6 +849,8 @@ class RealtimeView(APIView):
             source=data.get('source', 'api_push'),
         )
         return Response({'id': rt.id, 'status': 'created'}, status=201)
+
+
 class DeskLangueView(APIView):
     def get(self, request):
         qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
@@ -792,6 +865,7 @@ class DeskLangueView(APIView):
             qs = qs.filter(is_ooh=True)
         elif is_ooh == 'false':
             qs = qs.filter(is_ooh=False)
+
         rows_agg = list(
             qs.values('desk', 'account')
             .annotate(
@@ -820,25 +894,24 @@ class DeskLangueView(APIView):
             weighted_ttc=ExpressionWrapper(F('avg_ttc') * F('answered'), output_field=FF()),
         )
         queues_agg = list(
-        qs_q.values('desk', 'account', 'queue')
-        .annotate(
-            offered=Sum('offered'), answered=Sum('answered'), abandoned=Sum('abandoned'),
-            ans_in_sla=Sum('ans_in_sla'), abd_in_sla=Sum('abd_in_sla'),
-            ans_out_sla=Sum('ans_out_sla'), abd_out_sla=Sum('abd_out_sla'),
-            abd_in_60=Sum('abd_in_60'), abd_out_60=Sum('abd_out_60'),
-            sum_handle_time=Sum('handle_time'), sum_total_answer_time=Sum('total_answer_time'),
-            sum_total_hold_time=Sum('total_hold_time'),
-            sum_contacts_hold=Sum('contacts_put_on_hold'),
-            sum_weighted_ttc=Sum('weighted_ttc'),
-            target_ans_rate=Max('target_ans_rate'),
-        )
-        .order_by('desk', 'queue')
+            qs_q.values('desk', 'account', 'queue')
+            .annotate(
+                offered=Sum('offered'), answered=Sum('answered'), abandoned=Sum('abandoned'),
+                ans_in_sla=Sum('ans_in_sla'), abd_in_sla=Sum('abd_in_sla'),
+                ans_out_sla=Sum('ans_out_sla'), abd_out_sla=Sum('abd_out_sla'),
+                abd_in_60=Sum('abd_in_60'), abd_out_60=Sum('abd_out_60'),
+                sum_handle_time=Sum('handle_time'), sum_total_answer_time=Sum('total_answer_time'),
+                sum_total_hold_time=Sum('total_hold_time'),
+                sum_contacts_hold=Sum('contacts_put_on_hold'),
+                sum_weighted_ttc=Sum('weighted_ttc'),
+                target_ans_rate=Max('target_ans_rate'),
+            )
+            .order_by('desk', 'queue')
         )
 
-        # Build queues_by_desk: dict of desk -> list of queue rows with metrics
         queues_by_desk = {}
         for q in queues_agg:
-            desk_key = q['desk'] or ''
+            desk_key    = q['desk'] or ''
             offered_q   = int(q['offered']   or 0)
             abandoned_q = int(q['abandoned'] or 0)
             answered_q  = int(q['answered']  or 0)
@@ -846,9 +919,17 @@ class DeskLangueView(APIView):
             abd_sla_q   = float(q['abd_in_sla']  or 0)
             ans_out_q   = float(q['ans_out_sla'] or 0)
             abd_in_60_q = float(q['abd_in_60']   or 0)
+
+            aht_q, asa_q = _weighted_times({
+                'total_answered':  answered_q,
+                'sum_handle_time': q.get('sum_handle_time')       or 0,
+                'sum_answer_time': q.get('sum_total_answer_time') or 0,
+            })
             sla_q = round(_recalc_sla_for_account(
                 q['account'], ans_sla_q, abd_sla_q, ans_out_q,
-                offered_q, answered_q, abd_in_60=abd_in_60_q,
+                offered_q, answered_q,
+                abd_in_60=abd_in_60_q,
+                avg_answer_time=asa_q,
             ), 4)
             abd_rate_q = _abandon_rate(
                 abandoned_q, offered_q,
@@ -858,16 +939,11 @@ class DeskLangueView(APIView):
                 abd_out_60=float(q.get('abd_out_60') or 0),
                 answered=answered_q,
             )
-            aht_q, asa_q = _weighted_times({
-                'total_answered':  answered_q,
-                'sum_handle_time': q.get('sum_handle_time')       or 0,
-                'sum_answer_time': q.get('sum_total_answer_time') or 0,
-            })
             hold_contacts_q = int(q.get('sum_contacts_hold') or 0)
             hold_sec_q = round(float(q.get('sum_total_hold_time') or 0) / max(hold_contacts_q, 1), 1)
             ttc_sec_q  = round(float(q.get('sum_weighted_ttc')    or 0) / max(answered_q, 1), 1)
-            target_q = float(q['target_ans_rate'] or 0)
-            queue_row = {
+            target_q   = float(q['target_ans_rate'] or 0)
+            queue_row  = {
                 'queue':             q['queue'],
                 'account':           q['account'],
                 'offered_contact':   offered_q,
@@ -891,19 +967,18 @@ class DeskLangueView(APIView):
             if desk_key not in queues_by_desk:
                 queues_by_desk[desk_key] = []
             queues_by_desk[desk_key].append(queue_row)
+
         from collections import defaultdict
         _w = defaultdict(lambda: {'sum_ttc': 0.0, 'sum_hold': 0.0, 'hold_contacts': 0, 'w': 0})
         for row in qs.values('desk', 'account', 'answered', 'avg_ttc',
-                             'total_hold_time', 'contacts_put_on_hold'):
+                              'total_hold_time', 'contacts_put_on_hold'):
             key = (row['desk'] or '', row['account'] or '')
             ans = int(row['answered'] or 0)
-            # Avg Hold weighted by contacts put on hold (not average-of-averages)
-            # Formula: Avg Hold = Total Hold / Contacts put on hold
-            #          Total Hold = Avg Hold × Contacts put on hold  (pre-computed in ETL)
-            _w[key]['sum_ttc']      += float(row['avg_ttc'] or 0) * ans
-            _w[key]['sum_hold']     += float(row['total_hold_time'] or 0)
-            _w[key]['hold_contacts']+= int(row['contacts_put_on_hold'] or 0)
-            _w[key]['w']            += ans
+            _w[key]['sum_ttc']       += float(row['avg_ttc'] or 0) * ans
+            _w[key]['sum_hold']      += float(row['total_hold_time'] or 0)
+            _w[key]['hold_contacts'] += int(row['contacts_put_on_hold'] or 0)
+            _w[key]['w']             += ans
+
         result = []
         for r in rows_agg:
             offered   = int(r['offered']  or 0)
@@ -911,6 +986,20 @@ class DeskLangueView(APIView):
             abandoned = int(r['abandoned'] or 0)
             ans_sla   = float(r['ans_in_sla'] or 0)
             abd_sla   = float(r['abd_in_sla'] or 0)
+            ans_out_sla = float(r.get('ans_out_sla') or 0)
+            abd_in_60   = float(r.get('abd_in_60')   or 0)
+
+            aht_sec, asa_sec = _weighted_times({
+                'total_answered':  answered,
+                'sum_handle_time': r.get('sum_handle_time')       or 0,
+                'sum_answer_time': r.get('sum_total_answer_time') or 0,
+            })
+            sla_rate = round(_recalc_sla_for_account(
+                r['account'], ans_sla, abd_sla, ans_out_sla,
+                offered, answered,
+                abd_in_60=abd_in_60,
+                avg_answer_time=asa_sec,
+            ), 4)
             abandon_rate = _abandon_rate(
                 abandoned, offered,
                 acc_name=r['account'],
@@ -919,21 +1008,8 @@ class DeskLangueView(APIView):
                 abd_out_60=float(r.get('abd_out_60') or 0),
                 answered=answered,
             )
-            ans_out_sla = float(r.get('ans_out_sla') or 0)
-            abd_in_60   = float(r.get('abd_in_60')   or 0)
-            sla_rate = round(_recalc_sla_for_account(
-                r['account'], ans_sla, abd_sla, ans_out_sla,
-                offered, answered, abd_in_60=abd_in_60,
-            ), 4)
-            aht_sec, asa_sec = _weighted_times({
-                'total_answered':  answered,
-                'sum_handle_time': r.get('sum_handle_time')       or 0,
-                'sum_answer_time': r.get('sum_total_answer_time') or 0,
-            })
-
             w        = _w[(r['desk'] or '', r['account'] or '')]
             ttc_sec  = round(w['sum_ttc']  / max(w['w'], 1), 1)
-            # Avg Hold = Total Hold / Contacts put on hold  (volume-weighted, matches Power BI)
             hold_sec = round(w['sum_hold'] / max(w['hold_contacts'], 1), 1)
             target_ans = float(r['target_ans_rate'] or 0)
             target_abd = float(r['target_abd_rate'] or 0)
@@ -969,18 +1045,19 @@ class DeskLangueView(APIView):
                 'timeframe_bh':      int(r['timeframe_bh'] or 40),
                 'sla_compliant':     sla_rate >= target_ans if target_ans > 0 else None,
                 'abd_compliant':     abandon_rate <= target_abd if target_abd > 0 else None,
-                '_sum_handle':  r.get('sum_handle_time')       or 0,
-                '_sum_answer':  r.get('sum_total_answer_time') or 0,
-                '_sum_ttc':     w['sum_ttc'],
-                '_sum_hold':    w['sum_hold'],
+                '_sum_handle':    r.get('sum_handle_time')       or 0,
+                '_sum_answer':    r.get('sum_total_answer_time') or 0,
+                '_sum_ttc':       w['sum_ttc'],
+                '_sum_hold':      w['sum_hold'],
                 '_hold_contacts': w['hold_contacts'],
-                '_w':           w['w'],
-                '_abd_out_sla': float(r.get('abd_out_sla') or 0),
-                '_abd_out_60':  int(float(r.get('abd_out_60')  or 0)),
-                '_abd_in_sla':  float(r.get('abd_in_sla')  or 0),
-                '_abd_in_60':   int(float(r.get('abd_in_60')   or 0)),
-                '_ans_out_sla': float(r.get('ans_out_sla') or 0),
+                '_w':             w['w'],
+                '_abd_out_sla':   float(r.get('abd_out_sla') or 0),
+                '_abd_out_60':    int(float(r.get('abd_out_60')  or 0)),
+                '_abd_in_sla':    float(r.get('abd_in_sla')  or 0),
+                '_abd_in_60':     int(float(r.get('abd_in_60')   or 0)),
+                '_ans_out_sla':   float(r.get('ans_out_sla') or 0),
             })
+
         if result:
             tot_off     = sum(r['offered_contact']   for r in result)
             tot_ans     = sum(r['handled_contact']   for r in result)
@@ -991,13 +1068,11 @@ class DeskLangueView(APIView):
             t_asa  = round(sum(r['_sum_answer'] for r in result) / max(tot_ans, 1), 1)
             tot_w  = max(sum(r['_w'] for r in result), 1)
             t_ttc  = round(sum(r['_sum_ttc']  for r in result) / tot_w, 1)
-            # Total Avg Hold = sum(Total Hold) / sum(Contacts put on hold)  — matches Power BI
             total_hold_sec      = sum(r.get('_sum_hold',      0) for r in result if not r.get('is_total'))
             total_hold_contacts = sum(r.get('_hold_contacts', 0) for r in result if not r.get('is_total'))
             t_hold = round(total_hold_sec / max(total_hold_contacts, 1), 1)
-            # ── Total SLA : SLA1 générique sur toutes les lignes agrégées
-            tot_ans_out = sum(r['_ans_out_sla'] for r in result)
-            tot_abd_in_60_sum = sum(r['_abd_in_60'] for r in result)
+            tot_ans_out       = sum(r['_ans_out_sla'] for r in result)
+            tot_abd_in_60_sum = sum(r['_abd_in_60']  for r in result)
             tot_sla_rate = round(
                 min(1 - tot_ans_out / max(tot_off - tot_abd_in_60_sum, 1), 1.0)
                 if tot_abd_in_60_sum > 0
@@ -1006,11 +1081,11 @@ class DeskLangueView(APIView):
             )
             accounts_set = {r['account'] for r in result if r['account']}
             if len(accounts_set) == 1:
-                acc_name = accounts_set.pop()
+                acc_name        = accounts_set.pop()
                 tot_abd_out_sla = sum(r['_abd_out_sla'] for r in result)
                 tot_abd_out_60  = sum(r['_abd_out_60']  for r in result)
                 tot_abd_in_sla  = sum(r['_abd_in_sla']  for r in result)
-                tot_abd_rate = _abandon_rate(
+                tot_abd_rate    = _abandon_rate(
                     tot_abd, tot_off,
                     acc_name=acc_name,
                     abd_out_sla=tot_abd_out_sla,
@@ -1020,6 +1095,7 @@ class DeskLangueView(APIView):
                 )
             else:
                 tot_abd_rate = _abandon_rate(tot_abd, tot_off)
+
             result.append({
                 'desk_langue': 'Total', 'account': '', 'language': '',
                 'answered_rate':     round(tot_sla_rate * 100, 2),
@@ -1046,6 +1122,8 @@ class DeskLangueView(APIView):
             })
 
         return Response({'rows': result, 'count': len(result) - 1, 'queues_by_desk': queues_by_desk})
+
+
 class DebugMetricsView(APIView):
     def get(self, request):
         from django.db.models import Sum
@@ -1062,24 +1140,13 @@ class DebugMetricsView(APIView):
         if time_filter:
             qs = qs.filter(time_filter)
             qs = qs.filter(answered__gt=0, contacts_put_on_hold__gt=0)
-        agg = qs.values('desk', 'account').annotate(
-            total_offered=Sum('offered'),
-            total_answered=Sum('answered'),
-            total_abandoned=Sum('abandoned'),
-            total_ans_in_sla=Sum('ans_in_sla'),
-            total_abd_in_sla=Sum('abd_in_sla'),
-            total_handle_time=Sum('handle_time'),
-            total_ttc_time=Sum('avg_ttc', field='avg_ttc * answered'),  # attention: Sum('avg_ttc') n'est pas correct
-            total_hold_time=Sum('total_hold_time'),
-            total_contacts_put_on_hold=Sum('contacts_put_on_hold'),
-            total_answer_time=Sum('total_answer_time'),
-        ).order_by('account', 'desk')
-        from django.db.models import F, Sum, ExpressionWrapper, FloatField
+
+        from django.db.models import F, ExpressionWrapper, FloatField
         qs2 = qs.annotate(
-            weighted_ttc = ExpressionWrapper(F('avg_ttc') * F('answered'), output_field=FloatField()),
-            weighted_handle = ExpressionWrapper(F('avg_handle_time') * F('answered'), output_field=FloatField()),
-            weighted_answer_time = ExpressionWrapper(F('avg_answer_time') * F('answered'), output_field=FloatField()),
-            weighted_hold = ExpressionWrapper(F('average_hold_time') * F('contacts_put_on_hold'), output_field=FloatField()),
+            weighted_ttc         = ExpressionWrapper(F('avg_ttc')           * F('answered'),            output_field=FloatField()),
+            weighted_handle      = ExpressionWrapper(F('avg_handle_time')   * F('answered'),            output_field=FloatField()),
+            weighted_answer_time = ExpressionWrapper(F('avg_answer_time')   * F('answered'),            output_field=FloatField()),
+            weighted_hold        = ExpressionWrapper(F('average_hold_time') * F('contacts_put_on_hold'), output_field=FloatField()),
         )
         agg2 = qs2.values('desk', 'account').annotate(
             total_offered=Sum('offered'),
@@ -1097,30 +1164,20 @@ class DebugMetricsView(APIView):
         )
         results = []
         for row in agg2:
-            offered = row['total_offered'] or 0
-            answered = row['total_answered'] or 0
-            abandoned = row['total_abandoned'] or 0
-            ans_in = row['total_ans_in_sla'] or 0
-            abd_in = row['total_abd_in_sla'] or 0
-            handle = row['total_handle_time'] or 0.0
-            ttc = row['total_ttc_time'] or 0.0
-            ans_time = row['total_answer_time'] or 0.0
-            hold = row['total_hold_time'] or 0.0
-            hold_contacts = row['total_contacts_put_on_hold'] or 0
             results.append({
-                'desk': row['desk'],
-                'account': row['account'],
-                'offered': offered,
-                'answered': answered,
-                'abandoned': abandoned,
-                'ans_in_sla': ans_in,
-                'abd_in_sla': abd_in,
-                'ans_out_sla': row['total_ans_out_sla'] or 0,
-                'abd_out_sla': row['total_abd_out_sla'] or 0,
-                'sum_handle_time_seconds': handle,
-                'sum_ttc_seconds': ttc,
-                'sum_answer_time_seconds': ans_time,
-                'sum_hold_time_seconds': hold,
-                'contacts_put_on_hold': hold_contacts,
+                'desk':                    row['desk'],
+                'account':                 row['account'],
+                'offered':                 row['total_offered']              or 0,
+                'answered':                row['total_answered']             or 0,
+                'abandoned':               row['total_abandoned']            or 0,
+                'ans_in_sla':              row['total_ans_in_sla']           or 0,
+                'abd_in_sla':              row['total_abd_in_sla']           or 0,
+                'ans_out_sla':             row['total_ans_out_sla']          or 0,
+                'abd_out_sla':             row['total_abd_out_sla']          or 0,
+                'sum_handle_time_seconds': row['total_handle_time']          or 0.0,
+                'sum_ttc_seconds':         row['total_ttc_time']             or 0.0,
+                'sum_answer_time_seconds': row['total_answer_time']          or 0.0,
+                'sum_hold_time_seconds':   row['total_hold_time']            or 0.0,
+                'contacts_put_on_hold':    row['total_contacts_put_on_hold'] or 0,
             })
         return Response({'metrics': results, 'count': len(results)})
