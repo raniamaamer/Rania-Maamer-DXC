@@ -1,6 +1,3 @@
-"""
-DXC KPI Dashboard - URL Configuration
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
@@ -23,8 +20,19 @@ def root(request):
         ]
     })
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 urlpatterns = [
     path('', root),
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+
+    # ── Ajouts Sprint S3 ────────────────────────────────────────
+    # Health check Docker → GET /health/
+    path('health/', health_check),
+
+    # Métriques Prometheus → GET /metrics
+    # Scrapé automatiquement par Prometheus toutes les 10s
+    path('', include('django_prometheus.urls')),
 ]

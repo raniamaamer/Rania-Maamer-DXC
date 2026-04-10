@@ -1,0 +1,26 @@
+# monitoring/prometheus.yml
+# Prometheus scrape configuration pour le projet DXC
+
+global:
+  scrape_interval: 15s       # Collecte les métriques toutes les 15 secondes
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus se surveille lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Métriques Django via django-prometheus (endpoint /metrics)
+  - job_name: 'django-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Métriques PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s

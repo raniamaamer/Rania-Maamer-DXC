@@ -13,6 +13,7 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1').split()
 
 INSTALLED_APPS = [
+    'django_prometheus',                          # ← PREMIER (obligatoire)
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -25,9 +26,11 @@ INSTALLED_APPS = [
     # Local
     'django_apscheduler',
     'api',
+    'django_prometheus',                          # ← DERNIER (obligatoire)
 ]
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',   # ← PREMIER
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -36,6 +39,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',    # ← DERNIER
 ]
 
 ROOT_URLCONF = 'dxc_backend.urls'
@@ -59,9 +63,11 @@ TEMPLATES = [
 WSGI_APPLICATION = 'dxc_backend.wsgi.application'
 
 # ── POSTGRESQL DATABASE ──────────────────────────────────────────────────────
+# django-prometheus surveille automatiquement les requêtes DB
+# grâce au backend wrapper ci-dessous
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django_prometheus.db.backends.postgresql',  # ← remplace django.db.backends.postgresql
         'NAME': os.environ.get('DB_NAME', 'dxc_kpi_db'),
         'USER': os.environ.get('DB_USER', 'dxc_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'dxc_secure_pass'),
@@ -80,7 +86,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 100,
-    'DEFAULT_THROTTLE_CLASSES': [],   # désactivé en dev
+    'DEFAULT_THROTTLE_CLASSES': [],
     'DEFAULT_THROTTLE_RATES': {},
 }
 
