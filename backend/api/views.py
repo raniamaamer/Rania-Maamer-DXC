@@ -324,13 +324,11 @@ class AccountListView(APIView):
                 'abd_compliant':     abd_rate <= (acc['target_abd_rate'] or 0) if (acc['target_abd_rate'] or 0) > 0 else None,
                 'sla_gap':           round(sla - target, 4) if target > 0 else None,
                 # ── Champs 3ème formule ───────────────────────────────────
-                'other_sla':         cfg.other_sla if cfg else None,
                 'target_other_rate': round(cfg.target_other_rate, 4) if cfg and cfg.target_other_rate is not None else None,
             })
 
         result.sort(key=lambda x: x['sla_rate'])
         return Response(result)
-
 
 class QueueListView(APIView):
     def get(self, request):
@@ -547,7 +545,6 @@ class SLAConfigView(APIView):
                     'ans_sla':           (data.get('ans_sla') or '').strip(),
                     'abd_sla':           (data.get('abd_sla') or '').strip(),
                     # ── Nouveau : 3ème formule ────────────────────────────
-                    'other_sla':         (data.get('other_sla') or '').strip(),
                     'target_other_rate': _parse_rate(data.get('target_other_rate')),
                 }
             )
@@ -709,7 +706,6 @@ class HistoricalView(APIView):
                 'sla_compliant':     (sla >= target) if target > 0 else False,
                 'sla_gap':           round(sla - target, 4) if target > 0 else None,
                 # ── Champs 3ème formule ───────────────────────────────────
-                'other_sla':         cfg.other_sla if cfg else None,
                 'target_other_rate': round(cfg.target_other_rate, 4) if cfg and cfg.target_other_rate is not None else None,
             })
 
