@@ -70,7 +70,7 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Docker Build') {
             steps {
-                bat "docker build -t %DOCKER_IMAGE_BACKEND%:%BUILD_NUMBER% ./backend"
+                bat "docker build -t %DOCKER_IMAGE_BACKEND%:%BUILD_NUMBER% -f backend/dockerfile ."
                 bat "docker build -t %DOCKER_IMAGE_FRONTEND%:%BUILD_NUMBER% ./frontend"
                 echo "Images Docker buildées avec succès !"
             }
