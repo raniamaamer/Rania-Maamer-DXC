@@ -22,8 +22,14 @@ class SLAConfig(models.Model):
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
         help_text="Target abandon rate (0.0 - 1.0)"
     )
+    target_other_rate = models.FloatField(
+        null=True, blank=True,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)],
+        help_text="Target other rate (0.0 - 1.0)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         db_table = 'sla_config'
         verbose_name = 'SLA Configuration'
