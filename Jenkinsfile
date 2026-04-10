@@ -2,13 +2,11 @@ pipeline {
     agent any
 
     environment {
-        // === Adapte ces valeurs à ton projet ===
-        SONAR_PROJECT_KEY = 'rania-maamer-dxc'
         DOCKER_IMAGE_BACKEND  = 'rania-maamer/backend'
         DOCKER_IMAGE_FRONTEND = 'rania-maamer/frontend'
-        STAGING_SERVER  = '192.168.1.100'   // IP ou hostname du serveur staging
-        PROD_SERVER     = '192.168.1.200'   // IP ou hostname du serveur prod
-        DEPLOY_USER     = 'ubuntu'          // Utilisateur SSH sur les serveurs
+        STAGING_SERVER  = '192.168.1.100'
+        PROD_SERVER     = '192.168.1.200'
+        DEPLOY_USER     = 'ubuntu'
     }
 
     stages {
@@ -61,37 +59,34 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 4 : Analyse qualité SonarQube
-        // Prérequis : plugin SonarQube Scanner installé dans Jenkins
-        // + serveur SonarQube configuré dans Jenkins > Manage > Configure System
+        // ÉTAPE 4 : SonarQube — désactivé pour l'instant
+        // Pour l'activer : installer SonarQube via docker-compose
+        // puis configurer dans Jenkins > Manage > Configure System
         // ─────────────────────────────────────────
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {   // 'SonarQube' = nom configuré dans Jenkins
-                    bat """
-                        sonar-scanner ^
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
-                          -Dsonar.projectName="Rania Maamer DXC" ^
-                          -Dsonar.sources=. ^
-                          -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/migrations/**,**/staticfiles/** ^
-                          -Dsonar.python.coverage.reportPaths=coverage.xml
-                    """
-                }
-            }
-        }
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         withSonarQubeEnv('SonarQube') {
+        //             bat """
+        //                 sonar-scanner ^
+        //                   -Dsonar.projectKey=rania-maamer-dxc ^
+        //                   -Dsonar.projectName="Rania Maamer DXC" ^
+        //                   -Dsonar.sources=. ^
+        //                   -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/migrations/**,**/staticfiles/**
+        //             """
+        //         }
+        //     }
+        // }
 
-        // Attendre que SonarQube valide la qualité (Quality Gate)
-        stage('SonarQube Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        // stage('SonarQube Quality Gate') {
+        //     steps {
+        //         timeout(time: 5, unit: 'MINUTES') {
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
 
         // ─────────────────────────────────────────
         // ÉTAPE 5 : Build des images Docker
-        // Prérequis : Docker installé sur l'agent Jenkins
         // ─────────────────────────────────────────
         stage('Docker Build') {
             steps {
@@ -104,8 +99,6 @@ pipeline {
 
         // ─────────────────────────────────────────
         // ÉTAPE 6 : Deploy vers Staging
-        // Lance docker-compose sur le serveur staging via SSH
-        // Prérequis : plugin SSH Agent + credentials 'staging-ssh-key' dans Jenkins
         // ─────────────────────────────────────────
         stage('Deploy to Staging') {
             steps {
@@ -124,15 +117,13 @@ pipeline {
 
         // ─────────────────────────────────────────
         // ÉTAPE 7 : Approbation manuelle avant Prod
-        // Jenkins attend que Rania clique "Proceed" ou "Abort"
-        // dans l'interface Blue Ocean / Classic UI
         // ─────────────────────────────────────────
         stage('Approval - Deploy to Prod ?') {
             steps {
                 timeout(time: 30, unit: 'MINUTES') {
                     input message: 'Staging validé ? Déployer en PRODUCTION ?',
                           ok: 'Oui, déployer en Prod',
-                          submitter: 'rania'   // Seul l'utilisateur 'rania' peut approuver
+                          submitter: 'rania'
                 }
             }
         }
@@ -156,7 +147,7 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 9 : Deploy local (conservé de l'original)
+        // ÉTAPE 9 : Deploy local — Static Files
         // ─────────────────────────────────────────
         stage('Deploy Local - Static Files') {
             steps {
@@ -173,9 +164,6 @@ pipeline {
 
     }
 
-    // ─────────────────────────────────────────────
-    // NOTIFICATIONS email (succès + échec)
-    // ─────────────────────────────────────────────
     post {
         success {
             echo 'Pipeline terminé avec succès!'
