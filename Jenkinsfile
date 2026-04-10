@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE_BACKEND  = 'rania-maamer/backend'
-        DOCKER_IMAGE_FRONTEND = 'rania-maamer/frontend'
+        DOCKER_IMAGE_BACKEND  = 'rania-maamer-backend'
+        DOCKER_IMAGE_FRONTEND = 'rania-maamer-frontend'
         STAGING_SERVER  = '192.168.1.100'
         PROD_SERVER     = '192.168.1.200'
         DEPLOY_USER     = 'ubuntu'
@@ -59,105 +59,42 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 4 : SonarQube — désactivé pour l'instant
-        // Pour l'activer : installer SonarQube via docker-compose
-        // puis configurer dans Jenkins > Manage > Configure System
+        // ÉTAPE 4 : SonarQube — désactivé
         // ─────────────────────────────────────────
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         withSonarQubeEnv('SonarQube') {
-        //             bat """
-        //                 sonar-scanner ^
-        //                   -Dsonar.projectKey=rania-maamer-dxc ^
-        //                   -Dsonar.projectName="Rania Maamer DXC" ^
-        //                   -Dsonar.sources=. ^
-        //                   -Dsonar.exclusions=**/node_modules/**,**/__pycache__/**,**/migrations/**,**/staticfiles/**
-        //             """
-        //         }
-        //     }
-        // }
-
-        // stage('SonarQube Quality Gate') {
-        //     steps {
-        //         timeout(time: 5, unit: 'MINUTES') {
-        //             waitForQualityGate abortPipeline: true
-        //         }
-        //     }
-        // }
+        // stage('SonarQube Analysis') { ... }
+        // stage('SonarQube Quality Gate') { ... }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 5 : Build des images Docker
+        // ÉTAPE 5 : Docker Build via commande bat
+        // (plugin Docker Pipeline non requis)
         // ─────────────────────────────────────────
         stage('Docker Build') {
             steps {
-                script {
-                    docker.build("${DOCKER_IMAGE_BACKEND}:${env.BUILD_NUMBER}", './backend')
-                    docker.build("${DOCKER_IMAGE_FRONTEND}:${env.BUILD_NUMBER}", './frontend')
-                }
+                bat "docker build -t %DOCKER_IMAGE_BACKEND%:%BUILD_NUMBER% ./backend"
+                bat "docker build -t %DOCKER_IMAGE_FRONTEND%:%BUILD_NUMBER% ./frontend"
+                echo "Images Docker buildées avec succès !"
             }
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 6 : Deploy vers Staging
+        // ÉTAPE 6 : Deploy local — docker-compose
         // ─────────────────────────────────────────
-        stage('Deploy to Staging') {
+        stage('Deploy Local - Docker Compose') {
             steps {
-                sshagent(['staging-ssh-key']) {
-                    bat """
-                        ssh -o StrictHostKeyChecking=no %DEPLOY_USER%@%STAGING_SERVER% ^
-                          "cd /opt/rania-maamer && ^
-                           docker-compose pull && ^
-                           docker-compose up -d --build && ^
-                           echo Staging deploy OK"
-                    """
-                }
-                echo "Déploiement staging terminé — http://${STAGING_SERVER}"
+                bat 'docker-compose down'
+                bat 'docker-compose up -d --build'
+                echo 'Déploiement local docker-compose terminé !'
             }
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 7 : Approbation manuelle avant Prod
-        // ─────────────────────────────────────────
-        stage('Approval - Deploy to Prod ?') {
-            steps {
-                timeout(time: 30, unit: 'MINUTES') {
-                    input message: 'Staging validé ? Déployer en PRODUCTION ?',
-                          ok: 'Oui, déployer en Prod',
-                          submitter: 'rania'
-                }
-            }
-        }
-
-        // ─────────────────────────────────────────
-        // ÉTAPE 8 : Deploy vers Production
-        // ─────────────────────────────────────────
-        stage('Deploy to Production') {
-            steps {
-                sshagent(['prod-ssh-key']) {
-                    bat """
-                        ssh -o StrictHostKeyChecking=no %DEPLOY_USER%@%PROD_SERVER% ^
-                          "cd /opt/rania-maamer && ^
-                           docker-compose pull && ^
-                           docker-compose up -d --build && ^
-                           echo Prod deploy OK"
-                    """
-                }
-                echo "Déploiement production terminé !"
-            }
-        }
-
-        // ─────────────────────────────────────────
-        // ÉTAPE 9 : Deploy local — Static Files
+        // ÉTAPE 7 : Static Files Django
         // ─────────────────────────────────────────
         stage('Deploy Local - Static Files') {
             steps {
                 echo 'Collecte des fichiers statiques...'
                 bat 'if not exist backend\\staticfiles mkdir backend\\staticfiles'
                 bat 'xcopy /E /Y /I frontend\\dist\\* backend\\staticfiles\\'
-                dir('backend') {
-                    bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py collectstatic --noinput'
-                    bat 'C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe manage.py migrate --noinput'
-                }
                 echo 'Fichiers statiques collectés!'
             }
         }
@@ -199,24 +136,6 @@ Projet  : ${env.JOB_NAME}
 Build   : #${env.BUILD_NUMBER}
 Durée   : ${currentBuild.durationString}
 Logs    : ${env.BUILD_URL}console
-
--- Jenkins CI"""
-            )
-        }
-        aborted {
-            echo 'Pipeline annulé (approbation refusée ou timeout).'
-            emailext(
-                from: 'raniamaaamer@gmail.com',
-                to: 'raniamaaamer@gmail.com',
-                subject: "⚠️ BUILD ABORTED - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                mimeType: 'text/plain',
-                body: """Bonjour Rania,
-
-Le pipeline a été annulé (approbation refusée ou timeout dépassé).
-
-Projet  : ${env.JOB_NAME}
-Build   : #${env.BUILD_NUMBER}
-Lien    : ${env.BUILD_URL}
 
 -- Jenkins CI"""
             )
