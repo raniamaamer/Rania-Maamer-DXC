@@ -81,7 +81,8 @@ pipeline {
         // ─────────────────────────────────────────
         stage('Deploy Local - Docker Compose') {
             steps {
-                bat 'docker-compose down'
+                bat 'docker-compose down --remove-orphans'
+                bat 'docker rm -f db frontend backend prometheus grafana postgres-exporter || echo "Containers already removed"'
                 bat 'docker-compose up -d --build'
                 echo 'Déploiement local docker-compose terminé !'
             }
