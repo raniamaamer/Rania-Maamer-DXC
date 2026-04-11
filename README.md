@@ -147,3 +147,5 @@ Rania-Maamer/
 - Désactiver le throttling DRF en dev (`DEFAULT_THROTTLE_CLASSES: []`)
 - Les comptes sans données (HPE, Luxottica, Philips, Saipem, DXC IT, Basrah Gas) sont exclus du Bottom 5 via `offered__gt=0`
 - 13 langues supportées : fr, en, de, it, es, nl, pt, ar, tr, ru, hu, pl, mx
+
+"""
