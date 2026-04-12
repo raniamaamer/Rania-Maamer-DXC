@@ -59,17 +59,35 @@ pipeline {
         }
 
         // ─────────────────────────────────────────
-        // ÉTAPE 4 : SonarQube — désactivé
+        // ÉTAPE 4 : SonarQube Analysis
         // ─────────────────────────────────────────
-        // stage('SonarQube Analysis') { ... }
-        // stage('SonarQube Quality Gate') { ... }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    bat "sonar-scanner.bat -Dsonar.projectKey=Rania-Maamer-DXC -Dsonar.sources=backend -Dsonar.python.version=3.9"
+                }
+            }
+        }
+
+        stage('SonarQube Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: false
+                }
+            }
+        }
 
         // ─────────────────────────────────────────
         // ÉTAPE 5 : Docker Build via commande bat
-        // (plugin Docker Pipeline non requis)
         // ─────────────────────────────────────────
-        stage('Docker Build') {
+        stage('Docker - Check & Build') {
             steps {
+                script {
+                    def dockerStatus = bat(script: 'docker info', returnStatus: true)
+                    if (dockerStatus != 0) {
+                        error "Docker n'est pas lancé ! Démarre Docker Desktop et relance le pipeline."
+                    }
+                }
                 bat "docker build -t %DOCKER_IMAGE_BACKEND%:%BUILD_NUMBER% -f backend/dockerfile ."
                 bat "docker build -t %DOCKER_IMAGE_FRONTEND%:%BUILD_NUMBER% ./frontend"
                 echo "Images Docker buildées avec succès !"
@@ -82,7 +100,7 @@ pipeline {
         stage('Deploy Local - Docker Compose') {
             steps {
                 bat 'docker-compose down --remove-orphans'
-                bat 'docker rm -f db frontend backend prometheus grafana postgres-exporter || echo "Containers already removed"'
+                bat 'docker rm -f db frontend backend prometheus grafana postgres-exporter sonarqube || echo "Containers already removed"'
                 bat 'docker-compose up -d --build'
                 echo 'Déploiement local docker-compose terminé !'
             }
