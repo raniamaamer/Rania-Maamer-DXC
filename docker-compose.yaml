@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────────────────────────
 #  docker-compose.yml — React (Vite/Nginx) + Django + PostgreSQL
 #                     + Prometheus + Grafana  (Sprint S3)
+#                     + SonarQube (Sprint S2)
 # ─────────────────────────────────────────────────────────────
 
 services:
@@ -131,6 +132,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── SonarQube — analyse qualité du code ─────────────────────
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
 # ── Volumes persistants ──────────────────────────────────────
 volumes:
   postgres_data:
@@ -138,3 +158,5 @@ volumes:
   media_volume:
   prometheus_data:
   grafana_data:
+  sonarqube_data:
+  sonarqube_logs:
