@@ -103,7 +103,7 @@ pipeline {
         stage('Deploy Local - Docker Compose') {
             steps {
                 bat 'docker-compose down --remove-orphans'
-                bat 'docker rm -f db frontend backend prometheus grafana postgres-exporter sonarqube || echo "Containers already removed"'
+                bat 'docker rm -f db frontend backend prometheus grafana postgres-exporter sonarqube sonarqube-init || echo "Already removed"'
                 bat 'docker-compose up -d --build'
                 echo 'Déploiement local docker-compose terminé !'
             }
