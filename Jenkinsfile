@@ -64,7 +64,10 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    bat "sonar-scanner.bat -Dsonar.projectKey=Rania-Maamer-DXC -Dsonar.sources=backend -Dsonar.python.version=3.9"
+                    script {
+                        def scannerHome = tool 'SonarScanner'
+                        bat "${scannerHome}\\bin\\sonar-scanner.bat -Dsonar.projectKey=Rania-Maamer-DXC -Dsonar.sources=backend -Dsonar.python.version=3.9"
+                    }
                 }
             }
         }
