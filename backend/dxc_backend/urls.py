@@ -1,12 +1,17 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from drf_spectacular.views import (          
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView,
+)
 
 def root(request):
     return JsonResponse({
         "project": "DXC KPI Intelligence Dashboard",
         "version": "1.0.0 — Sprint 1",
-        "docs": "/api/",
+        "docs": "/api/docs/",                
         "endpoints": [
             "/api/overview/",
             "/api/accounts/",
@@ -28,11 +33,12 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
 
-    # ── Ajouts Sprint S3 ────────────────────────────────────────
-    # Health check Docker → GET /health/
-    path('health/', health_check),
+    # ── Swagger ─────────────────────────────────────────────────
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
-    # Métriques Prometheus → GET /metrics
-    # Scrapé automatiquement par Prometheus toutes les 10s
+    # ── Sprint S3 ────────────────────────────────────────────────
+    path('health/', health_check),
     path('', include('django_prometheus.urls')),
 ]

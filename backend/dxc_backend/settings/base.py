@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_apscheduler',
+    'drf_spectacular',
     'api',
 ]
 
@@ -78,6 +79,7 @@ DATABASES = {
 
 # ── REST FRAMEWORK ───────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
@@ -141,4 +143,12 @@ LOGGING = {
             'propagate': False,
         },
     },
+}
+
+# ── SWAGGER / SPECTACULAR ────────────────────────────────────────────────────
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'DXC KPI Dashboard API',
+    'DESCRIPTION': 'API de gestion des KPIs DXC',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
