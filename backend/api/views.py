@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import (
     HourlyTrend, SLAConfig, DailySnapshot,
-    HistoricalMetric, RealtimeMetric, QueueMetric,
+    HistoricalMetric, RealtimeMetric,
 )
 from .serializers import (
     SLAConfigSerializer,
@@ -240,7 +240,7 @@ class OverviewView(APIView):
 class AccountListView(APIView):
     def get(self, request):
         time_filter = build_time_filter(request)
-        qs = QueueMetric.objects.all()  # pylint: disable=no-member
+        qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
         if time_filter:
             qs = qs.filter(time_filter)
 
@@ -332,7 +332,7 @@ class AccountListView(APIView):
 
 class QueueListView(APIView):
     def get(self, request):
-        qs = QueueMetric.objects.all()  # pylint: disable=no-member
+        qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
         account = request.GET.get('account')
         if account:
             qs = qs.filter(account=account)
@@ -432,7 +432,7 @@ class HourlyTrendView(APIView):
 class Bottom5View(APIView):
     def get(self, request):
         time_filter = build_time_filter(request)
-        qs = QueueMetric.objects.all()  # pylint: disable=no-member
+        qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
         if time_filter:
             qs = qs.filter(time_filter)
         accounts = (
@@ -491,7 +491,7 @@ class Bottom5View(APIView):
 
 class Trend7DaysView(APIView):
     def get(self, request):
-        qs = QueueMetric.objects.all()  # pylint: disable=no-member
+        qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
         account = request.GET.get('account')
         if account and account != 'all':
             qs = qs.filter(account=account)
