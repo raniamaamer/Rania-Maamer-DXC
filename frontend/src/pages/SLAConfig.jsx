@@ -6,9 +6,7 @@ import { fetchSLAConfig } from '../utils/api'
 const API = import.meta.env.VITE_API_URL || '/api'
 
 // ── Normalisation formule longue -> code court ────────────────────────────
-// La base peut stocker soit "SLA1" soit "(Ans in SLA /(offered-Abd in SLA))"
 const FORMULA_NORMALIZE = {
-  // ANS
   '(ans in sla /(offered-abd in sla))':       'SLA1',
   '(ans in sla/(offered-abd in sla))':        'SLA1',
   'ans in sla /(offered-abd in sla)':         'SLA1',
@@ -69,6 +67,7 @@ function SLABadge({ value, isAns, ansSla }) {
     }}>{pctVal}%</span>
   )
 }
+
 const FORMULA_LABELS = {
   SLA1:           { label: 'Ans in SLA / (Offered − Abd in SLA)', color: '#a78bfa' },
   'SLA1(30sec)':  { label: 'Ans in SLA 30s / (Offered − Abd)',    color: '#a78bfa' },
@@ -89,11 +88,8 @@ const ABD_FORMULAS = ['Abd1', 'Abd2', 'Abd3', 'Abd4', 'Abd5']
 
 function FormulaTag({ code }) {
   if (!code || code === '—' || code === 'nan') return <span style={{ color: '#6b7280' }}>—</span>
-
-  // Normaliser d'abord
   const normalized = normalizeFormula(code)
   const codes = normalized.split(',').map(c => c.trim())
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {codes.map(c => {
@@ -152,18 +148,39 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
     timeframe_bh:     initial?.timeframe_bh ?? 40,
     ooh:              initial?.ooh          ?? 40,
     target_ans_rate:  initial?.target_ans_rate != null
-      ? (initial.target_ans_rate * 100).toFixed(1) : '',
+      ? initial.ans_sla === 'ASA'
+        // ── ASA : stocker la valeur brute en secondes ──
+        ? String(initial.target_ans_rate)
+        // ── SLA classique : afficher en % ──
+        : (initial.target_ans_rate * 100).toFixed(1)
+      : '',
     target_abd_rate:  initial?.target_abd_rate != null
       ? (initial.target_abd_rate * 100).toFixed(1) : '',
     target_other_rate: initial?.target_other_rate != null
       ? (initial.target_other_rate * 100).toFixed(1) : '',
     ans_sla: normalizeFormula(initial?.ans_sla || ''),
     abd_sla: normalizeFormula(initial?.abd_sla || ''),
-})
+  })
 
   const [busy, setBusy] = useState(false)
   const [err,  setErr]  = useState(null)
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // ── Détection mode ASA ──────────────────────────────────────────────────
+  const isASA = form.ans_sla === 'ASA'
+
+  // ── Changement de formule ANS ───────────────────────────────────────────
+  function handleAnsFormulaChange(val) {
+    set('ans_sla', val)
+    if (val === 'ASA') {
+      // Passer en mode ASA : valeur par défaut = 30 secondes
+      set('target_ans_rate', '30')
+    } else if (form.ans_sla === 'ASA') {
+      // Quitter le mode ASA : reset l'objectif
+      set('target_ans_rate', '')
+    }
+  }
 
   async function submit() {
     if (!isDel && !form.account.trim()) {
@@ -177,25 +194,42 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
         : `${API}/sla-config/`
       const method = isDel ? 'DELETE' : isEdit ? 'PUT' : 'POST'
 
-      // ✅ Nettoyer et typer les données avant envoi
       const payload = isDel ? undefined : {
-        account:           form.account.trim(),
-        timeframe_bh:      parseInt(form.timeframe_bh, 10) || 40,
-        ooh:               parseInt(form.ooh, 10) || 40,
-        target_ans_rate:   form.target_ans_rate   !== '' ? parseFloat(form.target_ans_rate)   : null,
-        target_abd_rate:   form.target_abd_rate   !== '' ? parseFloat(form.target_abd_rate)   : null,
-        target_other_rate: form.target_other_rate !== '' ? parseFloat(form.target_other_rate) : null,
-        ans_sla:           (form.ans_sla || '').trim(),
-        abd_sla:           (form.abd_sla || '').trim(),
+        account:      form.account.trim(),
+        timeframe_bh: parseInt(form.timeframe_bh, 10) || 40,
+        ooh:          parseInt(form.ooh, 10) || 40,
+        // ✅ ASA → valeur brute en secondes (ex: 30), SLA → divisé par 100 (ex: 0.9)
+        target_ans_rate: form.target_ans_rate !== ''
+          ? isASA
+            ? parseFloat(form.target_ans_rate)        // secondes brutes
+            : parseFloat(form.target_ans_rate) / 100  // % → décimal
+          : null,
+        target_abd_rate:   form.target_abd_rate   !== '' ? parseFloat(form.target_abd_rate)   / 100 : null,
+        target_other_rate: form.target_other_rate !== '' ? parseFloat(form.target_other_rate) / 100 : null,
+        ans_sla: (form.ans_sla || '').trim(),
+        abd_sla: (form.abd_sla || '').trim(),
       }
 
-      const res  = await fetch(url, {
+      const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: payload ? JSON.stringify(payload) : undefined,
       })
-      const json = isDel ? {} : await res.json()
-      if (!res.ok) throw new Error(json.error || JSON.stringify(json) || `Erreur ${res.status}`)
+
+      if (!res.ok) {
+        const text = await res.text()
+        let message = `Erreur ${res.status}`
+        try {
+          const json = JSON.parse(text)
+          message = json.error || json.detail || JSON.stringify(json)
+        } catch {
+          const match = text.match(/<title>(.*?)<\/title>/)
+          message = match ? match[1] : `Erreur ${res.status} — réponse non-JSON`
+        }
+        throw new Error(message)
+      }
+
+      if (!isDel) await res.json()
       onSaved()
     } catch (e) {
       setErr(e.message)
@@ -283,15 +317,47 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
 
             {/* Objectifs SLA / ABD */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+              {/* ── Objectif SLA (%) OU Objectif ASA (sec) selon la formule ── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label style={lStyle}>Objectif SLA (%)</label>
-                <input
-                  style={iStyle} type="number" step="0.1" min="0" max="100"
-                  value={form.target_ans_rate}
-                  onChange={e => set('target_ans_rate', e.target.value)}
-                  placeholder="ex: 90"
-                />
+                {isASA ? (
+                  <>
+                    <label style={{ ...lStyle, color: '#34d399' }}>Objectif ASA (sec)</label>
+                    <input
+                      style={{
+                        ...iStyle,
+                        border: '1px solid rgba(52,211,153,0.45)',
+                        boxShadow: '0 0 8px rgba(52,211,153,0.1)',
+                      }}
+                      type="number" step="1" min="1" max="300"
+                      value={form.target_ans_rate}
+                      onChange={e => set('target_ans_rate', e.target.value)}
+                      placeholder="ex: 30"
+                    />
+                    <div style={{
+                      fontSize: 10, color: '#34d399', fontFamily: 'JetBrains Mono,monospace',
+                      marginTop: 2, padding: '4px 8px',
+                      background: 'rgba(52,211,153,0.08)',
+                      border: '1px solid rgba(52,211,153,0.2)',
+                      borderRadius: 6,
+                    }}>
+                      ⏱ ASA ≤ {form.target_ans_rate || 30}s (Average Speed of Answer)
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label style={lStyle}>Objectif SLA (%)</label>
+                    <input
+                      style={iStyle} type="number" step="0.1" min="0" max="100"
+                      value={form.target_ans_rate}
+                      onChange={e => set('target_ans_rate', e.target.value)}
+                      placeholder="ex: 90"
+                    />
+                  </>
+                )}
               </div>
+
+              {/* Objectif ABD */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={lStyle}>Objectif ABD (%)</label>
                 <input
@@ -301,6 +367,7 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
                   placeholder="ex: 5"
                 />
               </div>
+
               {/* Objectif Other */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={lStyle}>Objectif Other (%)</label>
@@ -319,7 +386,7 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
               <select
                 style={iStyle}
                 value={form.ans_sla}
-                onChange={e => set('ans_sla', e.target.value)}
+                onChange={e => handleAnsFormulaChange(e.target.value)}
               >
                 <option value="">— Sélectionner —</option>
                 {ANS_FORMULAS.map(f => (
@@ -328,7 +395,7 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
                   </option>
                 ))}
               </select>
-              {/* ✅ Aperçu de la formule sélectionnée */}
+              {/* Aperçu de la formule sélectionnée */}
               {form.ans_sla && FORMULA_LABELS[form.ans_sla] && (
                 <div style={{
                   marginTop: 4, padding: '6px 10px', borderRadius: 6, fontSize: 11,
@@ -357,7 +424,7 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
                   </option>
                 ))}
               </select>
-              {/* ✅ Aperçu de la formule sélectionnée */}
+              {/* Aperçu de la formule sélectionnée */}
               {form.abd_sla && FORMULA_LABELS[form.abd_sla] && (
                 <div style={{
                   marginTop: 4, padding: '6px 10px', borderRadius: 6, fontSize: 11,
@@ -461,7 +528,7 @@ export default function SLAConfig() {
               <tr style={{ background: 'rgba(124,58,237,0.15)', borderBottom: '2px solid rgba(124,58,237,0.3)' }}>
                 {[
                   ['Compte', '140px'], ['Timeframe BH', '95px'], ['OOH', '75px'],
-                  ['Objectif SLA', '105px'], ['Objectif Abandon', '120px'],['Objectif Other', '105px'],
+                  ['Objectif SLA', '105px'], ['Objectif Abandon', '120px'], ['Objectif Other', '105px'],
                   ['Formule SLA (ANS)', null], ['Formule Abandon (ABD)', null],
                   ['Actions', '110px'],
                 ].map(([label, w]) => (
@@ -498,7 +565,7 @@ export default function SLAConfig() {
                     <TimeBadge value={c.ooh} />
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                    <SLABadge value={c.target_ans_rate} isAns={true} ansSla={c.ans_sla} />
+                    <SLABadge value={c.target_ans_rate} isAns={true} ansSla={normalizeFormula(c.ans_sla)} />
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                     <SLABadge value={c.target_abd_rate} isAns={false} />
@@ -506,7 +573,6 @@ export default function SLAConfig() {
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                     <SLABadge value={c.target_other_rate} isAns={true} />
                   </td>
-                  {/* ✅ FormulaTag normalise automatiquement la formule longue */}
                   <td style={{ padding: '15px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                     <FormulaTag code={c.ans_sla} />
                   </td>
@@ -516,7 +582,10 @@ export default function SLAConfig() {
                   <td style={{ padding: '10px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                       <button
-                        onClick={() => setModal({ mode: 'edit', row: c })}
+                        onClick={() => {
+                          console.log('ID:', c.id)
+                          setModal({ mode: 'edit', row: c })
+                        }}
                         style={{
                           padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
                           background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)',
@@ -537,7 +606,7 @@ export default function SLAConfig() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} style={{ padding: 30, textAlign: 'center', color: '#6b7280' }}>
+                  <td colSpan={9} style={{ padding: 30, textAlign: 'center', color: '#6b7280' }}>
                     Aucun résultat
                   </td>
                 </tr>

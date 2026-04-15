@@ -14,10 +14,13 @@ export function useFetch(fetcher, deps = [], options = {}) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [tick, setTick] = useState(0)
   const mountedRef = useRef(true)
 
   // Stringify deps to detect actual value changes (avoids stale closure issues)
   const depsKey = JSON.stringify(deps)
+
+  const refetch = useCallback(() => setTick(t => t + 1), [])
 
   useEffect(() => {
     mountedRef.current = true
@@ -47,9 +50,9 @@ export function useFetch(fetcher, deps = [], options = {}) {
       if (intervalId) clearInterval(intervalId)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [depsKey, refreshInterval])
+  }, [depsKey, refreshInterval, tick])
 
-  return { data, loading, error }
+  return { data, loading, error, refetch }
 }
 
 /**
