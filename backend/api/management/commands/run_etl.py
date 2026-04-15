@@ -355,7 +355,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         step, mode, custom_file = options["step"], options["mode"], options.get("file")
-        BASE_DIR = Path(__file__).resolve().parents[4]
+        BASE_DIR = Path(__file__).resolve().parents[3]
         data_dir = BASE_DIR / "data"
         self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}")
         df = agg = None
