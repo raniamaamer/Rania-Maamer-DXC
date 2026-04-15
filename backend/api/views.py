@@ -147,13 +147,7 @@ def sec_to_mmss(seconds):
 
 
 def _parse_rate(value, fallback=None):
-    """
-    Convertit une valeur en taux décimal [0..1].
-    - None / '' / 'null'           → fallback
-    - Valeurs textuelles ASA       → fallback
-    - Valeur > 1 (ex: 90.0)        → divisée par 100
-    - Valeur ≤ 1 (ex: 0.9)         → gardée telle quelle
-    """
+
     if value is None or str(value).strip() in ('', 'null'):
         return fallback
     s = str(value).strip().lower()
@@ -487,8 +481,6 @@ class Bottom5View(APIView):
                     ),
                 })
         return Response(result[:5])
-
-
 class Trend7DaysView(APIView):
     def get(self, request):
         qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
@@ -551,8 +543,6 @@ class SLAConfigView(APIView):
             return Response(SLAConfigSerializer(obj).data, status=201 if created else 200)
         except (ValueError, TypeError) as e:
             return Response({'error': f'Valeur invalide : {e}'}, status=400)
-
-
 class SLAConfigDetailView(APIView):
     def _get(self, pk):
         try:
@@ -573,8 +563,6 @@ class SLAConfigDetailView(APIView):
             obj.target_abd_rate = _parse_rate(data.get('target_abd_rate'), fallback=obj.target_abd_rate)
             obj.ans_sla         = (data.get('ans_sla') or obj.ans_sla or '').strip()
             obj.abd_sla         = (data.get('abd_sla') or obj.abd_sla or '').strip()
-            # ── Nouveau : 3ème formule ────────────────────────────────────
-            obj.other_sla         = (data.get('other_sla') or obj.other_sla or '').strip()
             obj.target_other_rate = _parse_rate(data.get('target_other_rate'), fallback=obj.target_other_rate)
             obj.save()
             return Response(SLAConfigSerializer(obj).data)
@@ -589,7 +577,6 @@ class SLAConfigDetailView(APIView):
         obj.delete()
         return Response({'status': 'deleted', 'account': account})
 
-
 @api_view(['GET'])
 def health_check(request):
     return Response({
@@ -598,7 +585,6 @@ def health_check(request):
         'database': 'postgresql',
         'version': '1.0.0',
     })
-
 
 @api_view(['POST'])
 def trigger_etl(request):
