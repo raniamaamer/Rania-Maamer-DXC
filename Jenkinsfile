@@ -70,6 +70,7 @@ pipeline {
         stage('SonarQube Quality Gate') {
             steps {
                 script { env.SOURCE_STAGE = 'SonarQube Quality Gate' }
+                sleep(time: 15, unit: 'SECONDS')  // ← give SonarQube time to finish
                 timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: false
                 }
