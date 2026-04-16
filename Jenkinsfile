@@ -88,7 +88,9 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
-                bat "docker-compose up -d --force-recreate backend frontend db"
+                bat "docker-compose stop backend frontend db"
+                bat "docker-compose rm -f backend frontend db"
+                bat "docker-compose up -d backend frontend db"
             }
         }
     }
