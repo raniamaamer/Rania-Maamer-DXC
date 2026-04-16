@@ -88,8 +88,11 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
-                // Force remove les containers existants peu importe leur origine
-                bat "docker rm -f db backend frontend || exit 0"
+                bat """
+                docker stop frontend backend db prometheus grafana postgres-exporter 2>nul
+                docker rm -f frontend backend db prometheus grafana postgres-exporter 2>nul
+                exit 0
+                """
                 bat "docker-compose up -d backend frontend db"
             }
         }
