@@ -632,6 +632,31 @@ class Command(BaseCommand):
             pd.to_numeric(df["Timeframe OOH"], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
             if "Timeframe OOH" in df.columns else df["timeframe_bh"]
         )
+
+        # ── ✅ OVERRIDE : DB SLAConfig a la priorité sur le fichier Excel ──
+        # Ki el user ymodifie un compte dans le dashboard → les valeurs DB
+        # écrasent celles du CSV pour que l'ETL respecte les configs manuelles.
+        try:
+            db_configs = {
+                s.account.strip().lower(): s
+                for s in SLAConfig.objects.all()  # pylint: disable=no-member
+            }
+            if db_configs:
+                def _apply_db_config(row):
+                    acc_key = str(row.get("account", "")).strip().lower()
+                    cfg = db_configs.get(acc_key)
+                    if cfg:
+                        if cfg.target_ans_rate is not None:
+                            row["target_ans_rate"] = cfg.target_ans_rate
+                        if cfg.target_abd_rate is not None:
+                            row["target_abd_rate"] = cfg.target_abd_rate
+                        row["timeframe_bh"]  = cfg.timeframe_bh
+                        row["timeframe_ooh"] = cfg.ooh if cfg.ooh else row.get("timeframe_ooh", cfg.timeframe_bh)
+                    return row
+                df = df.apply(_apply_db_config, axis=1)
+                self.log(f"  [OK] DB override SLAConfig appliqué sur {len(db_configs)} comptes")
+        except Exception as e:
+            self.log(f"  ⚠️ DB override SLAConfig ignoré (hors Django context?) : {e}")
         # ── OOH ──────────────────────────────────────────────────────────
         df["_start_dt"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
         def _is_ooh(dt):
@@ -749,8 +774,8 @@ class Command(BaseCommand):
     def _load(self, df, agg, data_dir, mode="replace", source_file=""):
         self.log(f"[*] Mode : {mode}")
         if mode == "replace":
-            for model in [HistoricalMetric, AccountSummary, SLAConfig, HourlyTrend, DailySnapshot]:
-                model.objects.all().delete()
+            for model in [HistoricalMetric, AccountSummary, HourlyTrend, DailySnapshot]:
+                model.objects.all().delete() 
             self.log("  [OK] Tables vidées")
         # ── SLAConfig ─────────────────────────────────────────────────────
         sla_file = data_dir / "SLA.xlsx"
@@ -776,7 +801,7 @@ class Command(BaseCommand):
                         return d
                 ta = sf(row.get("target_ans_rate"))
                 td = sf(row.get("target_abd_rate"))
-                SLAConfig.objects.update_or_create(  # pylint: disable=no-member
+                obj, created = SLAConfig.objects.get_or_create(
                     account=acc,
                     defaults={
                         "ans_rate_formula": str(row.get("ans_rate_formula") or "") or None,
