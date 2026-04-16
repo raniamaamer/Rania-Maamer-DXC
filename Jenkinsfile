@@ -1,7 +1,7 @@
 pipeline {
 agent any
 
-```
+
 tools {
     // Nom EXACT défini dans Jenkins (Global Tool Configuration)
     sonarQubeScanner 'SonarScanner'
@@ -111,5 +111,5 @@ post {
         )
     }
 }
-```
+
 }
