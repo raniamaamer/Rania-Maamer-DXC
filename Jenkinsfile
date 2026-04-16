@@ -59,14 +59,18 @@ stages {
         steps {
             withSonarQubeEnv('SonarQube') {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    bat """
-                    %SONAR_SCANNER_HOME%\\bin\\sonar-scanner ^
-                    -Dsonar.projectKey=Rania-Maamer-DXC ^
-                    -Dsonar.sources=backend ^
-                    -Dsonar.python.version=3.9 ^
-                    -Dsonar.host.url=%SONAR_HOST_URL% ^
-                    -Dsonar.login=%SONAR_TOKEN%
-                    """
+                    script {
+                        def scannerHome = tool 'SonarScanner'
+
+                        bat """
+                        "${scannerHome}\\bin\\sonar-scanner" ^
+                        -Dsonar.projectKey=Rania-Maamer-DXC ^
+                        -Dsonar.sources=backend ^
+                        -Dsonar.python.version=3.9 ^
+                        -Dsonar.host.url=%SONAR_HOST_URL% ^
+                        -Dsonar.login=%SONAR_TOKEN%
+                        """
+                    }
                 }
             }
         }
