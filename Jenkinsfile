@@ -1,115 +1,109 @@
 pipeline {
-agent any
+    agent any
 
-
-
-environment {
-    PYTHON = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
-}
-
-stages {
-
-    stage('Checkout') {
-        steps {
-            git branch: 'main',
-                credentialsId: 'github-credentials',
-                url: 'https://github.com/raniamaamer/Rania-Maamer-DXC'
-        }
+    environment {
+        PYTHON = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
     }
 
-    // ================= BACKEND =================
-    stage('Backend - Install Dependencies') {
-        steps {
-            bat """
-            %PYTHON% -m pip install --upgrade pip
-            %PYTHON% -m pip install -r requirements.txt
-            """
-        }
-    }
+    stages {
 
-    stage('Backend - Tests Django') {
-        steps {
-            dir('backend') {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    credentialsId: 'github-credentials',
+                    url: 'https://github.com/raniamaamer/Rania-Maamer-DXC'
+            }
+        }
+
+        // ================= BACKEND =================
+        stage('Backend - Install Dependencies') {
+            steps {
                 bat """
-                %PYTHON% manage.py test
+                %PYTHON% -m pip install --upgrade pip
+                %PYTHON% -m pip install -r requirements.txt
                 """
             }
         }
-    }
 
-    // ================= FRONTEND =================
-    stage('Frontend - Install Dependencies') {
-        steps {
-            dir('frontend') {
-                bat "npm install"
+        stage('Backend - Tests Django') {
+            steps {
+                dir('backend') {
+                    bat "%PYTHON% manage.py test"
+                }
             }
         }
-    }
 
-    stage('Frontend - Build React') {
-        steps {
-            dir('frontend') {
-                bat "npm run build"
+        // ================= FRONTEND =================
+        stage('Frontend - Install Dependencies') {
+            steps {
+                dir('frontend') {
+                    bat "npm install"
+                }
             }
         }
-    }
 
-    // ================= SONARQUBE =================
-    stage('SonarQube Analysis') {
-        steps {
-            withSonarQubeEnv('SonarQube') {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    script {
-                        def scannerHome = tool 'SonarScanner'
+        stage('Frontend - Build React') {
+            steps {
+                dir('frontend') {
+                    bat "npm run build"
+                }
+            }
+        }
 
-                        bat """
-                        "${scannerHome}\\bin\\sonar-scanner" ^
-                        -Dsonar.projectKey=Rania-Maamer-DXC ^
-                        -Dsonar.sources=backend ^
-                        -Dsonar.python.version=3.9 ^
-                        -Dsonar.host.url=%SONAR_HOST_URL% ^
-                        -Dsonar.login=%SONAR_TOKEN%
-                        """
+        // ================= SONARQUBE =================
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        script {
+                            def scannerHome = tool 'SonarScanner'
+                            bat """
+                            "${scannerHome}\\bin\\sonar-scanner" ^
+                            -Dsonar.projectKey=Rania-Maamer-DXC ^
+                            -Dsonar.sources=backend ^
+                            -Dsonar.python.version=3.9 ^
+                            -Dsonar.host.url=%SONAR_HOST_URL% ^
+                            -Dsonar.token=%SONAR_TOKEN%
+                            """
+                        }
                     }
                 }
             }
         }
-    }
 
-    stage('SonarQube Quality Gate') {
-        steps {
-            timeout(time: 10, unit: 'MINUTES') {
-                waitForQualityGate abortPipeline: true
+        stage('SonarQube Quality Gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        // ================= DOCKER =================
+        stage('Docker - Build') {
+            steps {
+                bat "docker-compose build"
+            }
+        }
+
+        stage('Docker - Run') {
+            steps {
+                bat "docker-compose up -d --force-recreate backend frontend db"
             }
         }
     }
 
-    // ================= DOCKER =================
-    stage('Docker - Build') {
-        steps {
-            bat "docker-compose build"
+    post {
+        success {
+            echo 'Pipeline réussi 🎉'
+        }
+        failure {
+            echo 'Pipeline échoué ❌'
+            emailext (
+                subject: "❌ Build FAILED: ${env.JOB_NAME}",
+                body: "Le pipeline a échoué. Vérifiez Jenkins.",
+                to: "raniamaaamer@gmail.com"
+            )
         }
     }
-
-    stage('Docker - Run') {
-        steps {
-            bat "docker-compose up -d"
-        }
-    }
-}
-
-post {
-    success {
-        echo 'Pipeline réussi 🎉'
-    }
-    failure {
-        echo 'Pipeline échoué ❌'
-        emailext (
-            subject: "❌ Build FAILED: ${env.JOB_NAME}",
-            body: "Le pipeline a échoué. Vérifiez Jenkins.",
-            to: "raniamaaamer@gmail.com"
-        )
-    }
-}
-
 }
