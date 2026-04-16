@@ -88,8 +88,8 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
-                bat "docker-compose stop backend frontend db"
-                bat "docker-compose rm -f backend frontend db"
+                // Force remove les containers existants peu importe leur origine
+                bat "docker rm -f db backend frontend || exit 0"
                 bat "docker-compose up -d backend frontend db"
             }
         }
