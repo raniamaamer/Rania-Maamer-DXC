@@ -6,20 +6,28 @@
   --surface: #ffffff;
   --surface2: #f0eeeb;
   --surface3: #e8e5e0;
-  --orange: #e8651a;
-  --orange-light: #f07d35;
-  --orange-bright: #f5944f;
+
+  /* ── DXC Brand Colors ── */
+  --orange: #E8651A;        /* DXC orange */
+  --orange-light: #F07040;
+  --orange-bright: #F5944f;
   --accent: #d4501a;
-  --blue: #4a6fa5;
-  --blue-light: #6b8fc4;
-  --cyan: #2e7aad;
-  --green: #2e8b57;
-  --red: #c0392b;
-  --amber: #d68910;
+
+  /* DXC Purple/Blue gradient side */
+  --blue: #6B7FD4;          /* DXC blue-purple */
+  --blue-light: #8B9FE8;
+  --cyan: #5B8FD4;
+
+  /* Semantic */
+  --green: #27AE60;         /* conformité */
+  --red: #E74C3C;           /* infraction */
+  --purple: #8E44AD;        /* badges/charts violet */
+  --amber: #D68910;
+
   --text: #1a1a1a;
   --muted: #6b6460;
   --border: rgba(232,101,26,0.18);
-  --border2: rgba(74,111,165,0.15);
+  --border2: rgba(107,127,212,0.15);
   --glow: rgba(232,101,26,0.08);
 }
 
