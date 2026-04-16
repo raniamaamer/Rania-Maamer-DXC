@@ -73,6 +73,34 @@ const DESK_QUEUES = {
   "Basrah Gas EN": ["Basrah Gas EN"],
 }
 
+// ── DXC Brand Colors ──────────────────────────────────────────────────────────
+const C = {
+  bg:          '#ffffff',
+  surface:     '#f7f7f9',
+  surface2:    '#eeedf6',
+  border:      '#e2e0ee',
+  borderMid:   '#c8c5e0',
+  orange:      '#e8621a',
+  orangeLight: '#f4864a',
+  orangePale:  'rgba(232,98,26,0.08)',
+  orangeBorder:'rgba(232,98,26,0.25)',
+  blue:        '#4e72c4',
+  blueLight:   '#7a9ee0',
+  bluePale:    'rgba(78,114,196,0.08)',
+  blueBorder:  'rgba(78,114,196,0.25)',
+  text:        '#1a1830',
+  text2:       '#4a4868',
+  text3:       '#8884aa',
+  success:     '#1a7a4a',
+  successPale: 'rgba(26,122,74,0.1)',
+  danger:      '#c0392b',
+  dangerPale:  'rgba(192,57,43,0.1)',
+  warning:     '#b8730a',
+  warningPale: 'rgba(184,115,10,0.1)',
+  amber:       '#d97706',
+  amberPale:   'rgba(217,119,6,0.1)',
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function fmtDateTime(date) {
   if (!date) return '—'
@@ -96,23 +124,26 @@ function StatCell({ label, value, color }) {
       flex: '1 1 0', display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       padding: '14px 8px',
-      borderRight: '1px solid rgba(255,255,255,0.07)', minWidth: 80,
+      borderRight: `1px solid ${C.border}`, minWidth: 80,
+      background: C.bg,
     }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 8, textAlign: 'center' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: color || '#f3f4f6', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.text3, marginBottom: 8, textAlign: 'center' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: color || C.text, fontFamily: 'JetBrains Mono, monospace', lineHeight: 1 }}>{value}</div>
     </div>
   )
 }
 
 function KpiCard({ label, value, target, compliant }) {
   const numVal = parseFloat(value) || 0
+  const valColor = compliant === null ? C.text3 : compliant ? C.success : C.danger
+  const fillColor = compliant === null ? C.borderMid : compliant ? C.success : C.danger
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '20px 24px', minWidth: 160, flex: '1 1 160px' }}>
-      <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>{label}</div>
-      <div style={{ fontSize: 36, fontWeight: 900, color: compliant === null ? '#6b7280' : compliant ? '#10b981' : '#f43f5e', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1, marginBottom: 8 }}>{value}</div>
-      {target !== null && <div style={{ fontSize: 11, color: '#6b7280' }}>Objectif : <span style={{ color: '#d1d5db' }}>{target}</span></div>}
-      <div style={{ marginTop: 10, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${Math.min(numVal, 100)}%`, background: compliant === null ? '#4b5563' : compliant ? '#10b981' : '#f43f5e', borderRadius: 2, transition: 'width 0.6s ease' }} />
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '18px 22px', minWidth: 160, flex: '1 1 160px' }}>
+      <div style={{ fontSize: 11, color: C.text3, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>{label}</div>
+      <div style={{ fontSize: 34, fontWeight: 900, color: valColor, fontFamily: 'JetBrains Mono, monospace', lineHeight: 1, marginBottom: 8 }}>{value}</div>
+      {target !== null && <div style={{ fontSize: 11, color: C.text3 }}>Objectif : <span style={{ color: C.text2, fontWeight: 600 }}>{target}</span></div>}
+      <div style={{ marginTop: 10, height: 4, background: C.border, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${Math.min(numVal, 100)}%`, background: fillColor, borderRadius: 2, transition: 'width 0.6s ease' }} />
       </div>
     </div>
   )
@@ -141,50 +172,78 @@ function AccountCard({ account, queues }) {
   const abdCompliant = totals.offered > 0 ? abdRate <= targetAbd : null
   const ansOutBand = totals.answered - totals.ans_in_sla
   const abdOutBand = totals.abandoned - totals.abd_in_sla
-  const statusColor = slaCompliant === null ? '#6b7280' : slaCompliant ? '#10b981' : '#f43f5e'
+  const statusColor = slaCompliant === null ? C.borderMid : slaCompliant ? C.success : C.danger
 
   return (
-    <div style={{ background: 'rgba(17,16,40,0.95)', border: `1px solid ${statusColor}33`, borderTop: `3px solid ${statusColor}`, borderRadius: 16, overflow: 'hidden', marginBottom: 16, boxShadow: `0 4px 24px ${statusColor}11` }}>
-      <div onClick={() => setExpanded(e => !e)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: `linear-gradient(90deg, ${statusColor}18, transparent)`, cursor: 'pointer', userSelect: 'none' }}>
+    <div style={{
+      background: C.bg,
+      border: `1px solid ${C.border}`,
+      borderTop: `3px solid ${statusColor}`,
+      borderRadius: 16,
+      overflow: 'hidden',
+      marginBottom: 16,
+      boxShadow: `0 2px 12px rgba(0,0,0,0.06)`,
+    }}>
+      <div
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 24px',
+          background: `linear-gradient(90deg, ${slaCompliant === null ? 'rgba(0,0,0,0.03)' : slaCompliant ? C.successPale : C.dangerPale}, transparent)`,
+          cursor: 'pointer', userSelect: 'none',
+          borderBottom: `1px solid ${C.border}`,
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ position: 'relative', width: 10, height: 10 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor, position: 'absolute' }} />
             {totals.offered > 0 && <div style={{ width: 10, height: 10, borderRadius: '50%', background: statusColor, position: 'absolute', animation: 'pulse-ring 1.5s ease-out infinite', opacity: 0.4 }} />}
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#f3f4f6', fontFamily: 'Syne, sans-serif', letterSpacing: '-0.02em' }}>{account}</span>
-          {totals.in_queue > 0 && <span style={{ background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>{totals.in_queue} en attente</span>}
+          <span style={{ fontSize: 18, fontWeight: 800, color: C.text, fontFamily: 'Syne, sans-serif', letterSpacing: '-0.02em' }}>{account}</span>
+          {totals.in_queue > 0 && (
+            <span style={{ background: C.amberPale, border: `1px solid rgba(217,119,6,0.3)`, color: C.amber, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
+              {totals.in_queue} en attente
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, fontFamily: 'JetBrains Mono, monospace', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}44` }}>SLA {(slaRate * 100).toFixed(1)}%</span>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, fontFamily: 'JetBrains Mono, monospace', background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>{queues.length} file{queues.length > 1 ? 's' : ''}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, fontFamily: 'JetBrains Mono, monospace', background: slaCompliant === null ? C.surface : slaCompliant ? C.successPale : C.dangerPale, color: statusColor, border: `1px solid ${slaCompliant === null ? C.border : slaCompliant ? 'rgba(26,122,74,0.3)' : 'rgba(192,57,43,0.3)'}` }}>
+              SLA {(slaRate * 100).toFixed(1)}%
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, fontFamily: 'JetBrains Mono, monospace', background: C.bluePale, color: C.blue, border: `1px solid ${C.blueBorder}` }}>
+              {queues.length} file{queues.length > 1 ? 's' : ''}
+            </span>
           </div>
-          <span style={{ color: '#6b7280', fontSize: 16 }}>{expanded ? '▲' : '▼'}</span>
+          <span style={{ color: C.text3, fontSize: 16 }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
-      <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <StatCell label="Inbound" value={totals.offered} />
-        <StatCell label="Answered" value={totals.answered} color="#10b981" />
-        <StatCell label="Ans. In Band" value={Math.round(totals.ans_in_sla)} color="#a78bfa" />
-        <StatCell label="Ans. Out Band" value={Math.round(Math.max(ansOutBand, 0))} color="#f59e0b" />
-        <StatCell label="Abandon In" value={Math.round(totals.abd_in_sla)} color="#f43f5e" />
-        <StatCell label="Abandon Out" value={Math.round(Math.max(abdOutBand, 0))} color="#fb923c" />
+
+      <div style={{ display: 'flex', borderTop: `1px solid ${C.border}` }}>
+        <StatCell label="Inbound"      value={totals.offered}                        color={C.text} />
+        <StatCell label="Answered"     value={totals.answered}                       color={C.success} />
+        <StatCell label="Ans. In Band" value={Math.round(totals.ans_in_sla)}         color={C.blue} />
+        <StatCell label="Ans. Out Band"value={Math.round(Math.max(ansOutBand, 0))}   color={C.orange} />
+        <StatCell label="Abandon In"   value={Math.round(totals.abd_in_sla)}         color={C.danger} />
+        <StatCell label="Abandon Out"  value={Math.round(Math.max(abdOutBand, 0))}   color={C.warning} />
       </div>
-      <div style={{ display: 'flex', gap: 12, padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap' }}>
+
+      <div style={{ display: 'flex', gap: 12, padding: '16px 20px', borderTop: `1px solid ${C.border}`, flexWrap: 'wrap', background: C.surface }}>
         <KpiCard label="Service Level (SLA)" value={`${(slaRate * 100).toFixed(1)}%`} target={totals.offered > 0 ? `${(targetAns * 100).toFixed(0)}%` : null} compliant={slaCompliant} />
-        <KpiCard label="Abandon (ABD)" value={`${(abdRate * 100).toFixed(1)}%`} target={totals.offered > 0 ? `${(targetAbd * 100).toFixed(0)}%` : null} compliant={abdCompliant} />
+        <KpiCard label="Abandon (ABD)"       value={`${(abdRate * 100).toFixed(1)}%`} target={totals.offered > 0 ? `${(targetAbd * 100).toFixed(0)}%` : null} compliant={abdCompliant} />
         {totals.agents_available > 0 && <KpiCard label="Agents Disponibles" value={totals.agents_available} target={null} compliant={null} />}
-        {totals.agents_busy > 0 && <KpiCard label="Agents Occupés" value={totals.agents_busy} target={null} compliant={null} />}
+        {totals.agents_busy > 0      && <KpiCard label="Agents Occupés"     value={totals.agents_busy}      target={null} compliant={null} />}
       </div>
+
       {expanded && (
-        <div style={{ padding: '0 20px 16px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '12px 0 8px' }}>Détail par file</div>
+        <div style={{ padding: '0 20px 16px', borderTop: `1px solid ${C.border}`, background: C.bg }}>
+          <div style={{ fontSize: 11, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.1em', padding: '12px 0 8px' }}>Détail par file</div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
               <thead>
-                <tr style={{ color: '#6b7280' }}>
+                <tr style={{ color: C.text3, background: C.surface }}>
                   {['File', 'Inbound', 'Answered', 'Ans.Band', 'Abandon', 'Abd.Band', 'En attente', 'SLA%', 'ABD%'].map(h => (
-                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 500, fontSize: 10, textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, fontSize: 10, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}` }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -194,16 +253,16 @@ function AccountCard({ account, queues }) {
                   const qSla = (q.offered || 0) > 0 ? Math.min((q.ans_in_sla || 0) / qDenom * 100, 100) : 0
                   const qAbd = (q.offered || 0) > 0 ? (q.abandoned || 0) / (q.offered || 1) * 100 : 0
                   return (
-                    <tr key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.04)', background: i % 2 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
-                      <td style={{ padding: '6px 10px', color: '#c084fc', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.queue}</td>
-                      <td style={{ padding: '6px 10px' }}>{q.offered || 0}</td>
-                      <td style={{ padding: '6px 10px', color: '#10b981' }}>{q.answered || 0}</td>
-                      <td style={{ padding: '6px 10px', color: '#a78bfa' }}>{Math.round(q.ans_in_sla || 0)}</td>
-                      <td style={{ padding: '6px 10px', color: '#f43f5e' }}>{q.abandoned || 0}</td>
-                      <td style={{ padding: '6px 10px', color: '#fb923c' }}>{Math.round(q.abd_in_sla || 0)}</td>
-                      <td style={{ padding: '6px 10px', color: '#f59e0b' }}>{q.in_queue || 0}</td>
-                      <td style={{ padding: '6px 10px', color: q.sla_compliant ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{qSla.toFixed(1)}%</td>
-                      <td style={{ padding: '6px 10px', color: '#f59e0b' }}>{qAbd.toFixed(1)}%</td>
+                    <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 ? C.surface : C.bg }}>
+                      <td style={{ padding: '6px 10px', color: C.orange, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{q.queue}</td>
+                      <td style={{ padding: '6px 10px', color: C.text }}>{q.offered || 0}</td>
+                      <td style={{ padding: '6px 10px', color: C.success }}>{q.answered || 0}</td>
+                      <td style={{ padding: '6px 10px', color: C.blue }}>{Math.round(q.ans_in_sla || 0)}</td>
+                      <td style={{ padding: '6px 10px', color: C.danger }}>{q.abandoned || 0}</td>
+                      <td style={{ padding: '6px 10px', color: C.warning }}>{Math.round(q.abd_in_sla || 0)}</td>
+                      <td style={{ padding: '6px 10px', color: C.amber }}>{q.in_queue || 0}</td>
+                      <td style={{ padding: '6px 10px', color: q.sla_compliant ? C.success : C.danger, fontWeight: 700 }}>{qSla.toFixed(1)}%</td>
+                      <td style={{ padding: '6px 10px', color: C.warning }}>{qAbd.toFixed(1)}%</td>
                     </tr>
                   )
                 })}
@@ -220,29 +279,35 @@ function AccountCard({ account, queues }) {
 function DeskDetailModal({ row, onClose }) {
   if (!row) return null
   const items = [
-    { label: 'Avg AHT (Average Handle Time)',    value: row.avg_aht          || '—', color: '#60a5fa' },
-    { label: 'Handle Time',              value: row.handle_time_fmt  || '—', color: '#a78bfa' },
-    { label: 'Avg Hold Time',            value: row.avg_hold         || '—', color: '#a78bfa' },
-    { label: 'Avg TTC (Talking Time)',   value: row.avg_ttc          || '—', color: '#a78bfa' },
-    { label: 'ASA (Avg Speed Answer)',   value: row.asa              || '—', color: '#60a5fa' },
-    { label: 'Total Answer Time',        value: row.total_answer_fmt || '—', color: '#a78bfa' },
-    { label: 'Total Hold Time',          value: row.total_hold_fmt   || '—', color: '#a78bfa' },
+    { label: 'Avg AHT (Average Handle Time)',  value: row.avg_aht          || '—', color: C.blue },
+    { label: 'Handle Time',                    value: row.handle_time_fmt  || '—', color: C.orange },
+    { label: 'Avg Hold Time',                  value: row.avg_hold         || '—', color: C.orange },
+    { label: 'Avg TTC (Talking Time)',         value: row.avg_ttc          || '—', color: C.orange },
+    { label: 'ASA (Avg Speed Answer)',         value: row.asa              || '—', color: C.blue },
+    { label: 'Total Answer Time',              value: row.total_answer_fmt || '—', color: C.orange },
+    { label: 'Total Hold Time',                value: row.total_hold_fmt   || '—', color: C.orange },
   ]
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(13,11,26,0.8)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: 'min(520px,94vw)', background: '#13102b', border: '1px solid rgba(124,58,237,0.35)', borderRadius: 16, padding: 28, boxShadow: '0 0 60px rgba(124,58,237,0.25)' }}>
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(26,24,48,0.35)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: 'min(520px,94vw)', background: C.bg, border: `1.5px solid ${C.orangeBorder}`, borderRadius: 16, padding: 28, boxShadow: '0 8px 40px rgba(232,98,26,0.15)' }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <div style={{ fontSize: 10, color: '#a89ec4', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Détail Desk</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#c084fc', fontFamily: 'JetBrains Mono,monospace' }}>{row.desk_langue}</div>
-            <div style={{ fontSize: 11, color: '#7c3aed', marginTop: 2 }}>{row.account}</div>
+            <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Détail Desk</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.orange, fontFamily: 'JetBrains Mono,monospace' }}>{row.desk_langue}</div>
+            <div style={{ fontSize: 11, color: C.blue, marginTop: 2 }}>{row.account}</div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: 8, color: '#f43f5e', width: 32, height: 32, cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <button onClick={onClose} style={{ background: C.dangerPale, border: `1px solid rgba(192,57,43,0.3)`, borderRadius: 8, color: C.danger, width: 32, height: 32, cursor: 'pointer', fontSize: 16 }}>✕</button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.map(({ label, value, color }) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(28,24,64,0.8)', borderRadius: 8, padding: '10px 16px', border: '1px solid rgba(124,58,237,0.15)' }}>
-              <span style={{ color: '#a89ec4', fontSize: 12, fontFamily: 'JetBrains Mono,monospace' }}>{label}</span>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface, borderRadius: 8, padding: '10px 16px', border: `1px solid ${C.border}` }}>
+              <span style={{ color: C.text2, fontSize: 12, fontFamily: 'JetBrains Mono,monospace' }}>{label}</span>
               <span style={{ color, fontSize: 16, fontWeight: 700, fontFamily: 'JetBrains Mono,monospace' }}>{value}</span>
             </div>
           ))}
@@ -311,33 +376,31 @@ function HistoricalTab({ filters }) {
     setOohMode(filters.account === 'Viatris' ? 'bh' : 'all')
   }, [filters.account])
 
-  // Dans HistoricalTab, remplacer fetchHistorical
-    const fetchHistorical = useCallback(async () => {
-      setLoading(true)
-      try {
-        const params = new URLSearchParams()
-        if (filters.account  && filters.account  !== 'all') params.set('account',  filters.account)
-        if (filters.year     && filters.year     !== 'all') params.set('year',     filters.year)
-        if (filters.month    && filters.month    !== 'all') params.set('month',    filters.month)
-        if (filters.week     && filters.week     !== 'all') params.set('week',     filters.week)
-        if (filters.day      && filters.day      !== 'all') params.set('day',      filters.day)
-        if (filters.language && filters.language !== 'all') params.set('language', filters.language)
-        if (filters.interval && filters.interval !== 'all') params.set('interval', filters.interval)
-        if (oohMode === 'bh')  params.set('is_ooh', 'false')
-        if (oohMode === 'ooh') params.set('is_ooh', 'true')
-        const res = await fetch(`${API_BASE}/desk-langue/?${params}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const json = await res.json()
-        setData(json.rows || [])
-        setQueuesByDesk(json.queues_by_desk || {})
-        setError(null)
-      } catch (e) {
-        setError(e.message)
-      } finally {
-        setLoading(false)
-      }
-    // ✅ AJOUT de tous les filtres dans les dépendances
-    }, [filters.account, filters.year, filters.month, filters.week, filters.day, filters.language, filters.interval, oohMode])
+  const fetchHistorical = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (filters.account  && filters.account  !== 'all') params.set('account',  filters.account)
+      if (filters.year     && filters.year     !== 'all') params.set('year',     filters.year)
+      if (filters.month    && filters.month    !== 'all') params.set('month',    filters.month)
+      if (filters.week     && filters.week     !== 'all') params.set('week',     filters.week)
+      if (filters.day      && filters.day      !== 'all') params.set('day',      filters.day)
+      if (filters.language && filters.language !== 'all') params.set('language', filters.language)
+      if (filters.interval && filters.interval !== 'all') params.set('interval', filters.interval)
+      if (oohMode === 'bh')  params.set('is_ooh', 'false')
+      if (oohMode === 'ooh') params.set('is_ooh', 'true')
+      const res = await fetch(`${API_BASE}/desk-langue/?${params}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setData(json.rows || [])
+      setQueuesByDesk(json.queues_by_desk || {})
+      setError(null)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [filters.account, filters.year, filters.month, filters.week, filters.day, filters.language, filters.interval, oohMode])
 
   useEffect(() => { fetchHistorical() }, [fetchHistorical])
 
@@ -346,7 +409,7 @@ function HistoricalTab({ filters }) {
     else { setSortField(field); setSortDir('asc') }
   }
 
-  const dataRows    = data.filter(r => !r.is_total)
+  const dataRows     = data.filter(r => !r.is_total)
   const filteredRows = dataRows.filter(r =>
     !search ||
     (r.desk_langue || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -462,13 +525,17 @@ function HistoricalTab({ filters }) {
   }
 
   const SortTh = ({ field, label, align = 'left' }) => (
-    <th onClick={() => toggleSort(field)} style={{
-      padding: '10px 12px', textAlign: align, fontWeight: 600, fontSize: 13,
-      textTransform: 'uppercase', letterSpacing: '0.07em',
-      color: sortField === field ? '#a855f7' : '#9ca3af',
-      cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none',
-      background: 'rgba(124,58,237,0.12)', borderBottom: '2px solid rgba(124,58,237,0.25)',
-    }}>
+    <th
+      onClick={() => toggleSort(field)}
+      style={{
+        padding: '10px 12px', textAlign: align, fontWeight: 600, fontSize: 11,
+        textTransform: 'uppercase', letterSpacing: '0.07em',
+        color: sortField === field ? C.orange : C.text3,
+        cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none',
+        background: C.surface,
+        borderBottom: `2px solid ${sortField === field ? C.orange : C.border}`,
+      }}
+    >
       {label}{sortField === field ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
     </th>
   )
@@ -476,55 +543,51 @@ function HistoricalTab({ filters }) {
   const colCount = isLuxottica ? 13 : 12
 
   if (loading) return (
-    <div style={{ textAlign: 'center', padding: '60px 0', color: '#6b7280' }}>
-      <div style={{ fontSize: 28, animation: 'spin 1s linear infinite', display: 'inline-block', marginBottom: 12 }}>⟳</div>
+    <div style={{ textAlign: 'center', padding: '60px 0', color: C.text3 }}>
+      <div style={{ fontSize: 28, animation: 'spin 1s linear infinite', display: 'inline-block', marginBottom: 12, color: C.orange }}>⟳</div>
       <div style={{ fontSize: 14 }}>Chargement des données historiques...</div>
     </div>
   )
   if (error) return (
-    <div style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: 12, padding: '20px 24px', color: '#f43f5e' }}>
+    <div style={{ background: C.dangerPale, border: `1px solid rgba(192,57,43,0.3)`, borderRadius: 12, padding: '20px 24px', color: C.danger }}>
       ✕ Erreur : {error}
     </div>
   )
 
   return (
     <div style={{ animation: 'fadeIn 0.3s ease' }}>
-      {/* Barre recherche + count + toggle BH/OOH + export */}
-      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* Toolbar */}
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="🔍  Filtrer par desk ou compte..."
           style={{
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.3)',
-            borderRadius: 8, padding: '8px 14px', color: '#f3f4f6',
+            background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: 8, padding: '8px 14px', color: C.text,
             fontSize: 13, outline: 'none', width: 300, fontFamily: 'JetBrains Mono, monospace',
           }}
         />
-        <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'JetBrains Mono, monospace' }}>
+        <span style={{ fontSize: 12, color: C.text3, fontFamily: 'JetBrains Mono, monospace' }}>
           {filtered.filter(r => !r.is_total).length} desk(s)
         </span>
 
-        {/* Toggle BH/OOH — caché pour Viatris */}
         {filters.account !== 'Viatris' && (
           <div style={{ display: 'flex', gap: 4 }}>
             {[{ key: 'all', label: 'Tous' }, { key: 'bh', label: 'BH' }, { key: 'ooh', label: 'OOH' }].map(({ key, label }) => (
               <button key={key} onClick={() => setOohMode(key)} style={{
-                padding: '4px 14px', borderRadius: 6, border: '1px solid', cursor: 'pointer',
-                fontWeight: oohMode === key ? 600 : 400, fontSize: 13, transition: 'all 0.15s',
+                padding: '4px 14px', borderRadius: 6, border: `1px solid ${oohMode === key ? (key === 'ooh' ? C.orange : key === 'bh' ? C.blue : C.borderMid) : C.border}`,
+                cursor: 'pointer', fontWeight: oohMode === key ? 700 : 400, fontSize: 13, transition: 'all 0.15s',
                 background: oohMode === key
-                  ? key === 'ooh' ? '#f59e0b' : key === 'bh' ? '#7c3aed' : '#374151'
-                  : 'transparent',
-                color: oohMode === key ? '#fff' : '#a89ec4',
-                borderColor: oohMode === key
-                  ? key === 'ooh' ? '#f59e0b' : key === 'bh' ? '#7c3aed' : '#374151'
-                  : 'rgba(168,158,196,0.3)',
+                  ? key === 'ooh' ? C.orange : key === 'bh' ? C.blue : C.surface2
+                  : C.bg,
+                color: oohMode === key ? '#fff' : C.text2,
               }}>{label}</button>
             ))}
           </div>
         )}
         {filters.account === 'Viatris' && (
-          <div style={{ padding: '4px 14px', borderRadius: 6, background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.5)', color: '#a78bfa', fontSize: 13, fontWeight: 600 }}>
+          <div style={{ padding: '4px 14px', borderRadius: 6, background: C.bluePale, border: `1px solid ${C.blueBorder}`, color: C.blue, fontSize: 13, fontWeight: 600 }}>
             🕐 BH uniquement
           </div>
         )}
@@ -533,9 +596,10 @@ function HistoricalTab({ filters }) {
           onClick={exportCSV}
           style={{
             marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8,
-            background: 'linear-gradient(135deg, #7c3aed, #a855f7)', border: 'none', borderRadius: 8,
-            padding: '8px 18px', cursor: 'pointer', color: 'white', fontSize: 13, fontWeight: 700,
-            fontFamily: 'Syne, sans-serif', boxShadow: '0 4px 14px rgba(124,58,237,0.4)', transition: 'opacity 0.2s',
+            background: `linear-gradient(135deg, ${C.orange}, ${C.blue})`,
+            border: 'none', borderRadius: 8, padding: '8px 18px', cursor: 'pointer',
+            color: 'white', fontSize: 13, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+            boxShadow: `0 4px 14px rgba(232,98,26,0.3)`, transition: 'opacity 0.2s',
           }}
           onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
           onMouseLeave={e => e.currentTarget.style.opacity = '1'}
@@ -545,8 +609,8 @@ function HistoricalTab({ filters }) {
       </div>
 
       {/* Table */}
-      <div style={{ borderRadius: 12, border: '1px solid rgba(124,58,237,0.2)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, fontFamily: 'JetBrains Mono, monospace', tableLayout: 'fixed' }}>
+      <div style={{ borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, fontFamily: 'JetBrains Mono, monospace', tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: isLuxottica ? '12%' : '13%' }} />
             <col style={{ width: '6%' }} />
@@ -582,14 +646,14 @@ function HistoricalTab({ filters }) {
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={colCount} style={{ padding: '40px', textAlign: 'center', color: '#4b5563' }}>
+                <td colSpan={colCount} style={{ padding: '40px', textAlign: 'center', color: C.text3 }}>
                   Aucune donnée trouvée
                 </td>
               </tr>
             ) : sorted.flatMap((row, i) => {
               const isTotal  = row.is_total
-              const abdColor = row.abd_compliant === false ? '#f43f5e'
-                : row.abd_compliant === true ? '#10b981' : '#f59e0b'
+              const abdColor = row.abd_compliant === false ? C.danger
+                : row.abd_compliant === true ? C.success : C.warning
               const queues    = !isTotal ? (queuesByDesk[row.desk_langue] || DESK_QUEUES[row.desk_langue]?.map(n => ({ queue: n })) || []) : []
               const isExpanded = expandedDesks[row.desk_langue]
               const hasQueues  = queues.length > 0
@@ -602,100 +666,94 @@ function HistoricalTab({ filters }) {
                   onClick={() => { if (!isTotal && !hasQueues) setSelectedDesk(row) }}
                   style={{
                     background: isTotal
-                      ? 'rgba(124,58,237,0.18)'
-                      : hoveredRow === i ? 'rgba(124,58,237,0.1)' : i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      ? C.surface2
+                      : hoveredRow === i ? C.orangePale : i % 2 === 0 ? C.bg : C.surface,
+                    borderBottom: `1px solid ${C.border}`,
                     fontWeight: isTotal ? 700 : 400,
                     cursor: isTotal ? 'default' : 'pointer',
+                    transition: 'background 0.15s',
                   }}
                 >
-                  {/* ── Colonne Desk avec bouton +/- ── */}
-                  <td style={{ padding: '12px 14px', color: isTotal ? '#a855f7' : '#c084fc', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '12px 14px', color: isTotal ? C.blue : C.orange, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isTotal ? 700 : 600 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-
-                      {/* Bouton ⊞/⊟ style Power BI */}
                       {!isTotal && hasQueues && (
                         <span
                           onClick={(e) => { e.stopPropagation(); toggleDesk(row.desk_langue) }}
                           style={{
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                             width: 16, height: 16, flexShrink: 0,
-                            border: '1px solid rgba(124,58,237,0.5)', borderRadius: 3,
-                            color: '#a855f7', fontSize: 13, fontWeight: 700, lineHeight: 1,
+                            border: `1px solid ${C.orangeBorder}`, borderRadius: 3,
+                            color: C.orange, fontSize: 13, fontWeight: 700, lineHeight: 1,
                             cursor: 'pointer',
-                            background: isExpanded ? 'rgba(124,58,237,0.2)' : 'rgba(124,58,237,0.05)',
+                            background: isExpanded ? C.orangePale : C.bg,
                             userSelect: 'none', transition: 'all 0.15s',
                           }}
                         >
                           {isExpanded ? '−' : '+'}
                         </span>
                       )}
-                      {/* Espace aligné pour desks sans queues */}
                       {!isTotal && !hasQueues && <span style={{ width: 16, flexShrink: 0 }} />}
-
                       {isTotal ? '📊 Total' : row.desk_langue}
                       {!isTotal && row.account && (
-                        <span style={{ fontSize: 10, color: '#6b7280', marginLeft: 4 }}>({row.account})</span>
+                        <span style={{ fontSize: 10, color: C.text3, marginLeft: 4, fontWeight: 400 }}>({row.account})</span>
                       )}
                     </span>
                   </td>
-
-                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#10b981', fontWeight: 600 }}>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: C.success, fontWeight: 600 }}>
                     {row.answered_rate?.toFixed(2)}%
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: abdColor }}>
                     {row.abd_rate?.toFixed(2)}%
                   </td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right', color: '#d1d5db' }}>{(row.offered_contact    || 0).toLocaleString()}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right', color: '#10b981' }}>{(row.handled_contact    || 0).toLocaleString()}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right', color: '#f43f5e' }}>{(row.abandoned_contact  || 0).toLocaleString()}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right', color: '#a78bfa' }}>{(row.answered_in_sla    || 0).toLocaleString()}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'right', color: '#fb923c' }}>{(row.abandon_in_sla     || 0).toLocaleString()}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: C.text2 }}>{(row.offered_contact    || 0).toLocaleString()}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: C.success }}>{(row.handled_contact    || 0).toLocaleString()}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: C.danger }}>{(row.abandoned_contact  || 0).toLocaleString()}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: C.blue }}>{(row.answered_in_sla    || 0).toLocaleString()}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', color: C.warning }}>{(row.abandon_in_sla     || 0).toLocaleString()}</td>
                   {isLuxottica && (
-                    <td style={{ padding: '12px 14px', textAlign: 'right', color: '#f97316', fontWeight: row.is_total ? 700 : 400 }}>
+                    <td style={{ padding: '12px 14px', textAlign: 'right', color: C.amber, fontWeight: row.is_total ? 700 : 400 }}>
                       {Math.floor(row._abd_out_60 ?? 0).toLocaleString()}
                     </td>
                   )}
-                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#60a5fa' }}>{row.asa      || '—'}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#60a5fa' }}>{row.avg_hold || '—'}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#60a5fa' }}>{row.avg_ttc  || '—'}</td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center', color: '#60a5fa' }}>{row.avg_aht  || '—'}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: C.blue }}>{row.asa      || '—'}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: C.blue }}>{row.avg_hold || '—'}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: C.blue }}>{row.avg_ttc  || '—'}</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'center', color: C.blue }}>{row.avg_aht  || '—'}</td>
                 </tr>
               )
 
-              // Lignes queues sources (visibles si expandé)
               const queueRows = (hasQueues && isExpanded) ? queues.map((q, qi) => {
                 const qName = q.queue || q
                 const hasData = typeof q === 'object' && q.offered_contact !== undefined
-                const qSlaColor = q.sla_compliant === false ? '#f43f5e' : q.sla_compliant === true ? '#10b981' : '#9ca3af'
+                const qSlaColor = q.sla_compliant === false ? C.danger : q.sla_compliant === true ? C.success : C.text3
                 return (
                   <tr
                     key={`queue-${i}-${qi}`}
-                    style={{ background: 'rgba(124,58,237,0.04)', borderBottom: '1px solid rgba(255,255,255,0.025)' }}
+                    style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}
                   >
-                    <td style={{ padding: '7px 14px 7px 38px', color: '#7c3aed', fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span style={{ color: '#4b5563', marginRight: 6, fontSize: 11 }}>└</span>
+                    <td style={{ padding: '7px 14px 7px 38px', color: C.blue, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ color: C.borderMid, marginRight: 6, fontSize: 11 }}>└</span>
                       {qName}
                     </td>
                     {hasData ? <>
                       <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: qSlaColor, fontWeight: 600 }}>
                         {q.sla_rate?.toFixed(2)}%
                       </td>
-                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: '#f59e0b' }}>
+                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: C.warning }}>
                         {q.abd_rate?.toFixed(2)}%
                       </td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: '#9ca3af' }}>{(q.offered_contact || 0).toLocaleString()}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: '#10b981' }}>{(q.handled_contact || 0).toLocaleString()}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: '#f43f5e' }}>{(q.abandoned_contact || 0).toLocaleString()}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: '#a78bfa' }}>{(q.answered_in_sla || 0).toLocaleString()}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: '#fb923c' }}>{(q.abandon_in_sla || 0).toLocaleString()}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: C.text3 }}>{(q.offered_contact || 0).toLocaleString()}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: C.success }}>{(q.handled_contact || 0).toLocaleString()}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: C.danger }}>{(q.abandoned_contact || 0).toLocaleString()}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: C.blue }}>{(q.answered_in_sla || 0).toLocaleString()}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'right', fontSize: 12, color: C.warning }}>{(q.abandon_in_sla || 0).toLocaleString()}</td>
                       {isLuxottica && <td style={{ padding: '7px 14px' }} />}
-                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: '#60a5fa' }}>{q.asa || '—'}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: '#60a5fa' }}>{q.avg_hold || '—'}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: '#60a5fa' }}>{q.avg_ttc || '—'}</td>
-                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: '#60a5fa' }}>{q.avg_aht || '—'}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: C.blue }}>{q.asa || '—'}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: C.blue }}>{q.avg_hold || '—'}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: C.blue }}>{q.avg_ttc || '—'}</td>
+                      <td style={{ padding: '7px 14px', textAlign: 'center', fontSize: 12, color: C.blue }}>{q.avg_aht || '—'}</td>
                     </> : (
-                      <td colSpan={colCount - 1} style={{ padding: '7px 14px', color: '#4b5563', fontSize: 11, fontStyle: 'italic' }}>—</td>
+                      <td colSpan={colCount - 1} style={{ padding: '7px 14px', color: C.text3, fontSize: 11, fontStyle: 'italic' }}>—</td>
                     )}
                   </tr>
                 )
@@ -715,13 +773,13 @@ function HistoricalTab({ filters }) {
 // ── Main LiveData Page ────────────────────────────────────────────────────────
 export default function LiveData() {
   const { filters } = useFilters()
-  const [activeTab, setActiveTab]   = useState('live')
-  const [liveData, setLiveData]     = useState(null)
+  const [activeTab, setActiveTab]     = useState('live')
+  const [liveData, setLiveData]       = useState(null)
   const [liveLoading, setLiveLoading] = useState(true)
-  const [liveError, setLiveError]   = useState(null)
-  const [now, setNow]               = useState(new Date())
+  const [liveError, setLiveError]     = useState(null)
+  const [now, setNow]                 = useState(new Date())
   const [lastRefresh, setLastRefresh] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const [refreshing, setRefreshing]   = useState(false)
   const REFRESH_INTERVAL = 900000
 
   useEffect(() => {
@@ -766,74 +824,105 @@ export default function LiveData() {
   const summary = liveData?.summary || {}
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d0b1a', fontFamily: 'Syne, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'Syne, sans-serif' }}>
       <style>{`
         @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.4; } 100% { transform: scale(2.5); opacity: 0; } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        input::placeholder { color: #4b5563; }
+        input::placeholder { color: #9996bb; }
       `}</style>
 
-      {/* Top Bar */}
-      <div style={{ background: 'rgba(13,11,26,0.97)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '12px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 100 }}>
+      {/* ── Top Bar ── */}
+      <div style={{
+        background: C.bg,
+        borderBottom: `1px solid ${C.border}`,
+        padding: '11px 28px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        backdropFilter: 'blur(12px)',
+        position: 'sticky', top: 0, zIndex: 100,
+        boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 13, color: '#6b7280', fontFamily: 'JetBrains Mono, monospace' }}>Dernière mise à jour :</div>
-          <div style={{ fontSize: 13, color: '#d1d5db', fontFamily: 'JetBrains Mono, monospace' }}>{lastRefresh ? fmtDateTime(lastRefresh) : '—'}</div>
-          <button onClick={fetchLive} disabled={refreshing} title="Rafraîchir" style={{ background: 'none', border: 'none', cursor: 'pointer', color: refreshing ? '#4b5563' : '#7c3aed', fontSize: 18, animation: refreshing ? 'spin 1s linear infinite' : 'none', padding: 4 }}>⟳</button>
+          <div style={{ fontSize: 13, color: C.text3, fontFamily: 'JetBrains Mono, monospace' }}>Dernière mise à jour :</div>
+          <div style={{ fontSize: 13, color: C.text, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600 }}>{lastRefresh ? fmtDateTime(lastRefresh) : '—'}</div>
+          <button
+            onClick={fetchLive}
+            disabled={refreshing}
+            title="Rafraîchir"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: refreshing ? C.text3 : C.orange, fontSize: 18, animation: refreshing ? 'spin 1s linear infinite' : 'none', padding: 4 }}
+          >⟳</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {summary.total_offered > 0 && <>
-            <span style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'JetBrains Mono, monospace' }}>{summary.total_queues || 0} files actives</span>
-            <span style={{ color: '#374151' }}>|</span>
-            <span style={{ fontSize: 12, color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>{summary.compliant_queues || 0} conformes</span>
-            <span style={{ color: '#374151' }}>|</span>
+            <span style={{ fontSize: 12, color: C.text3, fontFamily: 'JetBrains Mono, monospace' }}>{summary.total_queues || 0} files actives</span>
+            <span style={{ color: C.border }}>|</span>
+            <span style={{ fontSize: 12, color: C.success, fontFamily: 'JetBrains Mono, monospace' }}>{summary.compliant_queues || 0} conformes</span>
+            <span style={{ color: C.border }}>|</span>
           </>}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 20, padding: '6px 16px' }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981', animation: 'pulse-ring 1.5s ease-out infinite' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#10b981', letterSpacing: '0.05em' }}>Live Monitoring</span>
-            <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'JetBrains Mono, monospace' }}>{fmtDateTime(now).split(' ')[1]}</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(26,122,74,0.08)',
+            border: `1px solid rgba(26,122,74,0.3)`,
+            borderRadius: 20, padding: '6px 16px',
+          }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: C.success, boxShadow: `0 0 6px ${C.success}`, animation: 'pulse-ring 1.5s ease-out infinite' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.success, letterSpacing: '0.05em' }}>Live Monitoring</span>
+            <span style={{ fontSize: 12, color: C.text3, fontFamily: 'JetBrains Mono, monospace' }}>{fmtDateTime(now).split(' ')[1]}</span>
           </div>
         </div>
       </div>
 
-      {/* Tab Switcher */}
+      {/* ── Tab Switcher ── */}
       <div style={{ padding: '20px 28px 0', maxWidth: 1400, margin: '0 auto' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 24 }}>
+        <div style={{
+          display: 'flex', gap: 4,
+          background: C.surface2,
+          borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 24,
+        }}>
           {[{ id: 'live', label: '📡 Temps Réel' }, { id: 'historical', label: '📊 Historique' }].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-              padding: '9px 24px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 700, fontFamily: 'Syne, sans-serif',
-              background: activeTab === tab.id ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : 'transparent',
-              color: activeTab === tab.id ? 'white' : '#6b7280',
-              transition: 'all 0.2s',
-              boxShadow: activeTab === tab.id ? '0 4px 14px rgba(124,58,237,0.4)' : 'none',
-            }}>{tab.label}</button>
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '9px 24px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 700, fontFamily: 'Syne, sans-serif',
+                background: activeTab === tab.id
+                  ? `linear-gradient(135deg, ${C.orange}, ${C.blue})`
+                  : 'transparent',
+                color: activeTab === tab.id ? 'white' : C.text3,
+                transition: 'all 0.2s',
+                boxShadow: activeTab === tab.id ? `0 4px 14px rgba(232,98,26,0.3)` : 'none',
+              }}
+            >{tab.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div style={{ padding: '0 28px 28px', maxWidth: 1400, margin: '0 auto' }}>
         {activeTab === 'live' && (
           <>
             {liveLoading && (
-              <div style={{ textAlign: 'center', padding: '80px 0', color: '#6b7280' }}>
-                <div style={{ fontSize: 32, marginBottom: 16, animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</div>
+              <div style={{ textAlign: 'center', padding: '80px 0', color: C.text3 }}>
+                <div style={{ fontSize: 32, marginBottom: 16, animation: 'spin 1s linear infinite', display: 'inline-block', color: C.orange }}>⟳</div>
                 <div style={{ fontSize: 14 }}>Chargement des données temps réel...</div>
               </div>
             )}
             {liveError && (
-              <div style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: 12, padding: '20px 24px', color: '#f43f5e', marginBottom: 20 }}>
+              <div style={{ background: C.dangerPale, border: `1px solid rgba(192,57,43,0.3)`, borderRadius: 12, padding: '20px 24px', color: C.danger, marginBottom: 20 }}>
                 ✕ Erreur : {liveError}
-                <button onClick={fetchLive} style={{ marginLeft: 16, color: '#f43f5e', background: 'none', border: '1px solid #f43f5e44', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}>Réessayer</button>
+                <button
+                  onClick={fetchLive}
+                  style={{ marginLeft: 16, color: C.danger, background: 'none', border: `1px solid rgba(192,57,43,0.4)`, borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 12 }}
+                >Réessayer</button>
               </div>
             )}
             {!liveLoading && !liveError && accountList.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '80px 0', color: '#4b5563', animation: 'fadeIn 0.5s ease' }}>
+              <div style={{ textAlign: 'center', padding: '80px 0', color: C.text3, animation: 'fadeIn 0.5s ease' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>📡</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280', marginBottom: 8 }}>Aucune donnée temps réel</div>
-                <div style={{ fontSize: 13, color: '#4b5563' }}>Les données apparaîtront ici lorsque le système téléphonie sera connecté.</div>
-                <div style={{ fontSize: 12, color: '#374151', marginTop: 8, fontFamily: 'JetBrains Mono, monospace' }}>Rafraîchissement automatique toutes les 15 min</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.text2, marginBottom: 8 }}>Aucune donnée temps réel</div>
+                <div style={{ fontSize: 13, color: C.text3 }}>Les données apparaîtront ici lorsque le système téléphonie sera connecté.</div>
+                <div style={{ fontSize: 12, color: C.borderMid, marginTop: 8, fontFamily: 'JetBrains Mono, monospace' }}>Rafraîchissement automatique toutes les 15 min</div>
               </div>
             )}
             {!liveLoading && accountList.length > 0 && (

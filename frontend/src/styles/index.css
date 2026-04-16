@@ -2,33 +2,34 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
 :root {
-  --bg: #f5f4f2;
+  --bg: #f6f5f3;
   --surface: #ffffff;
-  --surface2: #f0eeeb;
-  --surface3: #e8e5e0;
+  --surface2: #f1efed;
+  --surface3: #e9e6e2;
 
-  /* ── DXC Brand Colors ── */
-  --orange: #E8651A;        /* DXC orange */
-  --orange-light: #F07040;
-  --orange-bright: #F5944f;
-  --accent: #d4501a;
+  /* ── DXC Brand Colors — logo gradient ── */
+  /* Orange side: warm coral-orange from the DXC logo center */
+  --orange: #E8701A;        /* DXC primary orange */
+  --orange-light: #F08840;
+  --orange-bright: #F5A050;
+  --accent: #C85A10;        /* darker orange for hover/active */
 
-  /* DXC Purple/Blue gradient side */
-  --blue: #6B7FD4;          /* DXC blue-purple */
-  --blue-light: #8B9FE8;
-  --cyan: #5B8FD4;
+  /* Blue side: blue-purple from the DXC logo edges */
+  --blue: #7B8FD8;          /* DXC blue-purple */
+  --blue-light: #9AAFE8;
+  --cyan: #6A80C8;
 
   /* Semantic */
-  --green: #27AE60;         /* conformité */
-  --red: #E74C3C;           /* infraction */
-  --purple: #8E44AD;        /* badges/charts violet */
-  --amber: #D68910;
+  --green: #2E9E6E;         /* conformité — distinct teal-green */
+  --red: #C84A1A;           /* infraction — DXC orange-red */
+  --purple: #7B8FD8;        /* badges/charts — DXC blue side */
+  --amber: #D4880A;
 
-  --text: #1a1a1a;
-  --muted: #6b6460;
-  --border: rgba(232,101,26,0.18);
-  --border2: rgba(107,127,212,0.15);
-  --glow: rgba(232,101,26,0.08);
+  --text: #1a1916;
+  --muted: #72706a;
+  --border: rgba(232,112,26,0.16);
+  --border2: rgba(123,143,216,0.15);
+  --glow: rgba(232,112,26,0.07);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -60,10 +61,10 @@ body {
 .logo { display: flex; align-items: center; gap: 12px; }
 .logo-icon {
   width: 39px; height: 38px; border-radius: 9px;
-  background: linear-gradient(141deg, var(--orange), var(--accent));
+  background: linear-gradient(141deg, var(--blue), var(--orange), var(--blue));
   display: flex; align-items: center; justify-content: center;
   font-size: 10px; font-weight: 800; color: white;
-  box-shadow: 0 2px 10px rgba(232,101,26,0.3);
+  box-shadow: 0 2px 12px rgba(232,112,26,0.28);
 }
 .logo-title { font-size: 15px; font-weight: 700; color: var(--text); }
 .logo-sub { font-size: 10px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
@@ -83,12 +84,12 @@ body {
 .ctrl-select option { background: var(--surface); color: var(--text); }
 
 .btn-refresh {
-  background: linear-gradient(135deg, var(--orange), var(--accent));
+  background: linear-gradient(135deg, var(--blue), var(--orange));
   border: none; border-radius: 7px; padding: 7px 14px;
   color: white; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
-  cursor: pointer; box-shadow: 0 2px 10px rgba(232,101,26,0.3); transition: all 0.2s;
+  cursor: pointer; box-shadow: 0 2px 10px rgba(123,143,216,0.3); transition: all 0.2s;
 }
-.btn-refresh:hover { box-shadow: 0 4px 18px rgba(232,101,26,0.45); }
+.btn-refresh:hover { box-shadow: 0 4px 18px rgba(232,112,26,0.4); }
 .btn-refresh.refreshing { opacity: 0.7; cursor: wait; }
 
 .status-bar { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
@@ -247,12 +248,12 @@ body {
 }
 
 .mode-btn--active {
-  background: linear-gradient(135deg, var(--orange), var(--accent));
+  background: linear-gradient(135deg, var(--blue), var(--orange));
   color: #fff;
-  box-shadow: 0 2px 10px rgba(232,101,26,0.3);
+  box-shadow: 0 2px 10px rgba(123,143,216,0.3);
 }
 
 .mode-btn--live.mode-btn--active {
-  background: linear-gradient(135deg, #c0392b, #a93226);
-  box-shadow: 0 2px 10px rgba(192,57,43,0.35);
+  background: linear-gradient(135deg, #7B8FD8, #C84A1A);
+  box-shadow: 0 2px 10px rgba(200,74,26,0.35);
 }
