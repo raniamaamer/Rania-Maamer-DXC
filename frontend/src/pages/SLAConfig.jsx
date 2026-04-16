@@ -148,7 +148,7 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
     timeframe_bh:     initial?.timeframe_bh ?? 40,
     ooh:              initial?.ooh          ?? 40,
     target_ans_rate:  initial?.target_ans_rate != null
-      ? initial.ans_sla === 'ASA'
+      ? normalizeFormula(initial?.ans_sla || '') === 'ASA'
         // ── ASA : stocker la valeur brute en secondes ──
         ? String(initial.target_ans_rate)
         // ── SLA classique : afficher en % ──

@@ -556,14 +556,28 @@ class SLAConfigDetailView(APIView):
             return Response({'error': 'Introuvable'}, status=404)
         data = request.data
         try:
-            obj.account         = (data.get('account') or obj.account).strip()
-            obj.timeframe_bh    = int(data.get('timeframe_bh') or obj.timeframe_bh)
-            obj.ooh             = int(data.get('ooh') or obj.ooh)
-            obj.target_ans_rate = _parse_rate(data.get('target_ans_rate'), fallback=obj.target_ans_rate)
-            obj.target_abd_rate = _parse_rate(data.get('target_abd_rate'), fallback=obj.target_abd_rate)
-            obj.ans_sla         = (data.get('ans_sla') or obj.ans_sla or '').strip()
-            obj.abd_sla         = (data.get('abd_sla') or obj.abd_sla or '').strip()
-            obj.target_other_rate = _parse_rate(data.get('target_other_rate'), fallback=obj.target_other_rate)
+            obj.account      = (data.get('account') or obj.account).strip()
+            obj.timeframe_bh = int(data.get('timeframe_bh') or obj.timeframe_bh)
+            obj.ooh          = int(data.get('ooh') or obj.ooh)
+
+            # ✅ Fix: utiliser 'in data' pour détecter la clé même si la valeur est null
+            # data.get() retourne None si la clé est absente ET si la valeur est null (JSON null)
+            # 'key in data' distingue ces deux cas → évite de bloquer la mise à jour à null
+            if 'target_ans_rate' in data:
+                obj.target_ans_rate = _parse_rate(data['target_ans_rate'], fallback=obj.target_ans_rate)
+
+            if 'target_abd_rate' in data:
+                obj.target_abd_rate = _parse_rate(data['target_abd_rate'], fallback=obj.target_abd_rate)
+
+            if 'target_other_rate' in data:
+                obj.target_other_rate = _parse_rate(data['target_other_rate'], fallback=obj.target_other_rate)
+
+            # ✅ Fix: sauvegarder même si la formule est '' (l'user a effacé)
+            if 'ans_sla' in data:
+                obj.ans_sla = (data['ans_sla'] or '').strip() or None
+            if 'abd_sla' in data:
+                obj.abd_sla = (data['abd_sla'] or '').strip() or None
+
             obj.save()
             return Response(SLAConfigSerializer(obj).data)
         except (ValueError, TypeError) as e:
