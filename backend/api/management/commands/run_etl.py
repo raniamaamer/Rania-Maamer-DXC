@@ -801,7 +801,7 @@ class Command(BaseCommand):
                         return d
                 ta = sf(row.get("target_ans_rate"))
                 td = sf(row.get("target_abd_rate"))
-                _, _ = SLAConfig.objects.get_or_create(
+                obj, created = SLAConfig.objects.get_or_create(
                     account=acc,
                     defaults={
                         "ans_rate_formula": str(row.get("ans_rate_formula") or "") or None,
