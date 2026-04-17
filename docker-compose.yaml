@@ -23,6 +23,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend/src
+        - action: rebuild
+          path: ./frontend/public
 
   # ── Backend Django ───────────────────────────────────────────
   backend:
@@ -54,6 +60,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend
+          ignore:
+            - ./backend/__pycache__
+            - ./backend/*.pyc
 
   # ── Base de données PostgreSQL ───────────────────────────────
   db:

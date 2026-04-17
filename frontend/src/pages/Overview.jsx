@@ -66,7 +66,7 @@ const customLegendPlugin = {
     const items = [
       { label: 'Au-dessus objectif', box: 'rgba(59,106,200,0.8)', txt: DXC.blue },
       { label: 'Sous objectif',      box: 'rgba(217,64,64,0.85)', txt: DXC.red },
-      { label: '— Objectif',         box: null, txt: DXC.amber, isDash: true },
+      { label: '— Objectif',         box: null, txt: DXC.orangeLight, isDash: true },
     ]
     const gap = 20, boxW = 12
     let totalW = 0
