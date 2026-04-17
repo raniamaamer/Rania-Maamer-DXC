@@ -28,7 +28,7 @@ pipeline {
         stage('Backend - Tests Django') {
             steps {
                 dir('backend') {
-                    bat "%PYTHON% manage.py test"
+                    bat "%PYTHON% -m pytest --cov=. --cov-report=xml:coverage.xml --ds=dxc_backend.settings"
                 }
             }
         }
@@ -61,7 +61,9 @@ pipeline {
                             "${scannerHome}\\bin\\sonar-scanner" ^
                             -Dsonar.projectKey=Rania-Maamer-DXC ^
                             -Dsonar.sources=backend ^
+                            -Dsonar.exclusions=backend/staticfiles/** ^
                             -Dsonar.python.version=3.9 ^
+                            -Dsonar.python.coverage.reportPaths=backend/coverage.xml ^
                             -Dsonar.host.url=%SONAR_HOST_URL% ^
                             -Dsonar.token=%SONAR_TOKEN%
                             """
@@ -88,7 +90,6 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
-                // ✅ CORRECTION : copier le .env racine vers backend/ avant docker-compose
                 bat "copy .env backend\\.env"
                 bat """
                 docker stop frontend backend db prometheus grafana postgres-exporter 2>nul
