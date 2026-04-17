@@ -88,6 +88,8 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
+                // ✅ CORRECTION : copier le .env racine vers backend/ avant docker-compose
+                bat "copy .env backend\\.env"
                 bat """
                 docker stop frontend backend db prometheus grafana postgres-exporter 2>nul
                 docker rm -f frontend backend db prometheus grafana postgres-exporter 2>nul
@@ -138,7 +140,6 @@ pipeline {
         failure {
             echo 'Pipeline échoué ❌'
             script {
-                // Détecter quelle étape a échoué
                 def failedStage = env.STAGE_NAME ?: 'Inconnue'
                 def failureSource = ''
                 def failureDetails = ''
