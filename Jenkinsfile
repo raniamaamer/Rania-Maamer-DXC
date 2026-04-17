@@ -61,6 +61,7 @@ pipeline {
                             "${scannerHome}\\bin\\sonar-scanner" ^
                             -Dsonar.projectKey=Rania-Maamer-DXC ^
                             -Dsonar.sources=backend ^
+                            -Dsonar.exclusions=backend/staticfiles/** ^
                             -Dsonar.python.version=3.9 ^
                             -Dsonar.host.url=%SONAR_HOST_URL% ^
                             -Dsonar.token=%SONAR_TOKEN%
