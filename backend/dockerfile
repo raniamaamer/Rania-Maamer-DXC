@@ -6,15 +6,19 @@ ENV PYTHONPATH="/app"
 
 WORKDIR /app
 
-# ── Upgrade pip + toutes les dépendances en une seule couche ──────
+# ── Upgrade pip ───────────────────────────────────────────────────
+RUN pip install --upgrade pip
+
+# ── Librairies lourdes en premier (couche cachée) ─────────────────
+RUN pip install --no-cache-dir \
+    numpy==1.26.4 \
+    pandas==2.2.2 \
+    matplotlib==3.8.4 \
+    seaborn==0.13.2
+
+# ── Reste des dépendances ─────────────────────────────────────────
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir \
-        numpy==1.26.4 \
-        pandas==2.2.2 \
-        matplotlib==3.8.4 \
-        seaborn==0.13.2 && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # ── Code source ───────────────────────────────────────────────────
 COPY backend/ .
