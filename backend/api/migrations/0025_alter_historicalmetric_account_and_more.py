@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+DESK_HELP_TEXT = 'Desk logique (depuis SLA.xlsx Sheet1 colonne Desk)'
+
 
 class Migration(migrations.Migration):
 
@@ -23,7 +25,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='historicalmetric',
             name='desk',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='Desk logique (depuis SLA.xlsx Sheet1 colonne Desk)', max_length=200),
+            field=models.CharField(blank=True, db_index=True, default='', help_text=DESK_HELP_TEXT, max_length=200),
         ),
         migrations.AlterField(
             model_name='historicalmetric',
@@ -48,7 +50,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='queuemetric',
             name='desk',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='Desk logique (depuis SLA.xlsx Sheet1 colonne Desk)', max_length=200),
+            field=models.CharField(blank=True, db_index=True, default='', help_text=DESK_HELP_TEXT, max_length=200),
         ),
         migrations.AlterField(
             model_name='queuemetric',
@@ -68,7 +70,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='realtimemetric',
             name='desk',
-            field=models.CharField(blank=True, db_index=True, default='', help_text='Desk logique (depuis SLA.xlsx Sheet1 colonne Desk)', max_length=200),
+            field=models.CharField(blank=True, db_index=True, default='', help_text=DESK_HELP_TEXT, max_length=200),
         ),
         migrations.AlterField(
             model_name='realtimemetric',
