@@ -126,14 +126,16 @@ services:
 
   # ── PostgreSQL Exporter — métriques base de données ─────────
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: postgres-exporter
-    environment:
-      DATA_SOURCE_NAME: "postgresql://postgres:20010430@db:5432/dxc_kpi_db?sslmode=disable"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+      image: prometheuscommunity/postgres-exporter:latest
+      container_name: postgres-exporter
+      env_file:
+        - ./backend/.env
+      environment:
+        DATA_SOURCE_NAME: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+      depends_on:
+        db:
+          condition: service_healthy
+      restart: unless-stopped
 
   # ── SonarQube — analyse qualité du code ─────────────────────
   sonarqube:
