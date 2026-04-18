@@ -89,11 +89,8 @@ pipeline {
         }
 
         stage('Docker - Run') {
-            options { timeout(time: 5, unit: 'MINUTES') }
             steps {
-                withCredentials([file(credentialsId: 'env-file', variable: 'ENV_FILE')]) {
-                    bat "copy %ENV_FILE% backend\\.env"
-                }
+                bat "copy .env backend\\.env"
                 bat """
                 docker stop frontend backend db prometheus grafana postgres-exporter 2>nul
                 docker rm -f frontend backend db prometheus grafana postgres-exporter 2>nul
