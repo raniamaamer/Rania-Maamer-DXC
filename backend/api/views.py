@@ -68,6 +68,22 @@ _ABD4_ACCOUNTS = {'saipem', 'sonova', 'servier'}
 _ABD5_ACCOUNTS = {'el store', 'luxottica'}
 
 
+FORMULA_MAP = {
+    'SLA1':       'Ans in SLA /(offered-Abd in SLA)',
+    'SLA1(30sec)':'Answ 30"',
+    'SLA1(45sec)':'Answ 45"',
+    'SLA1(90sec)':'Answ 90"',
+    'SLA2':       'Ans in SLA /Answered',
+    'SLA3':       '1-Ans out SLA/(offered-Abd in 60)',
+    'ASA':        'ASA',
+    'Abd1':       '1-(Abd out SLA/(offered))',
+    'Abd2':       'Abd out SLA/(offered-Abd in SLA)',
+    'Abd3':       'Abd out SLA/Answered',
+    'Abd4':       'Abd out SLA/Offered',
+    'Abd5':       '1-Abd out 60 sec/(offered-Abd in SLA)',
+}
+
+
 def _recalc_sla_for_account(acc_name, ans_in_sla, abd_in_sla, ans_out_sla,
                              offered, answered, abd_in_60=0, avg_answer_time=0):
     name    = str(acc_name).lower()
@@ -527,17 +543,21 @@ class SLAConfigView(APIView):
         if not account:
             return Response({'error': 'account is required'}, status=400)
         try:
-            obj, created = SLAConfig.objects.update_or_create(  # pylint: disable=no-member
+            ans_sla_code = (data.get('ans_sla') or '').strip()
+            abd_sla_code = (data.get('abd_sla') or '').strip()
+
+            obj, created = SLAConfig.objects.update_or_create(
                 account=account,
                 defaults={
                     'timeframe_bh':      int(data.get('timeframe_bh') or 40),
                     'ooh':               int(data.get('ooh') or data.get('timeframe_bh') or 40),
                     'target_ans_rate':   _parse_rate(data.get('target_ans_rate')),
                     'target_abd_rate':   _parse_rate(data.get('target_abd_rate')),
-                    'ans_sla':           (data.get('ans_sla') or '').strip(),
-                    'abd_sla':           (data.get('abd_sla') or '').strip(),
-                    # ── Nouveau : 3ème formule ────────────────────────────
                     'target_other_rate': _parse_rate(data.get('target_other_rate')),
+                    'ans_sla':           ans_sla_code or None,
+                    'abd_sla':           abd_sla_code or None,
+                    'ans_rate_formula':  FORMULA_MAP.get(ans_sla_code, ''),
+                    'abd_rate_formula':  FORMULA_MAP.get(abd_sla_code, ''),
                 }
             )
             return Response(SLAConfigSerializer(obj).data, status=201 if created else 200)
@@ -556,27 +576,24 @@ class SLAConfigDetailView(APIView):
             return Response({'error': 'Introuvable'}, status=404)
         data = request.data
         try:
-            obj.account      = (data.get('account') or obj.account).strip()
             obj.timeframe_bh = int(data.get('timeframe_bh') or obj.timeframe_bh)
             obj.ooh          = int(data.get('ooh') or obj.ooh)
 
-            # ✅ Fix: utiliser 'in data' pour détecter la clé même si la valeur est null
-            # data.get() retourne None si la clé est absente ET si la valeur est null (JSON null)
-            # 'key in data' distingue ces deux cas → évite de bloquer la mise à jour à null
             if 'target_ans_rate' in data:
                 obj.target_ans_rate = _parse_rate(data['target_ans_rate'], fallback=obj.target_ans_rate)
-
             if 'target_abd_rate' in data:
                 obj.target_abd_rate = _parse_rate(data['target_abd_rate'], fallback=obj.target_abd_rate)
-
             if 'target_other_rate' in data:
                 obj.target_other_rate = _parse_rate(data['target_other_rate'], fallback=obj.target_other_rate)
 
-            # ✅ Fix: sauvegarder même si la formule est '' (l'user a effacé)
             if 'ans_sla' in data:
-                obj.ans_sla = (data['ans_sla'] or '').strip() or None
+                ans_sla_code = (data['ans_sla'] or '').strip()
+                obj.ans_sla = ans_sla_code or None
+                obj.ans_rate_formula = FORMULA_MAP.get(ans_sla_code, obj.ans_rate_formula or '')
             if 'abd_sla' in data:
-                obj.abd_sla = (data['abd_sla'] or '').strip() or None
+                abd_sla_code = (data['abd_sla'] or '').strip()
+                obj.abd_sla = abd_sla_code or None
+                obj.abd_rate_formula = FORMULA_MAP.get(abd_sla_code, obj.abd_rate_formula or '')
 
             obj.save()
             return Response(SLAConfigSerializer(obj).data)
