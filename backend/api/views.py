@@ -556,8 +556,8 @@ class SLAConfigView(APIView):
                     'target_other_rate': _parse_rate(data.get('target_other_rate')),
                     'ans_sla':           ans_sla_code or None,
                     'abd_sla':           abd_sla_code or None,
-                    'ans_rate_formula':  FORMULA_MAP.get(ans_sla_code, ''),
-                    'abd_rate_formula':  FORMULA_MAP.get(abd_sla_code, ''),
+                    'ans_rate_formula':  FORMULA_MAP.get(ans_sla_code) if ans_sla_code else None,
+                    'abd_rate_formula':  FORMULA_MAP.get(abd_sla_code) if abd_sla_code else None,
                 }
             )
             return Response(SLAConfigSerializer(obj).data, status=201 if created else 200)
@@ -589,11 +589,13 @@ class SLAConfigDetailView(APIView):
             if 'ans_sla' in data:
                 ans_sla_code = (data['ans_sla'] or '').strip()
                 obj.ans_sla = ans_sla_code or None
-                obj.ans_rate_formula = FORMULA_MAP.get(ans_sla_code, obj.ans_rate_formula or '')
+                obj.ans_rate_formula = FORMULA_MAP.get(ans_sla_code) if ans_sla_code else obj.ans_rate_formula
+
             if 'abd_sla' in data:
                 abd_sla_code = (data['abd_sla'] or '').strip()
                 obj.abd_sla = abd_sla_code or None
-                obj.abd_rate_formula = FORMULA_MAP.get(abd_sla_code, obj.abd_rate_formula or '')
+                obj.abd_rate_formula = FORMULA_MAP.get(abd_sla_code) if abd_sla_code else obj.abd_rate_formula
+
 
             obj.save()
             return Response(SLAConfigSerializer(obj).data)
