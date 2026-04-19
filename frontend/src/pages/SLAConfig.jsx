@@ -150,6 +150,13 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
     else if (form.ans_sla === 'ASA') set('target_ans_rate', '')
   }
 
+  function getCookie(name) {
+    const value = `; ${document.cookie}`
+    const parts = value.split(`; ${name}=`)
+    if (parts.length === 2) return parts.pop().split(';').shift()
+    return ''
+  }
+
   async function submit() {
     if (!isDel && !form.account.trim()) { setErr('Le nom du compte est obligatoire'); return }
     setBusy(true); setErr(null)
@@ -166,7 +173,14 @@ function CRUDModal({ mode, initial, onClose, onSaved }) {
       }
       const url    = isEdit || isDel ? `${API}/sla-config/${initial.id}/` : `${API}/sla-config/`
       const method = isDel ? 'DELETE' : isEdit ? 'PUT' : 'POST'
-      const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: method !== 'DELETE' ? JSON.stringify(body) : undefined })
+      const res    = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken'),  // ← ajout ici
+        },
+        body: method !== 'DELETE' ? JSON.stringify(body) : undefined
+      })
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(JSON.stringify(d)) }
       onSaved()
     } catch (e) {
