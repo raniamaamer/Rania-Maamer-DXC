@@ -105,9 +105,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── INTERNATIONALISATION ─────────────────────────────────────────────────────
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'Europe/Paris'
+TIME_ZONE = 'Africa/Tunis'
 USE_I18N = True
-USE_TZ = False
+USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
