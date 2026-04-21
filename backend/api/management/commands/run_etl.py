@@ -8,6 +8,7 @@ from api.models import (
     HistoricalMetric, AccountSummary, SLAConfig,
     HourlyTrend, DailySnapshot,
 )
+
 # ── Mapping queue → account ────────────────────────────────────────────────
 ACCOUNT_KEYWORDS = {
     "viatris":        "Viatris",
@@ -30,6 +31,7 @@ ACCOUNT_KEYWORDS = {
     "german_queue":   "GF",
     "datwayler":      "Datwayler",
 }
+
 DESK_TO_QUEUES = {
     "Viatris ARABIC": ["Mylan ARABIC"],
     "Viatris Russia": ["Mylan Russia"],
@@ -104,6 +106,7 @@ DESK_TO_QUEUES = {
                "XPO FR MFA Password", "XPO FR MFA Password OOH"],
     "Basrah Gas EN": ["Basrah Gas EN"],
 }
+
 ANS_COL_BY_TF = {
     20: "Contacts answered in 20 seconds",
     30: "Contacts answered in 30 seconds",
@@ -120,12 +123,130 @@ ABD_COL_BY_TF = {
     60: "Contacts abandoned in 60 seconds",
     90: "Contacts abandoned in 90 seconds",
 }
+
+# ── SLA / ABD account keyword sets ────────────────────────────────────────
+SLA3_ACC = {'luxottica'}
+SLA2_ACC = {'gf', 'dxc it', 'dxc', 'hpe', 'saipem'}
+ABD5_ACC = {'luxottica'}
+ABD4_ACC = {'saipem', 'sonova', 'servier'}
+ABD3_ACC = {'gf'}
+ABD2_ACC = {'mylan', 'viatris', 'xpo', 'dxc', 'hpe', 'spm', 'basrah', 'philips', 'sony'}
+ABD1_ACC = {'renault', 'nissan', 'benelux'}
+
+# ── Queue CSV → desk dashboard mapping ────────────────────────────────────
+QUEUE_TO_DESK = {
+    "EL Store ARB": "Luxottica ARB", "EL Store EN": "Luxottica EN",
+    "EL Store FR":  "Luxottica FR",  "EL Store DE": "Luxottica DE",
+    "EL Store IT":  "Luxottica IT",  "EL Store PT": "Luxottica PT",
+    "EL Store ES":  "Luxottica ES",  "EL Store TR": "Luxottica TR",
+    "Mylan ARABIC":        "Viatris ARABIC",  "Mylan Russia":        "Viatris Russia",
+    "Mylan Turkey":        "Viatris Turkey",  "Viatris - Dutch":     "Viatris DU",
+    "Viatris - French":    "viatris FR",    "Viatris - German":    "viatris Ger",
+    "Viatris - Hungarian": "viatris HU",    "Viatris - Italian":   "viatris IT",
+    "Viatris - Polish":    "viatris Pol",   "Viatris - Portuguese":"viatris Por",
+    "Viatris - Spanish":   "viatris SP",
+    "Benelux_Dutch_Queue":             "Benelux DU",
+    "Benelux_ENG_Queue":               "Benelux ENG",
+    "Benelux_French_Queue":            "Benelux FR",
+    "RN_CH_AT_FR":                     "CH_AT_FR",
+    "RN_CH_AT_GER":                    "CH_AT_GER",
+    "German_Queue":                    "Ren German",
+    "RN_GSD_Eng_Queue":                "Renault Eng",
+    "RN_Ligne_Rouge VIP":              "Renault FR",
+    "RN_Importeurs":                   "Renault FR",
+    "Renault_Catalogue_Opt7_Q":        "Renault FR",
+    "Renault_bureautique_Opt5_Q":      "Renault FR",
+    "Renault_industriels_Opt2_Q":      "Renault FR",
+    "Renault_ivr_Appl_metier_Q":       "Renault FR",
+    "Renault_materiel_Opt4_Q":         "Renault FR",
+    "Renault_p_ivr_pwd_Tel_srv_1.2_Q": "Renault FR",
+    "Renault_pda_palm_Opt3_Q":         "Renault FR",
+    "Renault_select_Opt0_Q":           "Renault FR",
+    "RN_Spain_Normal_Queue":           "Renault SP",
+    "RN_Spain_VIP_Queue":              "Renault SP",
+    "Renault UK":                      "Renault UK",
+    "Renault UK Dealers":              "Renault UK Dealers",
+    "Nestle DE CBA":    "Nestle DE",  "Nestle DE Other":  "Nestle DE",
+    "Nestle DE PW":     "Nestle DE",  "Nestle DE Status": "Nestle DE",
+    "Nestle ES CBA":    "Nestle ES",  "Nestle ES Other":  "Nestle ES",
+    "Nestle ES PW":     "Nestle ES",  "Nestle ES Status": "Nestle ES",
+    "Nestle FR CBA":    "Nestle FR",  "Nestle FR Other":  "Nestle FR",
+    "Nestle FR PW":     "Nestle FR",  "Nestle FR Status": "Nestle FR",
+    "Nestle NL Other":  "Nestle NL",  "Nestle NL PW":     "Nestle NL",
+    "Nestle PT CBA":    "Nestle Por", "Nestle PT NB":     "Nestle Por",
+    "Nestle PT Other":  "Nestle Por", "Nestle PT PW":     "Nestle Por",
+    "Nestle PT Status": "Nestle Por",
+    "Sony Spanish Existing Issues": "Sony SP",
+    "Sony Spanish New Issues":      "Sony SP",
+    "Servier English":         "Servier English",
+    "Servier French":          "Servier French",
+    "Servier French Password": "Servier French Password",
+    "Servier Spanish":         "Servier Spanish",
+    "Nissan DU OF 2":          "Nissan DU",  "Nissan DU SHFL 1":        "Nissan DU",
+    "Nissan DU SHFL 2":        "Nissan DU",  "Nissan DLR DU Opt 1":     "Nissan DU",
+    "Nissan DLR DU Opt 2":     "Nissan DU",
+    "Nissan FR App":           "Nissan FR",  "Nissan FR Existing":      "Nissan FR",
+    "Nissan FR HW":            "Nissan FR",  "Nissan FR Other":         "Nissan FR",
+    "Nissan FR PW":            "Nissan FR",
+    "Nissan DE":               "Nissan Ger",
+    "Nissan IT App":           "Nissan IT",  "Nissan IT Existing":      "Nissan IT",
+    "Nissan IT HW":            "Nissan IT",  "Nissan IT Other":         "Nissan IT",
+    "Nissan IT PW":            "Nissan IT",
+    "Nissan DLR IT Existing":  "Nissan IT",  "Nissan DLR IT New":       "Nissan IT",
+    "Nissan NMEF - Hardware Issue": "Nissan NMEF",
+    "Nissan NMEF - Other":          "Nissan NMEF",
+    "Nissan NMEF - Password":       "Nissan NMEF",
+    "Nissan SP OF Existing":   "Nissan SP",  "Nissan SP OF New":        "Nissan SP",
+    "Nissan SP SHFL Existing": "Nissan SP",  "Nissan SP SHFL New":      "Nissan SP",
+    "Nissan DLR SP Existing":  "Nissan SP",  "Nissan DLR SP New":       "Nissan SP",
+    "GF German":              "GF German",   "GF German CBA":          "GF German",
+    "GF Italian":             "GF Italian",  "GF Italian CBA":         "GF Italian",
+    "ConnectChat_GF_German":  "GF Chat Ger", "ConnectChat_GF_Italian": "GF Chat ITA",
+    "SPM FR QUEUE":      "Saipem FR",   "SPM IT QUEUE":      "Saipem IT",
+    "SPM It MyHR QUEUE": "Saipem ITMyHR",
+    "Sonova_Dutch_Other":      "Sonova DU",  "Sonova_Dutch_Shop":       "Sonova DU",
+    "Sonova_English_Other":    "Sonova Eng", "Sonova_English_Shop":     "Sonova Eng",
+    "Sonova_Priority":         "Sonova Eng",
+    "Sonova_French_Other":     "Sonova FR",  "Sonova_French_Shop":      "Sonova FR",
+    "Sonova_German_Other":     "Sonova Ger", "Sonova_German_Shop":      "Sonova Ger",
+    "Sonova_Italy_Other":      "Sonova IT",  "Sonova_Italy_Shop":       "Sonova IT",
+    "Sonova_Portuguese_Other": "Sonova Por", "Sonova_Portuguese_Shop":  "Sonova Por",
+    "Sonova_Spanish_Other":    "Sonova SP",  "Sonova_Mexico_Other":     "Sonova SP",
+    "Sonova_Mexico_Shop":      "Sonova SP",
+    "XPO ES All Other Issues": "XPO ES", "XPO ES Default":          "XPO ES",
+    "XPO ES MFA Password":     "XPO ES",
+    "XPO FR All Other Issues": "XPO FR", "XPO FR Default":          "XPO FR",
+    "XPO FR Default OOH":      "XPO FR", "XPO FR MFA Password":     "XPO FR",
+    "XPO FR MFA Password OOH": "XPO FR",
+    "Basrah Gas EN": "Basrah Gas EN",
+}
+
+
+# ── Shared scalar helpers (module-level, not defined in loops) ─────────────
+def _safe_float(v, default=0.0):
+    try:
+        r = float(v)
+        return default if pd.isna(r) else r
+    except Exception:
+        return default
+
+
+def _safe_int(v, default=0):
+    try:
+        f = float(v)
+        return default if pd.isna(f) else int(f)
+    except Exception:
+        return default
+
+
 def extract_account(queue_name: str) -> str:
     q = queue_name.lower()
     for kw, acc in ACCOUNT_KEYWORDS.items():
         if q.startswith(kw) or f" {kw}" in q or f"_{kw}" in q:
             return acc
     return queue_name.split()[0].split("_")[0]
+
+
 def extract_language(queue_name: str) -> str:
     q = queue_name.strip().lower()
     EXACT = {
@@ -186,12 +307,15 @@ def extract_language(queue_name: str) -> str:
         if pat in q:
             return lang
     return ""
+
+
 def sec_to_mmss(s) -> str:
     try:
         s = int(round(float(s)))
         return f"{s // 60:02d}:{s % 60:02d}"
     except Exception:
         return "00:00"
+
 
 def load_sla_queue_level(sla_file: Path) -> pd.DataFrame:
     df = pd.read_excel(sla_file, sheet_name="Sheet1")
@@ -208,6 +332,7 @@ def load_sla_queue_level(sla_file: Path) -> pd.DataFrame:
             return n / 100 if n > 1 else n
         except Exception:
             return None
+
     df["target_ans_rate"] = df["Target Ans rate"].apply(clean_target)
     df["target_abd_rate"] = df["Target Abd rate"].apply(clean_target)
     df["timeframe_bh"]    = pd.to_numeric(df["Timeframe BH"],  errors="coerce").fillna(40).astype(int)
@@ -217,6 +342,7 @@ def load_sla_queue_level(sla_file: Path) -> pd.DataFrame:
     return df[["queue_name_norm", "account", "target_ans_rate", "target_abd_rate",
                "timeframe_bh", "timeframe_ooh"]]
 
+
 def load_sla_dataframe_raw(sla_file: Path) -> pd.DataFrame:
     df = pd.read_excel(sla_file)
     df.columns = df.columns.str.strip()
@@ -225,6 +351,7 @@ def load_sla_dataframe_raw(sla_file: Path) -> pd.DataFrame:
         lambda v: NRM.get(str(v).strip().lower(), str(v).strip()) if pd.notna(v) else None
     )
     df = df[df["account"].notna() & (df["account"] != "nan")].copy()
+
     def ct(val):
         if pd.isna(val):
             return None
@@ -251,6 +378,7 @@ def load_sla_dataframe_raw(sla_file: Path) -> pd.DataFrame:
             return d if pd.isna(f) else int(f)
         except Exception:
             return d
+
     df["target_ans_rate"]  = df["Target Ans rate"].apply(ct)
     df["target_abd_rate"]  = df["Target Abd rate"].apply(ct)
     df["timeframe_bh"]     = df["Timeframe BH"].apply(ctf)
@@ -278,6 +406,7 @@ def load_sla_dataframe_raw(sla_file: Path) -> pd.DataFrame:
          "ans_rate_formula": f3, "abd_rate_formula": f4},
     ])
     return pd.concat([base, extra], ignore_index=True)
+
 
 def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
     df = pd.read_excel(sla_file)
@@ -310,6 +439,7 @@ def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
             return int(float(str(val).replace('"', '').replace("sec", "").strip()))
         except Exception:
             return d
+
     df["_ta"]  = df["Target Ans rate"].apply(ct)
     df["_td"]  = df["Target Abd rate"].apply(ct)
     df["_tf"]  = df["Timeframe BH"].apply(ctf)
@@ -346,8 +476,11 @@ def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
         })
 
     return df.groupby("account", sort=False).apply(merge_dup).reset_index()
+
+
 class Command(BaseCommand):
     help = "ETL DXC v7 — charge Historical_Metrics_Report.csv → PostgreSQL"
+
     def add_arguments(self, parser):
         parser.add_argument("--step", default="all", choices=["extract", "transform", "load", "all"])
         parser.add_argument("--file", default=None)
@@ -375,6 +508,7 @@ class Command(BaseCommand):
 
     def log(self, msg):
         self.stdout.write(f"[ETL] {msg}")
+
     # ── EXTRACT ────────────────────────────────────────────────────────────
     def _extract(self, data_dir, custom_file=None):
         queue_file = Path(custom_file) if custom_file else data_dir / "Historical_Metrics_Report.csv"
@@ -402,68 +536,10 @@ class Command(BaseCommand):
             "Contacts put on hold":       "contacts_put_on_hold",
         }
         df = df.rename(columns=COLUMN_MAP)
-        # Nettoyage et conversion des colonnes hold (après rename)
-        for col in ['contacts_put_on_hold', 'avg_hold_time']:
-            if col in df.columns:
-                df[col] = (
-                    df[col]
-                    .astype(str)
-                    .str.replace(',', '.', regex=False)
-                    .str.strip()
-                    .replace('', '0')
-                    .pipe(pd.to_numeric, errors='coerce')
-                    .fillna(0)
-                )
-                # Convertir en int pour contacts_put_on_hold
-                if col == 'contacts_put_on_hold':
-                    df[col] = df[col].astype(int)
-
-        # DEBUG pour Mylan ARABIC - valeurs brutes
-        # Conversion robuste des colonnes hold
-        df['contacts_put_on_hold'] = (
-            df['contacts_put_on_hold']
-            .astype(str)
-            .str.replace(',', '.', regex=False)
-            .str.strip()
-            .replace('', '0')
-            .pipe(pd.to_numeric, errors='coerce')
-            .fillna(0)
-            .astype(int)
-        )
-        df['avg_hold_time'] = (
-            df['avg_hold_time']
-            .astype(str)
-            .str.replace(',', '.', regex=False)
-            .str.strip()
-            .replace('', '0')
-            .pipe(pd.to_numeric, errors='coerce')
-            .fillna(0.0)
-        )
-        mask = df['Queue'] == 'Mylan ARABIC'
-        if mask.any():
-            print("=== Après conversion : Mylan ARABIC ===")
-            print(df.loc[mask, ['Queue', 'contacts_put_on_hold', 'avg_hold_time']].head())
-        # Conversion robuste des colonnes hold
-        df['contacts_put_on_hold'] = pd.to_numeric(df['contacts_put_on_hold'], errors='coerce').fillna(0).astype(int)
-        df['avg_hold_time'] = pd.to_numeric(df['avg_hold_time'], errors='coerce').fillna(0.0)
-
-        # Ensuite vos prints de debug
-        print("=== DEBUG : colonnes hold ===")
-        print(df[['Queue', 'contacts_put_on_hold', 'avg_hold_time']].head(20))
-        print("Somme contacts_put_on_hold :", df['contacts_put_on_hold'].sum())
-        print("Somme avg_hold_time (non pondérée) :", df['avg_hold_time'].sum())
-        # Conversion robuste pour les colonnes hold
-        if 'contacts_put_on_hold' in df.columns:
-            df['contacts_put_on_hold'] = pd.to_numeric(df['contacts_put_on_hold'], errors='coerce').fillna(0).astype(int)
-        else:
-            df['contacts_put_on_hold'] = 0
-        if 'avg_hold_time' in df.columns:
-            df['avg_hold_time'] = pd.to_numeric(df['avg_hold_time'], errors='coerce').fillna(0.0)
-        else:
-            df['avg_hold_time'] = 0.0
+        df = self._clean_hold_columns(df)
         numeric_cols = [
             "offered", "answered", "abandoned", "avg_handle_time", "avg_answer_time",
-            "avg_hold_time", "callback_contacts","contacts_put_on_hold", "Agent interaction time",
+            "avg_hold_time", "callback_contacts", "contacts_put_on_hold", "Agent interaction time",
             "API contacts handled", "Contacts handled outbound",
             "Contacts abandoned in 20 seconds", "Contacts abandoned in 30 seconds",
             "Contacts abandoned 40 seconds", "Contacts abandoned in 45 seconds",
@@ -488,60 +564,114 @@ class Command(BaseCommand):
         df["language"] = df["Queue"].apply(extract_language)
         self.log(f"  -> {len(df)} lignes | {df['Queue'].nunique()} queues | {df['account'].nunique()} comptes")
         if sla_file.exists():
-            self.log(f"[>] Lecture : {sla_file.name}")
-            df_sla = load_sla_dataframe(sla_file)
-            df = df.merge(
-                df_sla[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh", "ooh",
-                         "ans_sla", "abd_sla", "ans_rate_formula", "abd_rate_formula"]].rename(columns={
-                    "target_ans_rate": "Target Ans rate", "target_abd_rate": "Target Abd rate",
-                    "timeframe_bh": "Timeframe BH", "ooh": "OOH",
-                    "ans_sla": "Ans SLA", "abd_sla": "Abd SLA",
-                    "ans_rate_formula": "Ans Rate", "abd_rate_formula": "Abd Rate",
-                }),
-                on="account", how="left"
-            )
-            df_queue_sla = load_sla_queue_level(sla_file)
-            df["queue_name_norm"] = df["Queue"].str.strip().str.lower()
-            n_before = len(df)
-            df = df.merge(
-                df_queue_sla.rename(columns={
-                    "target_ans_rate": "_q_ta", "target_abd_rate": "_q_td",
-                    "timeframe_bh": "_q_tf", "timeframe_ooh": "_q_tf_ooh", "account": "_q_acc",
-                }),
-                on="queue_name_norm", how="left"
-            )
-            if len(df) != n_before:
-                self.log(f"  ⚠️ Doublons détectés ({len(df) - n_before}) → déduplication")
-                df = df.drop_duplicates(subset=["Queue", "StartInterval"], keep="first")
-            mask = df["_q_ta"].notna()
-            df.loc[mask, "Target Ans rate"] = df.loc[mask, "_q_ta"]
-            df.loc[mask, "Target Abd rate"] = df.loc[mask, "_q_td"]
-            df.loc[mask, "Timeframe BH"]    = df.loc[mask, "_q_tf"]
-            df.loc[mask, "Timeframe OOH"]   = df.loc[mask, "_q_tf_ooh"]
-            df.drop(columns=["_q_ta", "_q_td", "_q_tf", "_q_tf_ooh", "_q_acc", "queue_name_norm"],
-                    inplace=True, errors="ignore")
-            self.log(f"  -> SLA queue-level : {mask.sum()} queues configurées")
+            df = self._merge_sla(df, sla_file)
         self.log(f"[OK] Extract : {len(df)} lignes")
         return df
+
+    def _clean_hold_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalize contacts_put_on_hold and avg_hold_time columns."""
+        df['contacts_put_on_hold'] = (
+            pd.to_numeric(
+                df.get('contacts_put_on_hold', pd.Series(dtype=str))
+                  .astype(str).str.replace(',', '.', regex=False).str.strip().replace('', '0'),
+                errors='coerce'
+            ).fillna(0).astype(int)
+        )
+        df['avg_hold_time'] = (
+            pd.to_numeric(
+                df.get('avg_hold_time', pd.Series(dtype=str))
+                  .astype(str).str.replace(',', '.', regex=False).str.strip().replace('', '0'),
+                errors='coerce'
+            ).fillna(0.0)
+        )
+        return df
+
+    def _merge_sla(self, df: pd.DataFrame, sla_file: Path) -> pd.DataFrame:
+        """Merge account-level and queue-level SLA config into df."""
+        self.log(f"[>] Lecture : {sla_file.name}")
+        df_sla = load_sla_dataframe(sla_file)
+        df = df.merge(
+            df_sla[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh", "ooh",
+                     "ans_sla", "abd_sla", "ans_rate_formula", "abd_rate_formula"]].rename(columns={
+                "target_ans_rate": "Target Ans rate", "target_abd_rate": "Target Abd rate",
+                "timeframe_bh": "Timeframe BH", "ooh": "OOH",
+                "ans_sla": "Ans SLA", "abd_sla": "Abd SLA",
+                "ans_rate_formula": "Ans Rate", "abd_rate_formula": "Abd Rate",
+            }),
+            on="account", how="left"
+        )
+        df_queue_sla = load_sla_queue_level(sla_file)
+        df["queue_name_norm"] = df["Queue"].str.strip().str.lower()
+        n_before = len(df)
+        df = df.merge(
+            df_queue_sla.rename(columns={
+                "target_ans_rate": "_q_ta", "target_abd_rate": "_q_td",
+                "timeframe_bh": "_q_tf", "timeframe_ooh": "_q_tf_ooh", "account": "_q_acc",
+            }),
+            on="queue_name_norm", how="left"
+        )
+        if len(df) != n_before:
+            self.log(f"  ⚠️ Doublons détectés ({len(df) - n_before}) → déduplication")
+            df = df.drop_duplicates(subset=["Queue", "StartInterval"], keep="first")
+        mask = df["_q_ta"].notna()
+        df.loc[mask, "Target Ans rate"] = df.loc[mask, "_q_ta"]
+        df.loc[mask, "Target Abd rate"] = df.loc[mask, "_q_td"]
+        df.loc[mask, "Timeframe BH"]    = df.loc[mask, "_q_tf"]
+        df.loc[mask, "Timeframe OOH"]   = df.loc[mask, "_q_tf_ooh"]
+        df.drop(columns=["_q_ta", "_q_td", "_q_tf", "_q_tf_ooh", "_q_acc", "queue_name_norm"],
+                inplace=True, errors="ignore")
+        self.log(f"  -> SLA queue-level : {mask.sum()} queues configurées")
+        return df
+
     # ── TRANSFORM ──────────────────────────────────────────────────────────
     def _transform(self, df):
         def _num(s, d=0.0):
             return pd.to_numeric(s, errors="coerce").fillna(d)
+
         df["offered"]   = _num(df.get("offered"))
         df["answered"]  = _num(df.get("answered"))
         df["abandoned"] = _num(df.get("abandoned"))
-        # Chat queues : answered = API contacts handled
+
+        # Chat queues: answered = API contacts handled
         if "API contacts handled" in df.columns:
             api = _num(df["API contacts handled"])
             chat_mask = (df["answered"] == 0) & (api > 0)
             df.loc[chat_mask, "answered"] = api[chat_mask]
-        # ── Timeframe dynamique ──────────────────────────────────────────
+
+        df, tf_series = self._apply_sla_timeframe(df, _num)
+        df = self._compute_sla_rates(df, tf_series)
+        df = self._compute_time_fields(df, _num)
+        df = self._apply_db_config_override(df)
+        df = self._apply_ooh_flag(df)
+
+        # Weighted totals
+        df["handle_time"]          = df["avg_handle_time"] * df["answered"]
+        df["total_answer_time"]    = df["avg_answer_time"] * df["answered"]
+        df["contacts_put_on_hold"] = _num(df.get("contacts_put_on_hold"))
+        df["total_hold_time"]      = df["avg_hold_time"] * df["contacts_put_on_hold"]
+
+        df["sla_compliant"] = df.apply(
+            lambda r: bool(r["sla_rate"] >= r["target_ans_rate"]) if pd.notna(r["target_ans_rate"]) else False,
+            axis=1
+        )
+        df["abd_compliant"] = df.apply(
+            lambda r: bool(r["abandon_rate"] <= r["target_abd_rate"]) if pd.notna(r["target_abd_rate"]) else True,
+            axis=1
+        )
+
+        agg = self._aggregate(df)
+        self.log(f"[OK] Transform : {len(df)} lignes | {agg['account'].nunique()} comptes")
+        return df, agg
+
+    def _apply_sla_timeframe(self, df, _num):
+        """Compute per-row ans_in_sla / abd_in_sla based on dynamic timeframe."""
         if "Timeframe BH" in df.columns:
             tf_series = pd.to_numeric(df["Timeframe BH"], errors="coerce").fillna(40).astype(int)
             lux_mask = df["account"].str.lower().str.contains("luxottica", na=False)
             tf_series.loc[lux_mask] = 30
         else:
             tf_series = pd.Series(40, index=df.index)
+
         df_cols  = set(df.columns)
         ans_vals = pd.Series(0.0, index=df.index)
         abd_vals = pd.Series(0.0, index=df.index)
@@ -549,31 +679,29 @@ class Command(BaseCommand):
             mask    = tf_series == tf
             ans_col = ANS_COL_BY_TF.get(tf)
             abd_col = ABD_COL_BY_TF.get(tf)
-            if ans_col and ans_col in df_cols:
-                ans_vals.loc[mask] = _num(df.loc[mask, ans_col])
-            else:
-                ans_vals.loc[mask] = 0
-            if abd_col and abd_col in df_cols:
-                abd_vals.loc[mask] = _num(df.loc[mask, abd_col])
-            else:
-                abd_vals.loc[mask] = 0
+            ans_vals.loc[mask] = _num(df.loc[mask, ans_col]) if ans_col and ans_col in df_cols else 0
+            abd_vals.loc[mask] = _num(df.loc[mask, abd_col]) if abd_col and abd_col in df_cols else 0
+
         df["ans_in_sla"] = ans_vals
         df["abd_in_sla"] = abd_vals
         self.log(f"  -> Timeframes présents : {sorted(tf_series.unique().tolist())}")
-        # abd_in_60 — toujours depuis la colonne 60s (pour SLA3 / Abd5)
+
         if "Contacts abandoned in 60 seconds" in df.columns:
             df["abd_in_60"] = _num(df["Contacts abandoned in 60 seconds"])
         else:
             df["abd_in_60"] = df["abd_in_sla"]
+
         df["ans_out_sla"] = (df["answered"]  - df["ans_in_sla"]).clip(lower=0).astype(int)
         df["abd_out_sla"] = (df["abandoned"] - df["abd_in_sla"]).clip(lower=0).astype(int)
         df["abd_out_60"]  = (df["abandoned"] - df["abd_in_60"]).clip(lower=0).round().astype(int)
         df["answer_rate"] = df["answered"] / df["offered"].replace(0, 1)
-        # ── SLA par queue ────────────────────────────────────────────────
+        return df, tf_series
+
+    def _compute_sla_rates(self, df, tf_series):
+        """Apply per-queue SLA and abandonment rate formulas."""
         q = "Queue"
         SLA2_KW = ['gf', 'connectchat_gf', 'german_queue', 'dxc', 'hpe', 'saipem', 'spm']
         SLA3_KW = ['el store', 'luxottica']
-
         ABD2_KW = ['gf', 'connectchat_gf', 'dxc', 'hpe', 'saipem', 'spm',
                    'mylan', 'viatris', 'basrah', 'philips', 'sony']
         ABD3_KW = ['gf', 'connectchat_gf']
@@ -585,6 +713,7 @@ class Command(BaseCommand):
         def _match(name, kws):
             nl = str(name).lower()
             return any(k in nl for k in kws)
+
         mask_sla2 = df[q].apply(lambda x: _match(x, SLA2_KW))
         mask_sla3 = df[q].apply(lambda x: _match(x, SLA3_KW))
         mask_abd5 = df[q].apply(lambda x: _match(x, ABD5_KW))
@@ -592,27 +721,29 @@ class Command(BaseCommand):
         mask_abd3 = df[q].apply(lambda x: _match(x, ABD3_KW))
         mask_abd2 = df[q].apply(lambda x: _match(x, ABD2_KW)) & ~mask_abd3 & ~mask_abd4 & ~mask_abd5
         mask_abd1 = df[q].apply(lambda x: _match(x, ABD1_KW)) & ~mask_abd2 & ~mask_abd3 & ~mask_abd4 & ~mask_abd5
-        # ── SLA formulas ─────────────────────────────────────────────────
+
         sla1 = (df["ans_in_sla"] / (df["offered"] - df["abd_in_sla"]).clip(lower=1)).clip(0, 1)
         sla2 = (df["ans_in_sla"] / df["answered"].clip(lower=1)).clip(0, 1)
         sla3 = (1 - df["ans_out_sla"] / (df["offered"] - df["abd_in_60"]).clip(lower=1)).clip(0, 1)
         df["sla_rate"] = sla1
         df.loc[mask_sla2, "sla_rate"] = sla2[mask_sla2]
         df.loc[mask_sla3, "sla_rate"] = sla3[mask_sla3]
-        # ── ABD formulas ─────────────────────────────────────────────────
+
         abd1 = (1 - df["abd_out_sla"] / df["offered"].clip(lower=1)).clip(0, 1)
         abd2 = (df["abd_out_sla"] / (df["offered"] - df["abd_in_sla"]).clip(lower=1)).clip(0, 1)
         abd3 = (df["abd_out_sla"] / df["answered"].clip(lower=1)).clip(0, 1)
         abd4 = (df["abd_out_sla"] / df["offered"].clip(lower=1)).clip(0, 1)
         abd5 = (1 - df["abd_out_60"] / (df["offered"] - df["abd_in_sla"]).clip(lower=1)).clip(0, 1)
-        # ✅ v7 FIX : UNE SEULE affectation — pas de double reset
         df["abandon_rate"] = df["abandoned"] / df["offered"].replace(0, 1)
         df.loc[mask_abd1, "abandon_rate"] = abd1[mask_abd1]
         df.loc[mask_abd2, "abandon_rate"] = abd2[mask_abd2]
         df.loc[mask_abd3, "abandon_rate"] = abd3[mask_abd3]
         df.loc[mask_abd4, "abandon_rate"] = abd4[mask_abd4]
-        df.loc[mask_abd5, "abandon_rate"] = abd5[mask_abd5]  # ← Luxottica = 99.20% ✅
-        # ── Temps ────────────────────────────────────────────────────────
+        df.loc[mask_abd5, "abandon_rate"] = abd5[mask_abd5]
+        return df
+
+    def _compute_time_fields(self, df, _num):
+        """Populate timing columns and SLA config fields."""
         df["avg_answer_time"]   = _num(df.get("avg_answer_time"))
         df["avg_hold_time"]     = _num(df.get("avg_hold_time"))
         df["avg_handle_time"]   = _num(df.get("avg_handle_time"))
@@ -621,7 +752,7 @@ class Command(BaseCommand):
             df["avg_ttc"] = _num(df["Average agent interaction time"])
         else:
             df["avg_ttc"] = df["avg_handle_time"]
-        df["total_ttc_time"] = df["avg_ttc"] * df["answered"]
+        df["total_ttc_time"]  = df["avg_ttc"] * df["answered"]
         df["target_ans_rate"] = pd.to_numeric(df.get("Target Ans rate"), errors="coerce")
         df["target_abd_rate"] = pd.to_numeric(df.get("Target Abd rate"), errors="coerce")
         df["timeframe_bh"] = (
@@ -632,55 +763,52 @@ class Command(BaseCommand):
             pd.to_numeric(df["Timeframe OOH"], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
             if "Timeframe OOH" in df.columns else df["timeframe_bh"]
         )
+        return df
 
-        # ── ✅ OVERRIDE : DB SLAConfig a la priorité sur le fichier Excel ──
-        # Ki el user ymodifie un compte dans le dashboard → les valeurs DB
-        # écrasent celles du CSV pour que l'ETL respecte les configs manuelles.
+    def _apply_db_config_override(self, df):
+        """Override SLA targets with values from DB SLAConfig (dashboard edits take priority)."""
         try:
             db_configs = {
                 s.account.strip().lower(): s
                 for s in SLAConfig.objects.all()  # pylint: disable=no-member
             }
-            if db_configs:
-                def _apply_db_config(row):
-                    acc_key = str(row.get("account", "")).strip().lower()
-                    cfg = db_configs.get(acc_key)
-                    if cfg:
-                        if cfg.target_ans_rate is not None:
-                            row["target_ans_rate"] = cfg.target_ans_rate
-                        if cfg.target_abd_rate is not None:
-                            row["target_abd_rate"] = cfg.target_abd_rate
-                        row["timeframe_bh"]  = cfg.timeframe_bh
-                        row["timeframe_ooh"] = cfg.ooh if cfg.ooh else row.get("timeframe_ooh", cfg.timeframe_bh)
-                    return row
-                df = df.apply(_apply_db_config, axis=1)
-                self.log(f"  [OK] DB override SLAConfig appliqué sur {len(db_configs)} comptes")
+            if not db_configs:
+                return df
+
+            def _apply(row):
+                acc_key = str(row.get("account", "")).strip().lower()
+                cfg = db_configs.get(acc_key)
+                if cfg:
+                    if cfg.target_ans_rate is not None:
+                        row["target_ans_rate"] = cfg.target_ans_rate
+                    if cfg.target_abd_rate is not None:
+                        row["target_abd_rate"] = cfg.target_abd_rate
+                    row["timeframe_bh"]  = cfg.timeframe_bh
+                    row["timeframe_ooh"] = cfg.ooh if cfg.ooh else row.get("timeframe_ooh", cfg.timeframe_bh)
+                return row
+
+            df = df.apply(_apply, axis=1)
+            self.log(f"  [OK] DB override SLAConfig appliqué sur {len(db_configs)} comptes")
         except Exception as e:
             self.log(f"  ⚠️ DB override SLAConfig ignoré (hors Django context?) : {e}")
-        # ── OOH ──────────────────────────────────────────────────────────
+        return df
+
+    def _apply_ooh_flag(self, df):
+        """Tag each row with is_ooh based on Paris local time."""
         df["_start_dt"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
+
         def _is_ooh(dt):
             try:
                 local = dt.tz_convert('Europe/Paris')
                 return local.weekday() >= 5 or local.hour < 7 or local.hour >= 19
             except Exception:
                 return False
-        df["is_ooh"] = df["_start_dt"].apply(_is_ooh)
-        # ── Totaux pondérés ───────────────────────────────────────────────
-        df["handle_time"]       = df["avg_handle_time"] * df["answered"]
-        df["total_answer_time"] = df["avg_answer_time"] * df["answered"]
-        df["contacts_put_on_hold"] = _num(df.get("contacts_put_on_hold"))
-        df["total_hold_time"] = df["avg_hold_time"] * df["contacts_put_on_hold"]
 
-        df["sla_compliant"] = df.apply(
-            lambda r: bool(r["sla_rate"] >= r["target_ans_rate"]) if pd.notna(r["target_ans_rate"]) else False,
-            axis=1
-        )
-        df["abd_compliant"] = df.apply(
-            lambda r: bool(r["abandon_rate"] <= r["target_abd_rate"]) if pd.notna(r["target_abd_rate"]) else True,
-            axis=1
-        )
-        # ── Agrégation par compte ─────────────────────────────────────────
+        df["is_ooh"] = df["_start_dt"].apply(_is_ooh)
+        return df
+
+    def _aggregate(self, df) -> pd.DataFrame:
+        """Aggregate queue-level rows into account-level summary."""
         agg = (
             df.groupby("account")
             .agg(
@@ -696,55 +824,15 @@ class Command(BaseCommand):
                 handle_time=("handle_time", "sum"),
                 total_answer_time=("total_answer_time", "sum"),
                 total_hold_time=("total_hold_time", "sum"),
-                contacts_put_on_hold=("contacts_put_on_hold", "sum"), 
+                contacts_put_on_hold=("contacts_put_on_hold", "sum"),
                 total_ttc_time=("total_ttc_time", "sum"),
                 callback_contacts=("callback_contacts", "sum"),
                 target_ans_rate=("target_ans_rate", "max"),
                 target_abd_rate=("target_abd_rate", "min"),
             ).reset_index()
         )
-        SLA3_ACC = {'luxottica'}
-        SLA2_ACC = {'gf', 'dxc it', 'dxc', 'hpe', 'saipem'}
-        def _sla(r):
-            ans     = float(r['ans_in_sla']  or 0)
-            abd     = float(r['abd_in_sla']  or 0)
-            ans_out = float(r['ans_out_sla'] or 0)
-            abd60   = float(r['abd_in_60']   or 0)
-            off     = float(r['offered']     or 0)
-            ans_d   = float(r['answered']    or 0)
-            a = str(r['account']).lower()
-            if any(k in a for k in SLA3_ACC):
-                return min(1 - ans_out / max(off - abd60, 1), 1.0)
-            if any(k in a for k in SLA2_ACC):
-                return min(ans / max(ans_d, 1), 1.0)
-            return min(ans / max(off - abd, 1), 1.0)
-        ABD5_ACC = {'luxottica'}
-        ABD4_ACC = {'saipem', 'sonova', 'servier'}
-        ABD3_ACC = {'gf'}
-        ABD2_ACC = {'mylan', 'viatris', 'xpo', 'dxc', 'hpe', 'spm',
-                    'basrah', 'philips', 'sony'}
-        ABD1_ACC = {'renault', 'nissan', 'benelux'}
-        def _abd(r):
-            abd_out = float(r['abd_out_sla'] or 0)
-            abd60   = float(r['abd_out_60']  or 0)
-            abd_in  = float(r['abd_in_sla']  or 0)
-            off     = float(r['offered']     or 0)
-            ans_d   = float(r['answered']    or 0)
-            abd_raw = float(r['abandoned']   or 0)
-            a = str(r['account']).lower()
-            if any(k in a for k in ABD5_ACC):
-                return min(1 - abd60  / max(off - abd_in, 1), 1.0)
-            if any(k in a for k in ABD4_ACC):
-                return min(abd_out / max(off, 1), 1.0)
-            if any(k in a for k in ABD3_ACC):
-                return min(abd_out / max(ans_d, 1), 1.0)
-            if any(k in a for k in ABD2_ACC):
-                return min(abd_out / max(off - abd_in, 1), 1.0)
-            if any(k in a for k in ABD1_ACC):
-                return min(1 - abd_out / max(off, 1), 1.0)
-            return min(abd_raw / max(off, 1), 1.0)
-        agg['sla_rate']     = agg.apply(_sla, axis=1)
-        agg['abandon_rate'] = agg.apply(_abd, axis=1)
+        agg['sla_rate']     = agg.apply(self._calc_account_sla, axis=1)
+        agg['abandon_rate'] = agg.apply(self._calc_account_abd, axis=1)
         agg['answer_rate']  = agg['answered'] / agg['offered'].clip(lower=1)
         ac = agg['answered'].clip(lower=1)
         agg['avg_handle_time'] = agg['handle_time']       / ac
@@ -767,17 +855,88 @@ class Command(BaseCommand):
             "avg_ttc": 0.0, "avg_hold_time": 0.0,
             "callback_contacts": 0,
         }, inplace=True)
-        self.log(f"[OK] Transform : {len(df)} lignes | {agg['account'].nunique()} comptes")
-        return df, agg
+        return agg
+
+    @staticmethod
+    def _calc_account_sla(r) -> float:
+        ans     = float(r['ans_in_sla']  or 0)
+        ans_out = float(r['ans_out_sla'] or 0)
+        abd60   = float(r['abd_in_60']   or 0)
+        abd     = float(r['abd_in_sla']  or 0)
+        off     = float(r['offered']     or 0)
+        ans_d   = float(r['answered']    or 0)
+        a = str(r['account']).lower()
+        if any(k in a for k in SLA3_ACC):
+            return min(1 - ans_out / max(off - abd60, 1), 1.0)
+        if any(k in a for k in SLA2_ACC):
+            return min(ans / max(ans_d, 1), 1.0)
+        return min(ans / max(off - abd, 1), 1.0)
+
+    @staticmethod
+    def _calc_account_abd(r) -> float:
+        abd_out = float(r['abd_out_sla'] or 0)
+        abd60   = float(r['abd_out_60']  or 0)
+        abd_in  = float(r['abd_in_sla']  or 0)
+        off     = float(r['offered']     or 0)
+        ans_d   = float(r['answered']    or 0)
+        abd_raw = float(r['abandoned']   or 0)
+        a = str(r['account']).lower()
+        if any(k in a for k in ABD5_ACC):
+            return min(1 - abd60  / max(off - abd_in, 1), 1.0)
+        if any(k in a for k in ABD4_ACC):
+            return min(abd_out / max(off, 1), 1.0)
+        if any(k in a for k in ABD3_ACC):
+            return min(abd_out / max(ans_d, 1), 1.0)
+        if any(k in a for k in ABD2_ACC):
+            return min(abd_out / max(off - abd_in, 1), 1.0)
+        if any(k in a for k in ABD1_ACC):
+            return min(1 - abd_out / max(off, 1), 1.0)
+        return min(abd_raw / max(off, 1), 1.0)
+
     # ── LOAD ───────────────────────────────────────────────────────────────
     @transaction.atomic
     def _load(self, df, agg, data_dir, mode="replace", source_file=""):
         self.log(f"[*] Mode : {mode}")
         if mode == "replace":
             for model in [HistoricalMetric, AccountSummary, HourlyTrend, DailySnapshot]:
-                model.objects.all().delete() 
+                model.objects.all().delete()
             self.log("  [OK] Tables vidées")
-        # ── SLAConfig ─────────────────────────────────────────────────────
+
+        sla_map = self._load_sla_configs(data_dir)
+        hist_rows = self._build_historical_metrics(df, sla_map, source_file)
+        acc_objs  = self._build_account_summaries(agg)
+        hourly    = self._build_hourly_trends(df)
+        snaps     = self._build_daily_snapshots(df)
+
+        self.log(f"-> Insertion historical_metrics ({len(hist_rows)} lignes)…")
+        if hist_rows:
+            HistoricalMetric.objects.bulk_create(hist_rows, batch_size=500)  # pylint: disable=no-member
+
+        self.log("-> Insertion account_summary…")
+        if acc_objs:
+            AccountSummary.objects.bulk_create(acc_objs, batch_size=500)  # pylint: disable=no-member
+        self.log(f"  [OK] {len(acc_objs)} comptes → account_summary")
+
+        self.log("-> Insertion hourly_trends…")
+        if hourly:
+            HourlyTrend.objects.bulk_create(hourly, batch_size=500)  # pylint: disable=no-member
+        self.log(f"  [OK] {len(hourly)} lignes → hourly_trends")
+
+        self.log("-> Insertion daily_snapshots…")
+        if snaps:
+            DailySnapshot.objects.bulk_create(snaps, batch_size=365)  # pylint: disable=no-member
+        self.log(f"  [OK] {len(snaps)} jours → daily_snapshots")
+
+        self.stdout.write(self.style.SUCCESS(
+            f"\n[ETL] ✅ Chargement terminé :\n"
+            f"       - historical_metrics : {len(hist_rows):>6} lignes\n"
+            f"       - account_summary    : {len(acc_objs):>6} comptes\n"
+            f"       - hourly_trends      : {len(hourly):>6} lignes\n"
+            f"       - daily_snapshots    : {len(snaps):>6} jours"
+        ))
+
+    def _load_sla_configs(self, data_dir: Path) -> dict:
+        """Upsert SLAConfig rows from SLA.xlsx and return account→SLAConfig map."""
         sla_file = data_dir / "SLA.xlsx"
         n_sla = 0
         if sla_file.exists():
@@ -786,28 +945,15 @@ class Command(BaseCommand):
                 acc = str(row.get("account") or "").strip()
                 if not acc or acc == "nan":
                     continue
-                def sf(v, d=None):
-                    if v is None or (isinstance(v, float) and np.isnan(v)):
-                        return d
-                    try:
-                        return float(v)
-                    except Exception:
-                        return d
-                def si(v, d=0):
-                    try:
-                        f = float(v)
-                        return d if np.isnan(f) else int(f)
-                    except Exception:
-                        return d
-                ta = sf(row.get("target_ans_rate"))
-                td = sf(row.get("target_abd_rate"))
-                obj, created = SLAConfig.objects.get_or_create(
+                ta = _safe_float(row.get("target_ans_rate"), None)
+                td = _safe_float(row.get("target_abd_rate"), None)
+                SLAConfig.objects.get_or_create(  # pylint: disable=no-member
                     account=acc,
                     defaults={
                         "ans_rate_formula": str(row.get("ans_rate_formula") or "") or None,
                         "abd_rate_formula": str(row.get("abd_rate_formula") or "") or None,
-                        "timeframe_bh":     si(row.get("timeframe_bh"), 40),
-                        "ooh":              si(row.get("ooh"), 0),
+                        "timeframe_bh":     _safe_int(row.get("timeframe_bh"), 40),
+                        "ooh":              _safe_int(row.get("ooh"), 0),
                         "ans_sla":          str(row.get("ans_sla") or "") or None,
                         "abd_sla":          str(row.get("abd_sla") or "") or None,
                         "target_ans_rate":  ta if ta is not None else 0.0,
@@ -815,126 +961,44 @@ class Command(BaseCommand):
                     }
                 )
                 n_sla += 1
-        sla_map = {s.account: s for s in SLAConfig.objects.all()}  # pylint: disable=no-member
         self.log(f"  [OK] {n_sla} comptes → sla_config")
-        # ── Mapping queue CSV → desk dashboard ───────────────────────────
-        QUEUE_TO_DESK = {
-            "EL Store ARB": "Luxottica ARB", "EL Store EN": "Luxottica EN",
-            "EL Store FR":  "Luxottica FR",  "EL Store DE": "Luxottica DE",
-            "EL Store IT":  "Luxottica IT",  "EL Store PT": "Luxottica PT",
-            "EL Store ES":  "Luxottica ES",  "EL Store TR": "Luxottica TR",
-            "Mylan ARABIC":        "Viatris ARABIC",  "Mylan Russia":        "Viatris Russia",
-            "Mylan Turkey":        "Viatris Turkey",  "Viatris - Dutch":     "Viatris DU",
-            "Viatris - French":    "viatris FR",    "Viatris - German":    "viatris Ger",
-            "Viatris - Hungarian": "viatris HU",    "Viatris - Italian":   "viatris IT",
-            "Viatris - Polish":    "viatris Pol",   "Viatris - Portuguese":"viatris Por",
-            "Viatris - Spanish":   "viatris SP",
-            "Benelux_Dutch_Queue":             "Benelux DU",
-            "Benelux_ENG_Queue":               "Benelux ENG",
-            "Benelux_French_Queue":            "Benelux FR",
-            "RN_CH_AT_FR":                     "CH_AT_FR",
-            "RN_CH_AT_GER":                    "CH_AT_GER",
-            "German_Queue":                    "Ren German",
-            "RN_GSD_Eng_Queue":                "Renault Eng",
-            "RN_Ligne_Rouge VIP":              "Renault FR",
-            "RN_Importeurs":                   "Renault FR",
-            "Renault_Catalogue_Opt7_Q":        "Renault FR",
-            "Renault_bureautique_Opt5_Q":      "Renault FR",
-            "Renault_industriels_Opt2_Q":      "Renault FR",
-            "Renault_ivr_Appl_metier_Q":       "Renault FR",
-            "Renault_materiel_Opt4_Q":         "Renault FR",
-            "Renault_p_ivr_pwd_Tel_srv_1.2_Q": "Renault FR",
-            "Renault_pda_palm_Opt3_Q":         "Renault FR",
-            "Renault_select_Opt0_Q":           "Renault FR",
-            "RN_Spain_Normal_Queue":           "Renault SP",
-            "RN_Spain_VIP_Queue":              "Renault SP",
-            "Renault UK":                      "Renault UK",
-            "Renault UK Dealers":              "Renault UK Dealers",
-            "Nestle DE CBA":    "Nestle DE",  "Nestle DE Other":  "Nestle DE",
-            "Nestle DE PW":     "Nestle DE",  "Nestle DE Status": "Nestle DE",
-            "Nestle ES CBA":    "Nestle ES",  "Nestle ES Other":  "Nestle ES",
-            "Nestle ES PW":     "Nestle ES",  "Nestle ES Status": "Nestle ES",
-            "Nestle FR CBA":    "Nestle FR",  "Nestle FR Other":  "Nestle FR",
-            "Nestle FR PW":     "Nestle FR",  "Nestle FR Status": "Nestle FR",
-            "Nestle NL Other":  "Nestle NL",  "Nestle NL PW":     "Nestle NL",
-            "Nestle PT CBA":    "Nestle Por", "Nestle PT NB":     "Nestle Por",
-            "Nestle PT Other":  "Nestle Por", "Nestle PT PW":     "Nestle Por",
-            "Nestle PT Status": "Nestle Por",
-            "Sony Spanish Existing Issues": "Sony SP",
-            "Sony Spanish New Issues":      "Sony SP",
-            "Servier English":         "Servier English",
-            "Servier French":          "Servier French",
-            "Servier French Password": "Servier French Password",
-            "Servier Spanish":         "Servier Spanish",
-            "Nissan DU OF 2":          "Nissan DU",  "Nissan DU SHFL 1":        "Nissan DU",
-            "Nissan DU SHFL 2":        "Nissan DU",  "Nissan DLR DU Opt 1":     "Nissan DU",
-            "Nissan DLR DU Opt 2":     "Nissan DU",
-            "Nissan FR App":           "Nissan FR",  "Nissan FR Existing":      "Nissan FR",
-            "Nissan FR HW":            "Nissan FR",  "Nissan FR Other":         "Nissan FR",
-            "Nissan FR PW":            "Nissan FR",
-            "Nissan DE":               "Nissan Ger",
-            "Nissan IT App":           "Nissan IT",  "Nissan IT Existing":      "Nissan IT",
-            "Nissan IT HW":            "Nissan IT",  "Nissan IT Other":         "Nissan IT",
-            "Nissan IT PW":            "Nissan IT",
-            "Nissan DLR IT Existing":  "Nissan IT",  "Nissan DLR IT New":       "Nissan IT",
-            "Nissan NMEF - Hardware Issue": "Nissan NMEF",
-            "Nissan NMEF - Other":          "Nissan NMEF",
-            "Nissan NMEF - Password":       "Nissan NMEF",
-            "Nissan SP OF Existing":   "Nissan SP",  "Nissan SP OF New":        "Nissan SP",
-            "Nissan SP SHFL Existing": "Nissan SP",  "Nissan SP SHFL New":      "Nissan SP",
-            "Nissan DLR SP Existing":  "Nissan SP",  "Nissan DLR SP New":       "Nissan SP",
-            "GF German":              "GF German",   "GF German CBA":          "GF German",
-            "GF Italian":             "GF Italian",  "GF Italian CBA":         "GF Italian",
-            "ConnectChat_GF_German":  "GF Chat Ger", "ConnectChat_GF_Italian": "GF Chat ITA",
-            "SPM FR QUEUE":      "Saipem FR",   "SPM IT QUEUE":      "Saipem IT",
-            "SPM It MyHR QUEUE": "Saipem ITMyHR",
-            "Sonova_Dutch_Other":      "Sonova DU",  "Sonova_Dutch_Shop":       "Sonova DU",
-            "Sonova_English_Other":    "Sonova Eng", "Sonova_English_Shop":     "Sonova Eng",
-            "Sonova_Priority":         "Sonova Eng",
-            "Sonova_French_Other":     "Sonova FR",  "Sonova_French_Shop":      "Sonova FR",
-            "Sonova_German_Other":     "Sonova Ger", "Sonova_German_Shop":      "Sonova Ger",
-            "Sonova_Italy_Other":      "Sonova IT",  "Sonova_Italy_Shop":       "Sonova IT",
-            "Sonova_Portuguese_Other": "Sonova Por", "Sonova_Portuguese_Shop":  "Sonova Por",
-            "Sonova_Spanish_Other":    "Sonova SP",  "Sonova_Mexico_Other":     "Sonova SP",
-            "Sonova_Mexico_Shop":      "Sonova SP",
-            "XPO ES All Other Issues": "XPO ES", "XPO ES Default":          "XPO ES",
-            "XPO ES MFA Password":     "XPO ES",
-            "XPO FR All Other Issues": "XPO FR", "XPO FR Default":          "XPO FR",
-            "XPO FR Default OOH":      "XPO FR", "XPO FR MFA Password":     "XPO FR",
-            "XPO FR MFA Password OOH": "XPO FR",
-            "Basrah Gas EN": "Basrah Gas EN",
-        }
-        # ── HistoricalMetric ──────────────────────────────────────────────
-        hist_rows = []
+        return {s.account: s for s in SLAConfig.objects.all()}  # pylint: disable=no-member
+
+    def _build_historical_metrics(self, df, sla_map: dict, source_file: str) -> list:
+        """Convert df rows into unsaved HistoricalMetric instances."""
+        rows = []
+        source_name = Path(source_file).name if source_file else None
         for _, row in df.iterrows():
             qn_raw = str(row.get("Queue") or "").strip()
-            desk   = QUEUE_TO_DESK.get(qn_raw, qn_raw)
             acc    = str(row.get("account") or "").strip()
-            lng    = str(row.get("language") or "").strip() or None
             if not qn_raw or not acc or acc == "nan":
                 continue
             start = pd.to_datetime(row.get("StartInterval"), errors="coerce", utc=True)
-            end   = pd.to_datetime(row.get("EndInterval"),   errors="coerce", utc=True)
             if pd.isna(start):
                 continue
+            end = pd.to_datetime(row.get("EndInterval"), errors="coerce", utc=True)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 sn = start.tz_convert(None) if start.tzinfo else start
                 en = (end.tz_convert(None) if end.tzinfo else end) if not pd.isna(end) else None
+
             def _f(k, d=0.0):
                 v = row.get(k, d)
                 try:
                     return float(v) if not pd.isna(v) else d
                 except Exception:
                     return d
+
             def _i(k, d=0):
                 v = row.get(k, d)
                 try:
                     return int(v) if not pd.isna(v) else d
                 except Exception:
                     return d
-            hist_rows.append(HistoricalMetric(
-                queue=qn_raw, desk=desk, account=acc, language=lng,
+
+            rows.append(HistoricalMetric(
+                queue=qn_raw, desk=QUEUE_TO_DESK.get(qn_raw, qn_raw),
+                account=acc, language=str(row.get("language") or "").strip() or None,
                 sla_config=sla_map.get(acc),
                 start_date=sn, end_date=en,
                 hour=sn.strftime("%H:%M"), year=sn.year, month=sn.month,
@@ -942,9 +1006,7 @@ class Command(BaseCommand):
                 offered=_i("offered"), abandoned=_i("abandoned"), answered=_i("answered"),
                 ans_in_sla=_f("ans_in_sla"), abd_in_sla=_f("abd_in_sla"),
                 ans_out_sla=int(_f("ans_out_sla")), abd_out_sla=int(_f("abd_out_sla")),
-                # ✅ v7 FIX : abd_in_60 et abd_out_60 étaient absents → DB = 0
-                abd_in_60=_i("abd_in_60"),
-                abd_out_60=_i("abd_out_60"),
+                abd_in_60=_i("abd_in_60"), abd_out_60=_i("abd_out_60"),
                 callback_contacts=_i("callback_contacts"),
                 sla_rate=min(max(_f("sla_rate"), 0), 1),
                 abandon_rate=min(max(_f("abandon_rate"), 0), 1),
@@ -964,52 +1026,36 @@ class Command(BaseCommand):
                 is_ooh=bool(row.get("is_ooh", False)),
                 sla_compliant=bool(row.get("sla_compliant", False)),
                 abd_compliant=bool(row.get("abd_compliant", True)),
-                source_file=Path(source_file).name if source_file else None,
+                source_file=source_name,
             ))
-        self.log(f"-> Insertion historical_metrics ({len(hist_rows)} lignes)…")
-        if hist_rows:
-            HistoricalMetric.objects.bulk_create(hist_rows, batch_size=500)  # pylint: disable=no-member
-        # ── AccountSummary ────────────────────────────────────────────────
-        self.log("-> Insertion account_summary…")
-        def sf(v, d=0.0):
-            try:
-                r = float(v)
-                return d if pd.isna(r) else r
-            except Exception:
-                return d
-        def si(v, d=0):
-            try:
-                f = float(v)
-                return d if pd.isna(f) else int(f)
-            except Exception:
-                return d
-        acc_objs = []
-        for _, r in agg.iterrows():
-            acc_objs.append(AccountSummary(
+        return rows
+
+    def _build_account_summaries(self, agg) -> list:
+        """Convert aggregated account rows into unsaved AccountSummary instances."""
+        return [
+            AccountSummary(
                 account=str(r["account"]),
-                offered=si(r.get("offered")),
-                abandoned=si(r.get("abandoned")),
-                answered=si(r.get("answered")),
-                ans_in_sla=sf(r.get("ans_in_sla")),
-                abd_in_sla=sf(r.get("abd_in_sla")),
-                sla_rate=sf(r.get("sla_rate")),
-                abandon_rate=sf(r.get("abandon_rate")),
-                answer_rate=sf(r.get("answer_rate")),
-                avg_handle_time=sf(r.get("avg_handle_time")),
-                target_ans_rate=sf(r.get("target_ans_rate")),
-                target_abd_rate=sf(r.get("target_abd_rate")),
+                offered=_safe_int(r.get("offered")),
+                abandoned=_safe_int(r.get("abandoned")),
+                answered=_safe_int(r.get("answered")),
+                ans_in_sla=_safe_float(r.get("ans_in_sla")),
+                abd_in_sla=_safe_float(r.get("abd_in_sla")),
+                sla_rate=_safe_float(r.get("sla_rate")),
+                abandon_rate=_safe_float(r.get("abandon_rate")),
+                answer_rate=_safe_float(r.get("answer_rate")),
+                avg_handle_time=_safe_float(r.get("avg_handle_time")),
+                target_ans_rate=_safe_float(r.get("target_ans_rate")),
+                target_abd_rate=_safe_float(r.get("target_abd_rate")),
                 sla_compliant=bool(r.get("sla_compliant", False)),
                 abd_compliant=bool(r.get("abd_compliant", True)),
-                timeframe_bh=si(r.get("timeframe_bh"), 40),
-                avg_answer_time=sf(r.get("avg_answer_time")),
-                avg_ttc=sf(r.get("avg_ttc")),
-            ))
-        if acc_objs:
-            AccountSummary.objects.bulk_create(acc_objs, batch_size=500)  # pylint: disable=no-member
-        self.log(f"  [OK] {len(acc_objs)} comptes → account_summary")
+                timeframe_bh=_safe_int(r.get("timeframe_bh"), 40),
+                avg_answer_time=_safe_float(r.get("avg_answer_time")),
+                avg_ttc=_safe_float(r.get("avg_ttc")),
+            )
+            for _, r in agg.iterrows()
+        ]
 
-        # ── HourlyTrend ───────────────────────────────────────────────────
-        self.log("-> Insertion hourly_trends…")
+    def _build_hourly_trends(self, df) -> list:
         df_t = df.copy()
         df_t["_dt"]   = pd.to_datetime(df_t.get("StartInterval"), errors="coerce", utc=True)
         df_t          = df_t.dropna(subset=["_dt"])
@@ -1027,25 +1073,26 @@ class Command(BaseCommand):
         )
         hagg["sla_rate"]     = (hagg["ans_in_sla"] / (hagg["offered"] - hagg["abd_in_sla"]).clip(lower=1)).clip(0, 1)
         hagg["abandon_rate"] = (hagg["abandoned"]  / hagg["offered"].clip(lower=1)).clip(0, 1)
-        hourly = [
+        return [
             HourlyTrend(
                 hour=r["_hour"], date=r["_date"], account=str(r["account"]),
                 offered=int(r.get("offered", 0) or 0),
                 abandoned=int(r.get("abandoned", 0) or 0),
                 answered=int(r.get("answered", 0) or 0),
-                sla_rate=sf(r.get("sla_rate")),
-                abandon_rate=sf(r.get("abandon_rate")),
-                ans_in_sla=sf(r.get("ans_in_sla")),
-                abd_in_sla=sf(r.get("abd_in_sla")),
+                sla_rate=_safe_float(r.get("sla_rate")),
+                abandon_rate=_safe_float(r.get("abandon_rate")),
+                ans_in_sla=_safe_float(r.get("ans_in_sla")),
+                abd_in_sla=_safe_float(r.get("abd_in_sla")),
             )
             for _, r in hagg.iterrows()
         ]
-        if hourly:
-            HourlyTrend.objects.bulk_create(hourly, batch_size=500)  # pylint: disable=no-member
-        self.log(f"  [OK] {len(hourly)} lignes → hourly_trends")
 
-        # ── DailySnapshot ─────────────────────────────────────────────────
-        self.log("-> Insertion daily_snapshots…")
+    def _build_daily_snapshots(self, df) -> list:
+        """Aggregate df by date and return unsaved DailySnapshot instances."""
+        df_t = df.copy()
+        df_t["_dt"]   = pd.to_datetime(df_t.get("StartInterval"), errors="coerce", utc=True)
+        df_t          = df_t.dropna(subset=["_dt"])
+        df_t["_date"] = df_t["_dt"].dt.tz_convert(None).dt.date
         dagg = (
             df_t.groupby("_date")
             .agg(
@@ -1080,14 +1127,4 @@ class Command(BaseCommand):
                 compliant_accounts=int((swt["sla_rate"] >= swt["target"]).sum()),
                 total_accounts=sub["account"].nunique(),
             ))
-        if snaps:
-            DailySnapshot.objects.bulk_create(snaps, batch_size=365)  # pylint: disable=no-member
-        self.log(f"  [OK] {len(snaps)} jours → daily_snapshots")
-
-        self.stdout.write(self.style.SUCCESS(
-            f"\n[ETL] ✅ Chargement terminé :\n"
-            f"       - historical_metrics : {len(hist_rows):>6} lignes\n"
-            f"       - account_summary    : {len(acc_objs):>6} comptes\n"
-            f"       - hourly_trends      : {len(hourly):>6} lignes\n"
-            f"       - daily_snapshots    : {len(snaps):>6} jours"
-        ))
+        return snaps
