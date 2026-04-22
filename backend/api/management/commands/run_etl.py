@@ -9,6 +9,25 @@ from api.models import (
     HourlyTrend, DailySnapshot,
 )
 
+# ── Constantes colonnes SLA ────────────────────────────────────────────────
+COL_TARGET_ANS_RATE = "Target Ans rate"
+COL_TARGET_ABD_RATE = "Target Abd rate"
+COL_TIMEFRAME_BH    = "Timeframe BH"
+COL_TIMEFRAME_OOH   = "Timeframe OOH"
+COL_ANS_RATE        = "Ans Rate"
+COL_ABD_RATE        = "Abd Rate"
+COL_ANS_SLA         = "Ans SLA"
+COL_ABD_SLA         = "Abd SLA"
+COL_ABD_60          = "Contacts abandoned in 60 seconds"
+COL_API_CONTACTS    = "API contacts handled"
+
+# ── Constantes formules SLA ────────────────────────────────────────────────
+FORMULA_ANS_SLA1 = "(Ans in SLA /(offered-Abd in SLA))"
+FORMULA_ABD_SLA2 = "(Abd out SLA/(offered-Abd in SLA))"
+FORMULA_ANS_SLA3 = "(1-Ans out SLA/(offered-Abd in 60))"
+FORMULA_ABD_SLA5 = "(1-abd out 60 sec/(Offered-Abd in SLA))"
+FORMULA_ABD_SLA1 = "1-(Abd out SLA / Offered)"
+
 # ── Mapping queue → account ────────────────────────────────────────────────
 ACCOUNT_KEYWORDS = {
     "viatris":        "Viatris",
@@ -32,6 +51,39 @@ ACCOUNT_KEYWORDS = {
     "datwayler":      "Datwayler",
 }
 
+# ── Constantes noms de comptes ─────────────────────────────────────────────
+ACCOUNT_BASRAH_GAS_EN       = "Basrah Gas EN"
+ACCOUNT_RENAULT_FR          = "Renault FR"
+ACCOUNT_RENAULT_SP          = "Renault SP"
+ACCOUNT_RENAULT_UK          = "Renault UK"
+ACCOUNT_RENAULT_UK_DEALERS  = "Renault UK Dealers"
+ACCOUNT_NESTLE_DE           = "Nestle DE"
+ACCOUNT_NESTLE_ES           = "Nestle ES"
+ACCOUNT_NESTLE_FR           = "Nestle FR"
+ACCOUNT_NESTLE_NL           = "Nestle NL"
+ACCOUNT_NESTLE_POR          = "Nestle Por"
+ACCOUNT_SONY_SP             = "Sony SP"
+ACCOUNT_SERVIER_EN          = "Servier English"
+ACCOUNT_SERVIER_FR          = "Servier French"
+ACCOUNT_SERVIER_FR_PWD      = "Servier French Password"
+ACCOUNT_SERVIER_SP          = "Servier Spanish"
+ACCOUNT_NISSAN_DU           = "Nissan DU"
+ACCOUNT_NISSAN_FR           = "Nissan FR"
+ACCOUNT_NISSAN_IT           = "Nissan IT"
+ACCOUNT_NISSAN_NMEF         = "Nissan NMEF"
+ACCOUNT_NISSAN_SP           = "Nissan SP"
+ACCOUNT_GF_GERMAN           = "GF German"
+ACCOUNT_GF_ITALIAN          = "GF Italian"
+ACCOUNT_SONOVA_DU           = "Sonova DU"
+ACCOUNT_SONOVA_ENG          = "Sonova Eng"
+ACCOUNT_SONOVA_FR           = "Sonova FR"
+ACCOUNT_SONOVA_GER          = "Sonova Ger"
+ACCOUNT_SONOVA_IT           = "Sonova IT"
+ACCOUNT_SONOVA_POR          = "Sonova Por"
+ACCOUNT_SONOVA_SP           = "Sonova SP"
+ACCOUNT_XPO_ES              = "XPO ES"
+ACCOUNT_XPO_FR              = "XPO FR"
+
 DESK_TO_QUEUES = {
     "Viatris ARABIC": ["Mylan ARABIC"],
     "Viatris Russia": ["Mylan Russia"],
@@ -51,20 +103,20 @@ DESK_TO_QUEUES = {
     "CH_AT_GER":          ["RN_CH_AT_GER"],
     "Ren German":         ["German_Queue"],
     "Renault Eng":        ["RN_GSD_Eng_Queue"],
-    "Renault FR":         ["RN_Ligne_Rouge VIP", "RN_Importeurs", "Renault_Catalogue_Opt7_Q",
+    ACCOUNT_RENAULT_FR:   ["RN_Ligne_Rouge VIP", "RN_Importeurs", "Renault_Catalogue_Opt7_Q",
                            "Renault_bureautique_Opt5_Q", "Renault_industriels_Opt2_Q",
                            "Renault_ivr_Appl_metier_Q", "Renault_materiel_Opt4_Q",
                            "Renault_p_ivr_pwd_Tel_srv_1.2_Q", "Renault_pda_palm_Opt3_Q",
                            "Renault_select_Opt0_Q"],
-    "Renault SP":         ["RN_Spain_Normal_Queue", "RN_Spain_VIP_Queue"],
-    "Renault UK":         ["Renault UK"],
-    "Renault UK Dealers": ["Renault UK Dealers"],
-    "Nestle DE":  ["Nestle DE CBA", "Nestle DE Other", "Nestle DE PW", "Nestle DE Status"],
-    "Nestle ES":  ["Nestle ES CBA", "Nestle ES Other", "Nestle ES PW", "Nestle ES Status"],
-    "Nestle FR":  ["Nestle FR CBA", "Nestle FR Other", "Nestle FR PW", "Nestle FR Status"],
-    "Nestle NL":  ["Nestle NL Other", "Nestle NL PW"],
-    "Nestle Por": ["Nestle PT CBA", "Nestle PT NB", "Nestle PT Other", "Nestle PT PW", "Nestle PT Status"],
-    "Sony SP": ["Sony Spanish Existing Issues", "Sony Spanish New Issues"],
+    ACCOUNT_RENAULT_SP:         ["RN_Spain_Normal_Queue", "RN_Spain_VIP_Queue"],
+    ACCOUNT_RENAULT_UK:         ["Renault UK"],
+    ACCOUNT_RENAULT_UK_DEALERS: ["Renault UK Dealers"],
+    ACCOUNT_NESTLE_DE:  ["Nestle DE CBA", "Nestle DE Other", "Nestle DE PW", "Nestle DE Status"],
+    ACCOUNT_NESTLE_ES:  ["Nestle ES CBA", "Nestle ES Other", "Nestle ES PW", "Nestle ES Status"],
+    ACCOUNT_NESTLE_FR:  ["Nestle FR CBA", "Nestle FR Other", "Nestle FR PW", "Nestle FR Status"],
+    ACCOUNT_NESTLE_NL:  ["Nestle NL Other", "Nestle NL PW"],
+    ACCOUNT_NESTLE_POR: ["Nestle PT CBA", "Nestle PT NB", "Nestle PT Other", "Nestle PT PW", "Nestle PT Status"],
+    ACCOUNT_SONY_SP: ["Sony Spanish Existing Issues", "Sony Spanish New Issues"],
     "Luxottica ARB": ["EL Store ARB"],
     "Luxottica EN":  ["EL Store EN"],
     "Luxottica FR":  ["EL Store FR"],
@@ -73,38 +125,38 @@ DESK_TO_QUEUES = {
     "Luxottica PT":  ["EL Store PT"],
     "Luxottica ES":  ["EL Store ES"],
     "Luxottica TR":  ["EL Store TR"],
-    "Servier English":         ["Servier English"],
-    "Servier French":          ["Servier French"],
-    "Servier French Password": ["Servier French Password"],
-    "Servier Spanish":         ["Servier Spanish"],
-    "Nissan DU":   ["Nissan DU OF 2", "Nissan DU SHFL 1", "Nissan DU SHFL 2",
-                    "Nissan DLR DU Opt 1", "Nissan DLR DU Opt 2"],
-    "Nissan FR":   ["Nissan FR App", "Nissan FR Existing", "Nissan FR HW",
-                    "Nissan FR Other", "Nissan FR PW"],
-    "Nissan Ger":  ["Nissan DE"],
-    "Nissan IT":   ["Nissan IT App", "Nissan IT Existing", "Nissan IT HW", "Nissan IT Other",
-                    "Nissan IT PW", "Nissan DLR IT Existing", "Nissan DLR IT New"],
-    "Nissan NMEF": ["Nissan NMEF - Hardware Issue", "Nissan NMEF - Other", "Nissan NMEF - Password"],
-    "Nissan SP":   ["Nissan SP OF Existing", "Nissan SP OF New", "Nissan SP SHFL Existing",
-                    "Nissan SP SHFL New", "Nissan DLR SP Existing", "Nissan DLR SP New"],
-    "GF German":   ["GF German", "GF German CBA", "German_Queue"],
-    "GF Italian":  ["GF Italian", "GF Italian CBA"],
+    ACCOUNT_SERVIER_EN:     ["Servier English"],
+    ACCOUNT_SERVIER_FR:     ["Servier French"],
+    ACCOUNT_SERVIER_FR_PWD: ["Servier French Password"],
+    ACCOUNT_SERVIER_SP:     ["Servier Spanish"],
+    ACCOUNT_NISSAN_DU:   ["Nissan DU OF 2", "Nissan DU SHFL 1", "Nissan DU SHFL 2",
+                          "Nissan DLR DU Opt 1", "Nissan DLR DU Opt 2"],
+    ACCOUNT_NISSAN_FR:   ["Nissan FR App", "Nissan FR Existing", "Nissan FR HW",
+                          "Nissan FR Other", "Nissan FR PW"],
+    "Nissan Ger":        ["Nissan DE"],
+    ACCOUNT_NISSAN_IT:   ["Nissan IT App", "Nissan IT Existing", "Nissan IT HW", "Nissan IT Other",
+                          "Nissan IT PW", "Nissan DLR IT Existing", "Nissan DLR IT New"],
+    ACCOUNT_NISSAN_NMEF: ["Nissan NMEF - Hardware Issue", "Nissan NMEF - Other", "Nissan NMEF - Password"],
+    ACCOUNT_NISSAN_SP:   ["Nissan SP OF Existing", "Nissan SP OF New", "Nissan SP SHFL Existing",
+                          "Nissan SP SHFL New", "Nissan DLR SP Existing", "Nissan DLR SP New"],
+    ACCOUNT_GF_GERMAN:   ["GF German", "GF German CBA", "German_Queue"],
+    ACCOUNT_GF_ITALIAN:  ["GF Italian", "GF Italian CBA"],
     "GF Chat Ger": ["ConnectChat_GF_German"],
     "GF Chat ITA": ["ConnectChat_GF_Italian"],
     "Saipem FR":     ["SPM FR QUEUE"],
     "Saipem IT":     ["SPM IT QUEUE"],
     "Saipem ITMyHR": ["SPM It MyHR QUEUE"],
-    "Sonova DU":  ["Sonova_Dutch_Other", "Sonova_Dutch_Shop"],
-    "Sonova Eng": ["Sonova_English_Other", "Sonova_English_Shop", "Sonova_Priority"],
-    "Sonova FR":  ["Sonova_French_Other", "Sonova_French_Shop"],
-    "Sonova Ger": ["Sonova_German_Other", "Sonova_German_Shop"],
-    "Sonova IT":  ["Sonova_Italy_Other", "Sonova_Italy_Shop"],
-    "Sonova Por": ["Sonova_Portuguese_Other", "Sonova_Portuguese_Shop"],
-    "Sonova SP":  ["Sonova_Spanish_Other", "Sonova_Mexico_Other", "Sonova_Mexico_Shop"],
-    "XPO ES": ["XPO ES All Other Issues", "XPO ES Default", "XPO ES MFA Password"],
-    "XPO FR": ["XPO FR All Other Issues", "XPO FR Default", "XPO FR Default OOH",
-               "XPO FR MFA Password", "XPO FR MFA Password OOH"],
-    "Basrah Gas EN": ["Basrah Gas EN"],
+    ACCOUNT_SONOVA_DU:  ["Sonova_Dutch_Other", "Sonova_Dutch_Shop"],
+    ACCOUNT_SONOVA_ENG: ["Sonova_English_Other", "Sonova_English_Shop", "Sonova_Priority"],
+    ACCOUNT_SONOVA_FR:  ["Sonova_French_Other", "Sonova_French_Shop"],
+    ACCOUNT_SONOVA_GER: ["Sonova_German_Other", "Sonova_German_Shop"],
+    ACCOUNT_SONOVA_IT:  ["Sonova_Italy_Other", "Sonova_Italy_Shop"],
+    ACCOUNT_SONOVA_POR: ["Sonova_Portuguese_Other", "Sonova_Portuguese_Shop"],
+    ACCOUNT_SONOVA_SP:  ["Sonova_Spanish_Other", "Sonova_Mexico_Other", "Sonova_Mexico_Shop"],
+    ACCOUNT_XPO_ES: ["XPO ES All Other Issues", "XPO ES Default", "XPO ES MFA Password"],
+    ACCOUNT_XPO_FR: ["XPO FR All Other Issues", "XPO FR Default", "XPO FR Default OOH",
+                     "XPO FR MFA Password", "XPO FR MFA Password OOH"],
+    ACCOUNT_BASRAH_GAS_EN: ["Basrah Gas EN"],
 }
 
 ANS_COL_BY_TF = {
@@ -120,7 +172,7 @@ ABD_COL_BY_TF = {
     30: "Contacts abandoned in 30 seconds",
     40: "Contacts abandoned 40 seconds",
     45: "Contacts abandoned in 45 seconds",
-    60: "Contacts abandoned in 60 seconds",
+    60: COL_ABD_60,
     90: "Contacts abandoned in 90 seconds",
 }
 
@@ -152,73 +204,73 @@ QUEUE_TO_DESK = {
     "RN_CH_AT_GER":                    "CH_AT_GER",
     "German_Queue":                    "Ren German",
     "RN_GSD_Eng_Queue":                "Renault Eng",
-    "RN_Ligne_Rouge VIP":              "Renault FR",
-    "RN_Importeurs":                   "Renault FR",
-    "Renault_Catalogue_Opt7_Q":        "Renault FR",
-    "Renault_bureautique_Opt5_Q":      "Renault FR",
-    "Renault_industriels_Opt2_Q":      "Renault FR",
-    "Renault_ivr_Appl_metier_Q":       "Renault FR",
-    "Renault_materiel_Opt4_Q":         "Renault FR",
-    "Renault_p_ivr_pwd_Tel_srv_1.2_Q": "Renault FR",
-    "Renault_pda_palm_Opt3_Q":         "Renault FR",
-    "Renault_select_Opt0_Q":           "Renault FR",
-    "RN_Spain_Normal_Queue":           "Renault SP",
-    "RN_Spain_VIP_Queue":              "Renault SP",
-    "Renault UK":                      "Renault UK",
-    "Renault UK Dealers":              "Renault UK Dealers",
-    "Nestle DE CBA":    "Nestle DE",  "Nestle DE Other":  "Nestle DE",
-    "Nestle DE PW":     "Nestle DE",  "Nestle DE Status": "Nestle DE",
-    "Nestle ES CBA":    "Nestle ES",  "Nestle ES Other":  "Nestle ES",
-    "Nestle ES PW":     "Nestle ES",  "Nestle ES Status": "Nestle ES",
-    "Nestle FR CBA":    "Nestle FR",  "Nestle FR Other":  "Nestle FR",
-    "Nestle FR PW":     "Nestle FR",  "Nestle FR Status": "Nestle FR",
-    "Nestle NL Other":  "Nestle NL",  "Nestle NL PW":     "Nestle NL",
-    "Nestle PT CBA":    "Nestle Por", "Nestle PT NB":     "Nestle Por",
-    "Nestle PT Other":  "Nestle Por", "Nestle PT PW":     "Nestle Por",
-    "Nestle PT Status": "Nestle Por",
-    "Sony Spanish Existing Issues": "Sony SP",
-    "Sony Spanish New Issues":      "Sony SP",
-    "Servier English":         "Servier English",
-    "Servier French":          "Servier French",
-    "Servier French Password": "Servier French Password",
-    "Servier Spanish":         "Servier Spanish",
-    "Nissan DU OF 2":          "Nissan DU",  "Nissan DU SHFL 1":        "Nissan DU",
-    "Nissan DU SHFL 2":        "Nissan DU",  "Nissan DLR DU Opt 1":     "Nissan DU",
-    "Nissan DLR DU Opt 2":     "Nissan DU",
-    "Nissan FR App":           "Nissan FR",  "Nissan FR Existing":      "Nissan FR",
-    "Nissan FR HW":            "Nissan FR",  "Nissan FR Other":         "Nissan FR",
-    "Nissan FR PW":            "Nissan FR",
+    "RN_Ligne_Rouge VIP":              ACCOUNT_RENAULT_FR,
+    "RN_Importeurs":                   ACCOUNT_RENAULT_FR,
+    "Renault_Catalogue_Opt7_Q":        ACCOUNT_RENAULT_FR,
+    "Renault_bureautique_Opt5_Q":      ACCOUNT_RENAULT_FR,
+    "Renault_industriels_Opt2_Q":      ACCOUNT_RENAULT_FR,
+    "Renault_ivr_Appl_metier_Q":       ACCOUNT_RENAULT_FR,
+    "Renault_materiel_Opt4_Q":         ACCOUNT_RENAULT_FR,
+    "Renault_p_ivr_pwd_Tel_srv_1.2_Q": ACCOUNT_RENAULT_FR,
+    "Renault_pda_palm_Opt3_Q":         ACCOUNT_RENAULT_FR,
+    "Renault_select_Opt0_Q":           ACCOUNT_RENAULT_FR,
+    "RN_Spain_Normal_Queue":           ACCOUNT_RENAULT_SP,
+    "RN_Spain_VIP_Queue":              ACCOUNT_RENAULT_SP,
+    "Renault UK":                      ACCOUNT_RENAULT_UK,
+    "Renault UK Dealers":              ACCOUNT_RENAULT_UK_DEALERS,
+    "Nestle DE CBA":    ACCOUNT_NESTLE_DE,  "Nestle DE Other":  ACCOUNT_NESTLE_DE,
+    "Nestle DE PW":     ACCOUNT_NESTLE_DE,  "Nestle DE Status": ACCOUNT_NESTLE_DE,
+    "Nestle ES CBA":    ACCOUNT_NESTLE_ES,  "Nestle ES Other":  ACCOUNT_NESTLE_ES,
+    "Nestle ES PW":     ACCOUNT_NESTLE_ES,  "Nestle ES Status": ACCOUNT_NESTLE_ES,
+    "Nestle FR CBA":    ACCOUNT_NESTLE_FR,  "Nestle FR Other":  ACCOUNT_NESTLE_FR,
+    "Nestle FR PW":     ACCOUNT_NESTLE_FR,  "Nestle FR Status": ACCOUNT_NESTLE_FR,
+    "Nestle NL Other":  ACCOUNT_NESTLE_NL,  "Nestle NL PW":     ACCOUNT_NESTLE_NL,
+    "Nestle PT CBA":    ACCOUNT_NESTLE_POR, "Nestle PT NB":     ACCOUNT_NESTLE_POR,
+    "Nestle PT Other":  ACCOUNT_NESTLE_POR, "Nestle PT PW":     ACCOUNT_NESTLE_POR,
+    "Nestle PT Status": ACCOUNT_NESTLE_POR,
+    "Sony Spanish Existing Issues": ACCOUNT_SONY_SP,
+    "Sony Spanish New Issues":      ACCOUNT_SONY_SP,
+    "Servier English":         ACCOUNT_SERVIER_EN,
+    "Servier French":          ACCOUNT_SERVIER_FR,
+    "Servier French Password": ACCOUNT_SERVIER_FR_PWD,
+    "Servier Spanish":         ACCOUNT_SERVIER_SP,
+    "Nissan DU OF 2":          ACCOUNT_NISSAN_DU,  "Nissan DU SHFL 1":        ACCOUNT_NISSAN_DU,
+    "Nissan DU SHFL 2":        ACCOUNT_NISSAN_DU,  "Nissan DLR DU Opt 1":     ACCOUNT_NISSAN_DU,
+    "Nissan DLR DU Opt 2":     ACCOUNT_NISSAN_DU,
+    "Nissan FR App":           ACCOUNT_NISSAN_FR,  "Nissan FR Existing":      ACCOUNT_NISSAN_FR,
+    "Nissan FR HW":            ACCOUNT_NISSAN_FR,  "Nissan FR Other":         ACCOUNT_NISSAN_FR,
+    "Nissan FR PW":            ACCOUNT_NISSAN_FR,
     "Nissan DE":               "Nissan Ger",
-    "Nissan IT App":           "Nissan IT",  "Nissan IT Existing":      "Nissan IT",
-    "Nissan IT HW":            "Nissan IT",  "Nissan IT Other":         "Nissan IT",
-    "Nissan IT PW":            "Nissan IT",
-    "Nissan DLR IT Existing":  "Nissan IT",  "Nissan DLR IT New":       "Nissan IT",
-    "Nissan NMEF - Hardware Issue": "Nissan NMEF",
-    "Nissan NMEF - Other":          "Nissan NMEF",
-    "Nissan NMEF - Password":       "Nissan NMEF",
-    "Nissan SP OF Existing":   "Nissan SP",  "Nissan SP OF New":        "Nissan SP",
-    "Nissan SP SHFL Existing": "Nissan SP",  "Nissan SP SHFL New":      "Nissan SP",
-    "Nissan DLR SP Existing":  "Nissan SP",  "Nissan DLR SP New":       "Nissan SP",
-    "GF German":              "GF German",   "GF German CBA":          "GF German",
-    "GF Italian":             "GF Italian",  "GF Italian CBA":         "GF Italian",
+    "Nissan IT App":           ACCOUNT_NISSAN_IT,  "Nissan IT Existing":      ACCOUNT_NISSAN_IT,
+    "Nissan IT HW":            ACCOUNT_NISSAN_IT,  "Nissan IT Other":         ACCOUNT_NISSAN_IT,
+    "Nissan IT PW":            ACCOUNT_NISSAN_IT,
+    "Nissan DLR IT Existing":  ACCOUNT_NISSAN_IT,  "Nissan DLR IT New":       ACCOUNT_NISSAN_IT,
+    "Nissan NMEF - Hardware Issue": ACCOUNT_NISSAN_NMEF,
+    "Nissan NMEF - Other":          ACCOUNT_NISSAN_NMEF,
+    "Nissan NMEF - Password":       ACCOUNT_NISSAN_NMEF,
+    "Nissan SP OF Existing":   ACCOUNT_NISSAN_SP,  "Nissan SP OF New":        ACCOUNT_NISSAN_SP,
+    "Nissan SP SHFL Existing": ACCOUNT_NISSAN_SP,  "Nissan SP SHFL New":      ACCOUNT_NISSAN_SP,
+    "Nissan DLR SP Existing":  ACCOUNT_NISSAN_SP,  "Nissan DLR SP New":       ACCOUNT_NISSAN_SP,
+    "GF German":              ACCOUNT_GF_GERMAN,   "GF German CBA":          ACCOUNT_GF_GERMAN,
+    "GF Italian":             ACCOUNT_GF_ITALIAN,  "GF Italian CBA":         ACCOUNT_GF_ITALIAN,
     "ConnectChat_GF_German":  "GF Chat Ger", "ConnectChat_GF_Italian": "GF Chat ITA",
     "SPM FR QUEUE":      "Saipem FR",   "SPM IT QUEUE":      "Saipem IT",
     "SPM It MyHR QUEUE": "Saipem ITMyHR",
-    "Sonova_Dutch_Other":      "Sonova DU",  "Sonova_Dutch_Shop":       "Sonova DU",
-    "Sonova_English_Other":    "Sonova Eng", "Sonova_English_Shop":     "Sonova Eng",
-    "Sonova_Priority":         "Sonova Eng",
-    "Sonova_French_Other":     "Sonova FR",  "Sonova_French_Shop":      "Sonova FR",
-    "Sonova_German_Other":     "Sonova Ger", "Sonova_German_Shop":      "Sonova Ger",
-    "Sonova_Italy_Other":      "Sonova IT",  "Sonova_Italy_Shop":       "Sonova IT",
-    "Sonova_Portuguese_Other": "Sonova Por", "Sonova_Portuguese_Shop":  "Sonova Por",
-    "Sonova_Spanish_Other":    "Sonova SP",  "Sonova_Mexico_Other":     "Sonova SP",
-    "Sonova_Mexico_Shop":      "Sonova SP",
-    "XPO ES All Other Issues": "XPO ES", "XPO ES Default":          "XPO ES",
-    "XPO ES MFA Password":     "XPO ES",
-    "XPO FR All Other Issues": "XPO FR", "XPO FR Default":          "XPO FR",
-    "XPO FR Default OOH":      "XPO FR", "XPO FR MFA Password":     "XPO FR",
-    "XPO FR MFA Password OOH": "XPO FR",
-    "Basrah Gas EN": "Basrah Gas EN",
+    "Sonova_Dutch_Other":      ACCOUNT_SONOVA_DU,  "Sonova_Dutch_Shop":       ACCOUNT_SONOVA_DU,
+    "Sonova_English_Other":    ACCOUNT_SONOVA_ENG, "Sonova_English_Shop":     ACCOUNT_SONOVA_ENG,
+    "Sonova_Priority":         ACCOUNT_SONOVA_ENG,
+    "Sonova_French_Other":     ACCOUNT_SONOVA_FR,  "Sonova_French_Shop":      ACCOUNT_SONOVA_FR,
+    "Sonova_German_Other":     ACCOUNT_SONOVA_GER, "Sonova_German_Shop":      ACCOUNT_SONOVA_GER,
+    "Sonova_Italy_Other":      ACCOUNT_SONOVA_IT,  "Sonova_Italy_Shop":       ACCOUNT_SONOVA_IT,
+    "Sonova_Portuguese_Other": ACCOUNT_SONOVA_POR, "Sonova_Portuguese_Shop":  ACCOUNT_SONOVA_POR,
+    "Sonova_Spanish_Other":    ACCOUNT_SONOVA_SP,  "Sonova_Mexico_Other":     ACCOUNT_SONOVA_SP,
+    "Sonova_Mexico_Shop":      ACCOUNT_SONOVA_SP,
+    "XPO ES All Other Issues": ACCOUNT_XPO_ES, "XPO ES Default":          ACCOUNT_XPO_ES,
+    "XPO ES MFA Password":     ACCOUNT_XPO_ES,
+    "XPO FR All Other Issues": ACCOUNT_XPO_FR, "XPO FR Default":          ACCOUNT_XPO_FR,
+    "XPO FR Default OOH":      ACCOUNT_XPO_FR, "XPO FR MFA Password":     ACCOUNT_XPO_FR,
+    "XPO FR MFA Password OOH": ACCOUNT_XPO_FR,
+    ACCOUNT_BASRAH_GAS_EN: ACCOUNT_BASRAH_GAS_EN,
 }
 
 
@@ -333,10 +385,10 @@ def load_sla_queue_level(sla_file: Path) -> pd.DataFrame:
         except Exception:
             return None
 
-    df["target_ans_rate"] = df["Target Ans rate"].apply(clean_target)
-    df["target_abd_rate"] = df["Target Abd rate"].apply(clean_target)
-    df["timeframe_bh"]    = pd.to_numeric(df["Timeframe BH"],  errors="coerce").fillna(40).astype(int)
-    df["timeframe_ooh"]   = pd.to_numeric(df["Timeframe OOH"], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
+    df["target_ans_rate"] = df[COL_TARGET_ANS_RATE].apply(clean_target)
+    df["target_abd_rate"] = df[COL_TARGET_ABD_RATE].apply(clean_target)
+    df["timeframe_bh"]    = pd.to_numeric(df[COL_TIMEFRAME_BH],  errors="coerce").fillna(40).astype(int)
+    df["timeframe_ooh"]   = pd.to_numeric(df[COL_TIMEFRAME_OOH], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
     df["queue_name_norm"] = df["Queue name"].str.strip().str.lower()
     df = df.drop_duplicates(subset=["queue_name_norm"], keep="first")
     return df[["queue_name_norm", "account", "target_ans_rate", "target_abd_rate",
@@ -379,31 +431,26 @@ def load_sla_dataframe_raw(sla_file: Path) -> pd.DataFrame:
         except Exception:
             return d
 
-    df["target_ans_rate"]  = df["Target Ans rate"].apply(ct)
-    df["target_abd_rate"]  = df["Target Abd rate"].apply(ct)
-    df["timeframe_bh"]     = df["Timeframe BH"].apply(ctf)
+    df["target_ans_rate"]  = df[COL_TARGET_ANS_RATE].apply(ct)
+    df["target_abd_rate"]  = df[COL_TARGET_ABD_RATE].apply(ct)
+    df["timeframe_bh"]     = df[COL_TIMEFRAME_BH].apply(ctf)
     df["ooh"]              = df["OOH"].apply(lambda v: ci(v, 0))
-    df["ans_rate_formula"] = df.get("Ans Rate", pd.Series(dtype=str))
-    df["abd_rate_formula"] = df.get("Abd Rate", pd.Series(dtype=str))
-    df["ans_sla"]          = df.get("Ans SLA",  pd.Series(dtype=str))
-    df["abd_sla"]          = df.get("Abd SLA",  pd.Series(dtype=str))
+    df["ans_rate_formula"] = df.get(COL_ANS_RATE, pd.Series(dtype=str))
+    df["abd_rate_formula"] = df.get(COL_ABD_RATE, pd.Series(dtype=str))
+    df["ans_sla"]          = df.get(COL_ANS_SLA,  pd.Series(dtype=str))
+    df["abd_sla"]          = df.get(COL_ABD_SLA,  pd.Series(dtype=str))
     base = df[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh", "ooh",
                "ans_sla", "abd_sla", "ans_rate_formula", "abd_rate_formula"]]
-    f1 = "(Ans in SLA /(offered-Abd in SLA))"
-    f2 = "(Abd out SLA/(offered-Abd in SLA))"
-    f3 = "(1-Ans out SLA/(offered-Abd in 60))"
-    f4 = "(1-abd out 60 sec/(Offered-Abd in SLA))"
-    f5 = "1-(Abd out SLA / Offered)"
     extra = pd.DataFrame([
         {"account": "Viatris",   "target_ans_rate": 0.80, "target_abd_rate": 0.05,
          "timeframe_bh": 60, "ooh": 60, "ans_sla": "SLA1", "abd_sla": "Abd2",
-         "ans_rate_formula": f1, "abd_rate_formula": f2},
+         "ans_rate_formula": FORMULA_ANS_SLA1, "abd_rate_formula": FORMULA_ABD_SLA2},
         {"account": "Benelux",   "target_ans_rate": 0.90, "target_abd_rate": 0.95,
          "timeframe_bh": 40, "ooh": 40, "ans_sla": "SLA1", "abd_sla": "Abd1",
-         "ans_rate_formula": f1, "abd_rate_formula": f5},
+         "ans_rate_formula": FORMULA_ANS_SLA1, "abd_rate_formula": FORMULA_ABD_SLA1},
         {"account": "Luxottica", "target_ans_rate": 0.90, "target_abd_rate": 0.95,
          "timeframe_bh": 30, "ooh": 30, "ans_sla": "SLA3", "abd_sla": "Abd5",
-         "ans_rate_formula": f3, "abd_rate_formula": f4},
+         "ans_rate_formula": FORMULA_ANS_SLA3, "abd_rate_formula": FORMULA_ABD_SLA5},
     ])
     return pd.concat([base, extra], ignore_index=True)
 
@@ -440,37 +487,34 @@ def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
         except Exception:
             return d
 
-    df["_ta"]  = df["Target Ans rate"].apply(ct)
-    df["_td"]  = df["Target Abd rate"].apply(ct)
-    df["_tf"]  = df["Timeframe BH"].apply(ctf)
+    df["_ta"]  = df[COL_TARGET_ANS_RATE].apply(ct)
+    df["_td"]  = df[COL_TARGET_ABD_RATE].apply(ct)
+    df["_tf"]  = df[COL_TIMEFRAME_BH].apply(ctf)
     df["_ooh"] = df["OOH"].apply(lambda v: int(float(v)) if pd.notna(v) else 0)
-    for col in ["Ans Rate", "Abd Rate", "Ans SLA", "Abd SLA"]:
+    for col in [COL_ANS_RATE, COL_ABD_RATE, COL_ANS_SLA, COL_ABD_SLA]:
         if col not in df.columns:
             df[col] = None
     extra = pd.DataFrame([
         {"account": "Viatris",   "_ta": 0.80, "_td": 0.05, "_tf": 60, "_ooh": 60,
-         "Ans Rate": "(Ans in SLA /(offered-Abd in SLA))",
-         "Abd Rate": "(Abd out SLA/(offered-Abd in SLA))",
-         "Ans SLA": "SLA1", "Abd SLA": "Abd2"},
+         COL_ANS_RATE: FORMULA_ANS_SLA1, COL_ABD_RATE: FORMULA_ABD_SLA2,
+         COL_ANS_SLA: "SLA1", COL_ABD_SLA: "Abd2"},
         {"account": "Benelux",   "_ta": 0.90, "_td": 0.95, "_tf": 40, "_ooh": 40,
-         "Ans Rate": "(Ans in SLA /(offered-Abd in SLA))",
-         "Abd Rate": "1-(Abd out SLA / Offered)",
-         "Ans SLA": "SLA1", "Abd SLA": "Abd1"},
+         COL_ANS_RATE: FORMULA_ANS_SLA1, COL_ABD_RATE: FORMULA_ABD_SLA1,
+         COL_ANS_SLA: "SLA1", COL_ABD_SLA: "Abd1"},
         {"account": "Luxottica", "_ta": 0.90, "_td": 0.95, "_tf": 30, "_ooh": 30,
-         "Ans Rate": "(1-Ans out SLA/(offered-Abd in 60))",
-         "Abd Rate": "(1-abd out 60 sec/(Offered-Abd in SLA))",
-         "Ans SLA": "SLA3", "Abd SLA": "Abd5"},
+         COL_ANS_RATE: FORMULA_ANS_SLA3, COL_ABD_RATE: FORMULA_ABD_SLA5,
+         COL_ANS_SLA: "SLA3", COL_ABD_SLA: "Abd5"},
     ])
     df = pd.concat([df, extra], ignore_index=True)
 
     def merge_dup(group):
         return pd.Series({
-            "ans_rate_formula": next((v for v in group.get("Ans Rate", []) if pd.notna(v)), None),
-            "abd_rate_formula": next((v for v in group.get("Abd Rate", []) if pd.notna(v)), None),
+            "ans_rate_formula": next((v for v in group.get(COL_ANS_RATE, []) if pd.notna(v)), None),
+            "abd_rate_formula": next((v for v in group.get(COL_ABD_RATE, []) if pd.notna(v)), None),
             "timeframe_bh":     int(group["_tf"].min()),
             "ooh":              int(group["_ooh"].max()),
-            "ans_sla":          next((v for v in group.get("Ans SLA", []) if pd.notna(v)), None),
-            "abd_sla":          next((v for v in group.get("Abd SLA", []) if pd.notna(v)), None),
+            "ans_sla":          next((v for v in group.get(COL_ANS_SLA, []) if pd.notna(v)), None),
+            "abd_sla":          next((v for v in group.get(COL_ABD_SLA, []) if pd.notna(v)), None),
             "target_ans_rate":  group["_ta"].max(),
             "target_abd_rate":  group["_td"].min(),
         })
@@ -540,10 +584,10 @@ class Command(BaseCommand):
         numeric_cols = [
             "offered", "answered", "abandoned", "avg_handle_time", "avg_answer_time",
             "avg_hold_time", "callback_contacts", "contacts_put_on_hold", "Agent interaction time",
-            "API contacts handled", "Contacts handled outbound",
+            COL_API_CONTACTS, "Contacts handled outbound",
             "Contacts abandoned in 20 seconds", "Contacts abandoned in 30 seconds",
             "Contacts abandoned 40 seconds", "Contacts abandoned in 45 seconds",
-            "Contacts abandoned in 60 seconds", "Contacts abandoned in 90 seconds",
+            COL_ABD_60, "Contacts abandoned in 90 seconds",
             "Contacts answered in 20 seconds", "Contacts answered in 30 seconds",
             "Contacts answered 40 seconds", "Contacts answered in 45 seconds",
             "Contacts answered in 60 seconds", "Contacts answered in 90 seconds",
@@ -593,12 +637,16 @@ class Command(BaseCommand):
         df = df.merge(
             df_sla[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh", "ooh",
                      "ans_sla", "abd_sla", "ans_rate_formula", "abd_rate_formula"]].rename(columns={
-                "target_ans_rate": "Target Ans rate", "target_abd_rate": "Target Abd rate",
-                "timeframe_bh": "Timeframe BH", "ooh": "OOH",
-                "ans_sla": "Ans SLA", "abd_sla": "Abd SLA",
-                "ans_rate_formula": "Ans Rate", "abd_rate_formula": "Abd Rate",
+                "target_ans_rate": COL_TARGET_ANS_RATE,
+                "target_abd_rate": COL_TARGET_ABD_RATE,
+                "timeframe_bh":    COL_TIMEFRAME_BH,
+                "ooh":             "OOH",
+                "ans_sla":         COL_ANS_SLA,
+                "abd_sla":         COL_ABD_SLA,
+                "ans_rate_formula": COL_ANS_RATE,
+                "abd_rate_formula": COL_ABD_RATE,
             }),
-            on="account", how="left"
+            on="account", how="left", validate="many_to_one"
         )
         df_queue_sla = load_sla_queue_level(sla_file)
         df["queue_name_norm"] = df["Queue"].str.strip().str.lower()
@@ -608,16 +656,16 @@ class Command(BaseCommand):
                 "target_ans_rate": "_q_ta", "target_abd_rate": "_q_td",
                 "timeframe_bh": "_q_tf", "timeframe_ooh": "_q_tf_ooh", "account": "_q_acc",
             }),
-            on="queue_name_norm", how="left"
+            on="queue_name_norm", how="left", validate="many_to_one"
         )
         if len(df) != n_before:
             self.log(f"  ⚠️ Doublons détectés ({len(df) - n_before}) → déduplication")
             df = df.drop_duplicates(subset=["Queue", "StartInterval"], keep="first")
         mask = df["_q_ta"].notna()
-        df.loc[mask, "Target Ans rate"] = df.loc[mask, "_q_ta"]
-        df.loc[mask, "Target Abd rate"] = df.loc[mask, "_q_td"]
-        df.loc[mask, "Timeframe BH"]    = df.loc[mask, "_q_tf"]
-        df.loc[mask, "Timeframe OOH"]   = df.loc[mask, "_q_tf_ooh"]
+        df.loc[mask, COL_TARGET_ANS_RATE] = df.loc[mask, "_q_ta"]
+        df.loc[mask, COL_TARGET_ABD_RATE] = df.loc[mask, "_q_td"]
+        df.loc[mask, COL_TIMEFRAME_BH]    = df.loc[mask, "_q_tf"]
+        df.loc[mask, COL_TIMEFRAME_OOH]   = df.loc[mask, "_q_tf_ooh"]
         df.drop(columns=["_q_ta", "_q_td", "_q_tf", "_q_tf_ooh", "_q_acc", "queue_name_norm"],
                 inplace=True, errors="ignore")
         self.log(f"  -> SLA queue-level : {mask.sum()} queues configurées")
@@ -633,13 +681,14 @@ class Command(BaseCommand):
         df["abandoned"] = _num(df.get("abandoned"))
 
         # Chat queues: answered = API contacts handled
-        if "API contacts handled" in df.columns:
-            api = _num(df["API contacts handled"])
+        if COL_API_CONTACTS in df.columns:
+            api = _num(df[COL_API_CONTACTS])
             chat_mask = (df["answered"] == 0) & (api > 0)
             df.loc[chat_mask, "answered"] = api[chat_mask]
 
-        df, tf_series = self._apply_sla_timeframe(df, _num)
-        df = self._compute_sla_rates(df, tf_series)
+        # tf_series is used internally by _apply_sla_timeframe only
+        df = self._apply_sla_timeframe(df, _num)
+        df = self._compute_sla_rates(df)
         df = self._compute_time_fields(df, _num)
         df = self._apply_db_config_override(df)
         df = self._apply_ooh_flag(df)
@@ -665,8 +714,8 @@ class Command(BaseCommand):
 
     def _apply_sla_timeframe(self, df, _num):
         """Compute per-row ans_in_sla / abd_in_sla based on dynamic timeframe."""
-        if "Timeframe BH" in df.columns:
-            tf_series = pd.to_numeric(df["Timeframe BH"], errors="coerce").fillna(40).astype(int)
+        if COL_TIMEFRAME_BH in df.columns:
+            tf_series = pd.to_numeric(df[COL_TIMEFRAME_BH], errors="coerce").fillna(40).astype(int)
             lux_mask = df["account"].str.lower().str.contains("luxottica", na=False)
             tf_series.loc[lux_mask] = 30
         else:
@@ -686,8 +735,8 @@ class Command(BaseCommand):
         df["abd_in_sla"] = abd_vals
         self.log(f"  -> Timeframes présents : {sorted(tf_series.unique().tolist())}")
 
-        if "Contacts abandoned in 60 seconds" in df.columns:
-            df["abd_in_60"] = _num(df["Contacts abandoned in 60 seconds"])
+        if COL_ABD_60 in df.columns:
+            df["abd_in_60"] = _num(df[COL_ABD_60])
         else:
             df["abd_in_60"] = df["abd_in_sla"]
 
@@ -695,9 +744,9 @@ class Command(BaseCommand):
         df["abd_out_sla"] = (df["abandoned"] - df["abd_in_sla"]).clip(lower=0).astype(int)
         df["abd_out_60"]  = (df["abandoned"] - df["abd_in_60"]).clip(lower=0).round().astype(int)
         df["answer_rate"] = df["answered"] / df["offered"].replace(0, 1)
-        return df, tf_series
+        return df
 
-    def _compute_sla_rates(self, df, tf_series):
+    def _compute_sla_rates(self, df):
         """Apply per-queue SLA and abandonment rate formulas."""
         q = "Queue"
         SLA2_KW = ['gf', 'connectchat_gf', 'german_queue', 'dxc', 'hpe', 'saipem', 'spm']
@@ -753,15 +802,15 @@ class Command(BaseCommand):
         else:
             df["avg_ttc"] = df["avg_handle_time"]
         df["total_ttc_time"]  = df["avg_ttc"] * df["answered"]
-        df["target_ans_rate"] = pd.to_numeric(df.get("Target Ans rate"), errors="coerce")
-        df["target_abd_rate"] = pd.to_numeric(df.get("Target Abd rate"), errors="coerce")
+        df["target_ans_rate"] = pd.to_numeric(df.get(COL_TARGET_ANS_RATE), errors="coerce")
+        df["target_abd_rate"] = pd.to_numeric(df.get(COL_TARGET_ABD_RATE), errors="coerce")
         df["timeframe_bh"] = (
-            pd.to_numeric(df["Timeframe BH"], errors="coerce").fillna(40).astype(int)
-            if "Timeframe BH" in df.columns else 40
+            pd.to_numeric(df[COL_TIMEFRAME_BH], errors="coerce").fillna(40).astype(int)
+            if COL_TIMEFRAME_BH in df.columns else 40
         )
         df["timeframe_ooh"] = (
-            pd.to_numeric(df["Timeframe OOH"], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
-            if "Timeframe OOH" in df.columns else df["timeframe_bh"]
+            pd.to_numeric(df[COL_TIMEFRAME_OOH], errors="coerce").fillna(df["timeframe_bh"]).astype(int)
+            if COL_TIMEFRAME_OOH in df.columns else df["timeframe_bh"]
         )
         return df
 

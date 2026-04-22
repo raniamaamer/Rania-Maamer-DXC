@@ -157,7 +157,7 @@ class Command(BaseCommand):
         df["sla_compliant"] = df["sla_rate"] >= df["target_ans_rate"]
 
         # ── 7. Charger le SLA map depuis la DB ────────────────────────────────
-        sla_map = {s.account: s for s in SLAConfig.objects.all()}
+        sla_map = {s.account: s for s in SLAConfig.objects.all()}  # type: ignore
 
         # ── 8. Mode replace → supprimer les donnees du jour courant ──────────
         today = timezone.now().date()
