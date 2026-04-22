@@ -1,0 +1,194 @@
+# ─────────────────────────────────────────────────────────────
+#  docker-compose.yml — React (Vite/Nginx) + Django + PostgreSQL
+#                     + Prometheus + Grafana  (Sprint S3)
+#                     + SonarQube (Sprint S2)
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Frontend React (Nginx) ───────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend/src
+        - action: rebuild
+          path: ./frontend/public
+
+  # ── Backend Django ───────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: backend
+    expose:
+      - "8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=dxc_backend.settings
+      - TZ=Africa/Tunis
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             python manage.py run_etl &&
+             gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend
+          ignore:
+            - ./backend/__pycache__
+            - ./backend/*.pyc
+
+  # ── Base de données PostgreSQL ───────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: db
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_DB: dxc_kpi_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 20010430
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dxc_kpi_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Prometheus — collecte les métriques ─────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "7070:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Grafana — visualise les métriques ───────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/django.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── PostgreSQL Exporter — métriques base de données ─────────
+  postgres-exporter:
+      image: prometheuscommunity/postgres-exporter:latest
+      container_name: postgres-exporter
+      env_file:
+        - ./backend/.env
+      environment:
+        DATA_SOURCE_NAME: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+      depends_on:
+        db:
+          condition: service_healthy
+      restart: unless-stopped
+
+  # ── SonarQube — analyse qualité du code ─────────────────────
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 30s
+      timeout: 30s
+      retries: 15
+      start_period: 120s
+
+  # ── SonarQube Init — auto-configure au démarrage ────────────
+  sonarqube-init:
+    image: curlimages/curl:latest
+    container_name: sonarqube-init
+    volumes:
+      - ./monitoring/sonarqube-init.sh:/init.sh:ro
+      - sonarqube_data:/opt/sonarqube/data
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+    command: sh /init.sh
+    restart: "no"
+
+# ── Volumes persistants ──────────────────────────────────────
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+  prometheus_data:
+  grafana_data:
+  sonarqube_data:
+  sonarqube_logs:
