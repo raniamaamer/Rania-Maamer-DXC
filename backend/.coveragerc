@@ -1,0 +1,25 @@
+[run]
+omit =
+    manage.py
+    */wsgi.py
+    */migrations/*
+    api/management/commands/run_etl.py
+    api/management/commands/load_today.py
+    api/management/commands/archive_realtime.py
+    api/management/commands/archive_to_historical.py
+    api/management/commands/seed_missing_accounts.py
+    api/scheduler.py
+    dxc_backend/wsgi.py
+
+[report]
+omit =
+    manage.py
+    */wsgi.py
+    */migrations/*
+    api/management/commands/run_etl.py
+    api/management/commands/load_today.py
+    api/management/commands/archive_realtime.py
+    api/management/commands/archive_to_historical.py
+    api/management/commands/seed_missing_accounts.py
+    api/scheduler.py
+    dxc_backend/wsgi.py
