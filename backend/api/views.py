@@ -28,14 +28,6 @@ def parse_int_param(request, key, default=None):
     return default
 
 
-def _apply_day_filter(filters, day, prefix):
-    DAY_MAP = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday'}
-    day_name = DAY_MAP.get(day)
-    if day_name:
-        filters &= Q(**{f'{prefix}day_of_week__iexact': day_name})
-    return filters
-
-
 def build_time_filter(request, prefix=''):
     filters  = Q()
     year     = parse_int_param(request, 'year')
@@ -45,10 +37,17 @@ def build_time_filter(request, prefix=''):
     language = request.GET.get('language')
     interval = request.GET.get('interval')
 
-    if year:    filters &= Q(**{f'{prefix}year': year})
-    if month:   filters &= Q(**{f'{prefix}month': month})
-    if week:    filters &= Q(**{f'{prefix}week': week})
-    if day:     filters = _apply_day_filter(filters, day, prefix)
+    if year:
+        filters &= Q(**{f'{prefix}year': year})
+    if month:
+        filters &= Q(**{f'{prefix}month': month})
+    if week:
+        filters &= Q(**{f'{prefix}week': week})
+    if day:
+        DAY_MAP  = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday'}
+        day_name = DAY_MAP.get(day)
+        if day_name:
+            filters &= Q(**{f'{prefix}day_of_week__iexact': day_name})
     if language and language != 'all':
         filters &= Q(**{f'{prefix}language': language})
     if interval and interval != 'all':
