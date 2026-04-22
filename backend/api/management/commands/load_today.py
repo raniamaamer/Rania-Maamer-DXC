@@ -1,15 +1,3 @@
-"""
-management/commands/load_today.py
-
-Charge le fichier Excel du jour dans realtime_metrics.
-
-Usage :
-    python manage.py load_today
-    python manage.py load_today --file "C:/path/to/file.xlsx"
-    python manage.py load_today --mode append   # ajoute sans effacer
-    python manage.py load_today --mode replace  # efface et recharge (defaut)
-"""
-
 import warnings
 import pandas as pd
 from pathlib import Path
@@ -19,6 +7,13 @@ from django.utils import timezone
 
 from api.models import RealtimeMetric, SLAConfig
 from api.management.commands.run_etl import extract_account, extract_language, load_sla_dataframe
+
+# ── Constantes colonnes SLA ────────────────────────────────────────────────
+COL_ANS_40 = "Contacts answered 40 seconds"
+COL_ABD_40 = "Contacts abandoned 40 seconds"
+COL_ANS_60 = "Contacts answered in 60 seconds"
+COL_ABD_60 = "Contacts abandoned in 60 seconds"
+COL_TF_BH  = "Timeframe BH"
 
 
 class Command(BaseCommand):
@@ -52,8 +47,7 @@ class Command(BaseCommand):
         mode = options["mode"]
 
         # ── 1. Lire le fichier Excel ──────────────────────────────────────────
-        # ✅ FIX : lecture Excel (.xlsx) au lieu de CSV sep=";"
-        xlsx_file = Path(custom_file) if custom_file else data_dir / "Historical Metrics Report .csv"
+        xlsx_file = Path(custom_file) if custom_file else data_dir / "Historical_Metrics_Report .csv"
         sla_file  = data_dir / "SLA.xlsx"
 
         if not xlsx_file.exists():
@@ -68,15 +62,14 @@ class Command(BaseCommand):
         df.columns = df.columns.str.strip()
 
         # ── 2. Renommer les colonnes → noms internes ──────────────────────────
-        # ✅ FIX : "Average hold time" (nom reel) au lieu de "Average customer hold time"
         COLUMN_MAP = {
-            "Contacts queued":            "offered",           # col AB
-            "Contacts handled incoming":  "answered",          # col Z
-            "Contacts abandoned":         "abandoned",         # col Y
+            "Contacts queued":            "offered",
+            "Contacts handled incoming":  "answered",
+            "Contacts abandoned":         "abandoned",
             "Average handle time":        "avg_handle_time",
             "Average queue answer time":  "avg_answer_time",
             "Average hold time":          "avg_hold_time",
-            "Average customer hold time": "avg_hold_time",   # CSV: nouveau nom
+            "Average customer hold time": "avg_hold_time",
             "Callback contacts":          "callback_contacts",
         }
         df = df.rename(columns=COLUMN_MAP)
@@ -86,8 +79,7 @@ class Command(BaseCommand):
             "offered", "answered", "abandoned",
             "avg_handle_time", "avg_answer_time", "avg_hold_time",
             "callback_contacts", "Agent interaction time",
-            "Contacts answered 40 seconds", "Contacts abandoned 40 seconds",
-            "Contacts answered in 60 seconds", "Contacts abandoned in 60 seconds",
+            COL_ANS_40, COL_ABD_40, COL_ANS_60, COL_ABD_60,
             "Service level 60 seconds", "Service level 120 seconds",
         ]
         for col in numeric_cols:
@@ -107,17 +99,15 @@ class Command(BaseCommand):
         df["language"] = df["Queue"].apply(extract_language)
 
         # ── 5. Merge SLA config ───────────────────────────────────────────────
-        # ✅ FIX : utilise load_sla_dataframe qui gere tous les cas particuliers
-        # (Datwayler (voice)/(chat), Nestlé sur 2 lignes, "NA" strings, "30 sec")
         if sla_file.exists():
             df_sla = load_sla_dataframe(sla_file)
             df = df.merge(
                 df_sla[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh"]].rename(columns={
                     "target_ans_rate": "Target Ans rate",
                     "target_abd_rate": "Target Abd rate",
-                    "timeframe_bh":    "Timeframe BH",
+                    "timeframe_bh":    COL_TF_BH,
                 }),
-                on="account", how="left"
+                on="account", how="left", validate="many_to_one"
             )
 
         self.log(f"{len(df)} lignes | {df['Queue'].nunique()} files | {df['account'].nunique()} comptes")
@@ -132,17 +122,17 @@ class Command(BaseCommand):
         df.loc[mask, "offered"] = df.loc[mask, "answered"] + df.loc[mask, "abandoned"]
 
         # SLA contacts
-        if "Contacts answered 40 seconds" in df.columns:
-            df["ans_in_sla"] = self._num(df["Contacts answered 40 seconds"])
-        elif "Contacts answered in 60 seconds" in df.columns:
-            df["ans_in_sla"] = self._num(df["Contacts answered in 60 seconds"])
+        if COL_ANS_40 in df.columns:
+            df["ans_in_sla"] = self._num(df[COL_ANS_40])
+        elif COL_ANS_60 in df.columns:
+            df["ans_in_sla"] = self._num(df[COL_ANS_60])
         else:
             df["ans_in_sla"] = df["answered"]
 
-        if "Contacts abandoned 40 seconds" in df.columns:
-            df["abd_in_sla"] = self._num(df["Contacts abandoned 40 seconds"])
-        elif "Contacts abandoned in 60 seconds" in df.columns:
-            df["abd_in_sla"] = self._num(df["Contacts abandoned in 60 seconds"])
+        if COL_ABD_40 in df.columns:
+            df["abd_in_sla"] = self._num(df[COL_ABD_40])
+        elif COL_ABD_60 in df.columns:
+            df["abd_in_sla"] = self._num(df[COL_ABD_60])
         else:
             df["abd_in_sla"] = 0.0
 
@@ -156,13 +146,11 @@ class Command(BaseCommand):
         denom = (df["offered"] - df["abd_in_sla"]).replace(0, 1)
         df["sla_rate"] = (df["ans_in_sla"] / denom).clip(0, 1)
 
-        # ✅ FIX : cibles SLA deja nettoyees par load_sla_dataframe (None = pas de target)
-        # Target Ans rate peut etre None (Basrah, Sony, Saipem...) → fallback 0.0
         df["target_ans_rate"] = pd.to_numeric(df.get("Target Ans rate"), errors="coerce").fillna(0.0)
         df["target_abd_rate"] = pd.to_numeric(df.get("Target Abd rate"), errors="coerce").fillna(0.0)
 
-        if "Timeframe BH" in df.columns:
-            df["timeframe_bh"] = pd.to_numeric(df["Timeframe BH"], errors="coerce").fillna(40).astype(int)
+        if COL_TF_BH in df.columns:
+            df["timeframe_bh"] = pd.to_numeric(df[COL_TF_BH], errors="coerce").fillna(40).astype(int)
         else:
             df["timeframe_bh"] = 40
 
@@ -235,7 +223,7 @@ class Command(BaseCommand):
                 target_abd_rate=_f("target_abd_rate", 0.0),
                 timeframe_bh=_i("timeframe_bh", 40),
                 sla_compliant=bool(_f("sla_rate") >= _f("target_ans_rate", 0.0)),
-                source="xlsx_manual",                          
+                source="xlsx_manual",
             ))
 
         RealtimeMetric.objects.bulk_create(objects, batch_size=500)
