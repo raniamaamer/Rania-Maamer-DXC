@@ -809,8 +809,8 @@ class SLAConfigViewTest(APITestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_post_updates_existing_account(self):
-        payload = {"account": "Viatris", "timeframe_bh": 50,
-                "target_ans_rate": "0.90", "target_abd_rate": "0.05"}
+        payload = {"account": "Viatris", "timeframe_bh": 50, 
+                "target_ans_rate": "0.90", "target_abd_rate": "0.05"}  # ← ajouter
         response = self.client.post("/api/sla-config/", payload, format="json")
         self.assertEqual(response.status_code, 200)
         self.cfg.refresh_from_db()
@@ -1031,7 +1031,6 @@ class IntegrationOverviewWithDataTest(APITestCase):
         self.assertEqual(data["summary"]["total_accounts"], 3)
         self.assertEqual(data["summary"]["total_offered"], 300)
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. TESTS DES MANAGEMENT COMMANDS (mocked)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1043,19 +1042,16 @@ from django.test import TestCase
 from django.utils import timezone
 
 
-# FIX: Renamed from RunETLFunctionsTest → RunETLUtilityFunctionsTest to avoid
-# the duplicate class name that was silently overriding this entire class,
-# causing all tests inside it to never execute.
-class RunETLUtilityFunctionsTest(TestCase):
-    """Tests des fonctions utilitaires basiques de run_etl.py."""
+class RunETLFunctionsTest(TestCase):
+    """Tests des fonctions utilitaires de run_etl.py."""
 
-    def test_extract_account_returns_string(self):
+    def test_extract_account_returns_dataframe(self):
         from api.management.commands.run_etl import extract_account
         result = extract_account("Renault FR Queue")
         self.assertIsInstance(result, str)
         self.assertEqual(result, "Renault")
 
-    def test_extract_account_unknown_queue(self):
+    def test_extract_account_empty_df(self):
         from api.management.commands.run_etl import extract_account
         result = extract_account("UnknownQueue XYZ")
         self.assertIsInstance(result, str)
@@ -1263,6 +1259,7 @@ class LoadTodayCommandTest(TestCase):
             pass
 
     def test_extract_account_single_arg(self):
+        # extract_account takes only queue_name, not (account_name, df)
         from api.management.commands.run_etl import extract_account
         result = extract_account("Renault FR")
         self.assertEqual(result, "Renault")
