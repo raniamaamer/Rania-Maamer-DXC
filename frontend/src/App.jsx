@@ -6,6 +6,7 @@ import Queues from './pages/Queues'
 import Hourly from './pages/Hourly'
 import SLAConfig from './pages/SLAConfig'
 import LiveData from './pages/LiveData'
+import Predictions from './pages/Predictions'
 import { fetchOverview, fetchSnapshots } from './utils/api'
 import { useFetch } from './hooks/useFetch'
 import './styles/index.css'
@@ -21,6 +22,7 @@ const NAV_LINKS = [
   { to: '/hourly',      label: '⏱ Tendance Horaire' },
   { to: '/sla-config',  label: '⚙️ Config SLA' },
   { to: '/live-data',   label: '📡 Hist / Temps Réel' },
+  { to: '/predictions', label: '🤖 Prédictions ML' },
 ]
 const INTERVAL_OPTIONS = (() => {
   const opts = []
@@ -250,6 +252,7 @@ export default function App() {
               <Route path="/hourly"      element={<Hourly />} />
               <Route path="/sla-config"  element={<SLAConfig />} />
               <Route path="/live-data"   element={<LiveData />} />
+              <Route path="/predictions" element={<Predictions />} />
             </Routes>
           </main>
 
