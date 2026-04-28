@@ -46,6 +46,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - ./data:/app/data
     depends_on:
       db:
         condition: service_healthy
