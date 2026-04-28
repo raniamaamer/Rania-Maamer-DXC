@@ -33,3 +33,10 @@ django-apscheduler==0.6.2
 
 # ── API Documentation ────────────────────────────────────
 drf-spectacular==0.27.2
+
+# ML Worker — dépendances Python
+# Utilisé par backend/Dockerfile.ml
+ 
+prophet==1.1.5
+scikit-learn==1.4.2
+watchdog==4.0.0
