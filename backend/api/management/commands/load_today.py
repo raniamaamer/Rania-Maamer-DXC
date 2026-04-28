@@ -47,7 +47,7 @@ class Command(BaseCommand):
         mode = options["mode"]
 
         # ── 1. Lire le fichier Excel ──────────────────────────────────────────
-        xlsx_file = Path(custom_file) if custom_file else data_dir / "Historical_Metrics_Report .csv"
+        xlsx_file = Path(custom_file) if custom_file else data_dir / "Telephony_Data.csv"
         sla_file  = data_dir / "SLA.xlsx"
 
         if not xlsx_file.exists():
