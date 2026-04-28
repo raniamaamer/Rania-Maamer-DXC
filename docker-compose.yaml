@@ -2,6 +2,7 @@
 #  docker-compose.yml — React (Vite/Nginx) + Django + PostgreSQL
 #                     + Prometheus + Grafana  (Sprint S3)
 #                     + SonarQube (Sprint S2)
+#                     + ML Worker (Prophet + Random Forest)
 # ─────────────────────────────────────────────────────────────
 
 services:
@@ -47,6 +48,8 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./data:/app/data
+      # Le JSON généré par ml_worker est partagé ici
+      - ml_output:/app/ml_output
     depends_on:
       db:
         condition: service_healthy
@@ -69,6 +72,33 @@ services:
           ignore:
             - ./backend/__pycache__
             - ./backend/*.pyc
+
+  # ── ML Worker — Prophet + Random Forest ─────────────────────
+  ml_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.ml
+    container_name: ml_worker
+    environment:
+      - TZ=Africa/Tunis
+    volumes:
+      # Lit le CSV source
+      - ./data:/app/data:ro
+      # Écrit ml_data.json + les PNG dans ce volume partagé
+      - ml_output:/app/ml_output
+    command: >
+      python ml_auto_refresh.py
+        --csv /app/data/incident_sla.csv
+        --out /app/ml_output
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/ml_output/ml_data.json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
   # ── Base de données PostgreSQL ───────────────────────────────
   db:
@@ -141,16 +171,16 @@ services:
 
   # ── PostgreSQL Exporter — métriques base de données ─────────
   postgres-exporter:
-      image: prometheuscommunity/postgres-exporter:latest
-      container_name: postgres-exporter
-      env_file:
-        - ./backend/.env
-      environment:
-        DATA_SOURCE_NAME: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
-      depends_on:
-        db:
-          condition: service_healthy
-      restart: unless-stopped
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    env_file:
+      - ./backend/.env
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
   # ── SonarQube — analyse qualité du code ─────────────────────
   sonarqube:
@@ -193,3 +223,5 @@ volumes:
   grafana_data:
   sonarqube_data:
   sonarqube_logs:
+  # Volume partagé entre ml_worker et backend
+  ml_output:
