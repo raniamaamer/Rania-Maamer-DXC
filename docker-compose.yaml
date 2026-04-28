@@ -48,7 +48,6 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./data:/app/data
-      # Le JSON généré par ml_worker est partagé ici
       - ml_output:/app/ml_output
     depends_on:
       db:
@@ -75,21 +74,28 @@ services:
 
   # ── ML Worker — Prophet + Random Forest ─────────────────────
   ml_worker:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.ml
+    image: python:3.11-slim
     container_name: ml_worker
     environment:
       - TZ=Africa/Tunis
     volumes:
-      # Lit le CSV source
       - ./data:/app/data:ro
-      # Écrit ml_data.json + les PNG dans ce volume partagé
       - ml_output:/app/ml_output
+      - ./backend/ml_auto_refresh.py:/app/ml_auto_refresh.py:ro
+    working_dir: /app
     command: >
-      python ml_auto_refresh.py
-        --csv /app/data/incident_sla.csv
-        --out /app/ml_output
+      sh -c "pip install --quiet --no-cache-dir
+             prophet==1.1.5
+             scikit-learn==1.4.2
+             watchdog==4.0.0
+             matplotlib==3.8.4
+             seaborn==0.13.2
+             pandas==2.2.2
+             numpy==1.26.4
+             &&
+             python ml_auto_refresh.py
+               --csv /app/data/incident_sla.csv
+               --out /app/ml_output"
     restart: unless-stopped
     depends_on:
       - backend
@@ -98,7 +104,7 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 180s
 
   # ── Base de données PostgreSQL ───────────────────────────────
   db:
@@ -223,5 +229,4 @@ volumes:
   grafana_data:
   sonarqube_data:
   sonarqube_logs:
-  # Volume partagé entre ml_worker et backend
   ml_output:
