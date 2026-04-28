@@ -533,8 +533,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         step, mode, custom_file = options["step"], options["mode"], options.get("file")
-        BASE_DIR = Path(__file__).resolve().parents[4]
+        BASE_DIR = Path(__file__).resolve().parents[3]
         data_dir = BASE_DIR / "data"
+        if not data_dir.exists():
+            data_dir = Path("/app/data")
         self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}")
         df = agg = None
         if step in ("extract", "all"):
@@ -617,7 +619,7 @@ class Command(BaseCommand):
         """Normalize contacts_put_on_hold and avg_hold_time columns."""
         df['contacts_put_on_hold'] = (
             pd.to_numeric(
-                df.get('contacts_put_on_hold', pd.Series(dtype=str))
+                df.get('contacts_put_on_hold', pd.Series(0, index=df.index))
                   .astype(str).str.replace(',', '.', regex=False).str.strip().replace('', '0'),
                 errors='coerce'
             ).fillna(0).astype(int)
