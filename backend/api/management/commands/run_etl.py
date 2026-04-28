@@ -9,6 +9,7 @@ from api.models import (
     HourlyTrend, DailySnapshot,
 )
 
+
 # ── Constantes colonnes SLA ────────────────────────────────────────────────
 COL_TARGET_ANS_RATE = "Target Ans rate"
 COL_TARGET_ABD_RATE = "Target Abd rate"
@@ -523,7 +524,7 @@ def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
 
 
 class Command(BaseCommand):
-    help = "ETL DXC v7 — charge Historical_Metrics_Report.csv → PostgreSQL"
+    help = "ETL DXC v7 — charge Telephony_Data.csv → PostgreSQL"
 
     def add_arguments(self, parser):
         parser.add_argument("--step", default="all", choices=["extract", "transform", "load", "all"])
@@ -532,7 +533,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         step, mode, custom_file = options["step"], options["mode"], options.get("file")
-        BASE_DIR = Path(__file__).resolve().parents[3]
+        BASE_DIR = Path(__file__).resolve().parents[4]
         data_dir = BASE_DIR / "data"
         self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}")
         df = agg = None
@@ -546,7 +547,7 @@ class Command(BaseCommand):
             if df is None:
                 df = self._extract(data_dir, custom_file)
                 df, agg = self._transform(df)
-            src = str(custom_file or (data_dir / "Historical_Metrics_Report.csv"))
+            src = str(custom_file or (data_dir / "Telephony_Data.csv"))
             self._load(df, agg, data_dir, mode=mode, source_file=src)
         self.stdout.write(self.style.SUCCESS("[ETL] ✅ Pipeline terminé."))
 
@@ -555,7 +556,7 @@ class Command(BaseCommand):
 
     # ── EXTRACT ────────────────────────────────────────────────────────────
     def _extract(self, data_dir, custom_file=None):
-        queue_file = Path(custom_file) if custom_file else data_dir / "Historical_Metrics_Report.csv"
+        queue_file = Path(custom_file) if custom_file else data_dir / "Telephony_Data.csv"
         sla_file   = data_dir / "SLA.xlsx"
         if not queue_file.exists():
             raise FileNotFoundError(f"Introuvable : {queue_file}")
