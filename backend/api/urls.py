@@ -19,5 +19,6 @@ urlpatterns = [
     path('historical/',          views.HistoricalView.as_view(),        name='historical'),
     path('realtime/',            views.RealtimeView.as_view(),          name='realtime'),
     path('desk-langue/',         views.DeskLangueView.as_view(),        name='desk-langue'),
-    path('debug-metrics/',   DebugMetricsView.as_view(),            name='debug-metrics'),
+    path('debug-metrics/',       DebugMetricsView.as_view(),            name='debug-metrics'),
+    path('predictions/',         views.PredictionsView.as_view(),       name='predictions'),
 ]
