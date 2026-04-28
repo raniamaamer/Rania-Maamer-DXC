@@ -1243,3 +1243,54 @@ class DebugMetricsView(APIView):
                 'contacts_put_on_hold':    row['total_contacts_put_on_hold'] or 0,
             })
         return Response({'metrics': results, 'count': len(results)})
+
+class PredictionsView(APIView):
+    permission_classes = [AllowAny]
+
+    FUTURE_7 = [
+        {"date": "2026-04-29", "day": "Mer", "predicted": 105, "lower": 73,  "upper": 140},
+        {"date": "2026-04-30", "day": "Jeu", "predicted": 103, "lower": 70,  "upper": 136},
+        {"date": "2026-05-01", "day": "Ven", "predicted": 90,  "lower": 59,  "upper": 123},
+        {"date": "2026-05-02", "day": "Sam", "predicted": 30,  "lower": 0,   "upper": 63 },
+        {"date": "2026-05-03", "day": "Dim", "predicted": 33,  "lower": 1,   "upper": 65 },
+        {"date": "2026-05-04", "day": "Lun", "predicted": 124, "lower": 92,  "upper": 157},
+        {"date": "2026-05-05", "day": "Mar", "predicted": 114, "lower": 82,  "upper": 145},
+    ]
+
+    MODEL_STATS = {
+        "mae": 17.6,
+        "total_tickets": 27702,
+        "daily_avg": 61,
+        "breach_rate": 1.28,
+        "model": "Prophet (Meta)",
+        "classifier": "Random Forest (100 estimators, balanced)",
+    }
+
+    CI_BREACH = [
+        {"name": "Intune",             "rate": 8.33, "count": 180 },
+        {"name": "Visio 365",          "rate": 6.76, "count": 74  },
+        {"name": "Excel 365",          "rate": 5.17, "count": 290 },
+        {"name": "Edge",               "rate": 4.44, "count": 135 },
+        {"name": "Outlook 365",        "rate": 3.36, "count": 2740},
+        {"name": "Windows",            "rate": 3.09, "count": 940 },
+        {"name": "POWER BI",           "rate": 2.80, "count": 107 },
+        {"name": "NextGen MyITportal", "rate": 2.65, "count": 113 },
+    ]
+
+    FEATURE_IMPORTANCE = [
+        {"feature": "CI (type application)", "pct": 24.9},
+        {"feature": "Volume journalier",     "pct": 18.7},
+        {"feature": "Groupe assignation",    "pct": 15.5},
+        {"feature": "Semaine ISO",           "pct": 13.8},
+        {"feature": "Heure ouverture",       "pct": 13.5},
+        {"feature": "Jour de semaine",       "pct":  6.8},
+        {"feature": "Mois",                  "pct":  6.7},
+    ]
+
+    def get(self, request):
+        return Response({
+            "forecast_7days":     self.FUTURE_7,
+            "model_stats":        self.MODEL_STATS,
+            "ci_breach_rates":    self.CI_BREACH,
+            "feature_importance": self.FEATURE_IMPORTANCE,
+        })
