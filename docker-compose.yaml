@@ -83,12 +83,14 @@ services:
       - ml_output:/app/ml_output
       - ./backend/ml_auto_refresh.py:/app/ml_auto_refresh.py:ro
       - ./backend/requirements_ml.txt:/app/requirements_ml.txt:ro
+      - ./frontend/public:/app/frontend_public
     working_dir: /app
     command: >
       bash -c "pip install --quiet --no-cache-dir -r requirements_ml.txt
-               && python ml_auto_refresh.py
-               --csv /app/data/incident_sla.csv
-               --out /app/ml_output"
+              && python ml_auto_refresh.py
+              --csv /app/data/incident_sla.csv
+              --out /app/ml_output
+              && cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
     restart: unless-stopped
     depends_on:
       - backend

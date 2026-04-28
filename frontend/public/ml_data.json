@@ -1,0 +1,295 @@
+{
+  "generated_at": "2026-04-28T23:17:05.265918",
+  "dataset": {
+    "total_incidents": 27702,
+    "date_min": "2025-01-01",
+    "date_max": "2026-04-28",
+    "breach_rate_pct": 1.28,
+    "breach_count": 355,
+    "avg_daily_tickets": 61.3
+  },
+  "prophet": {
+    "mae": 29.2,
+    "rmse": 38.7,
+    "mape": 298.2
+  },
+  "random_forest": {
+    "auc_roc": 0.889
+  },
+  "future_7": [
+    {
+      "date": "2026-04-29",
+      "day": "Wed",
+      "predicted": 99,
+      "lower": 55,
+      "upper": 147
+    },
+    {
+      "date": "2026-04-30",
+      "day": "Thu",
+      "predicted": 95,
+      "lower": 48,
+      "upper": 146
+    },
+    {
+      "date": "2026-05-01",
+      "day": "Fri",
+      "predicted": 84,
+      "lower": 38,
+      "upper": 129
+    },
+    {
+      "date": "2026-05-02",
+      "day": "Sat",
+      "predicted": 27,
+      "lower": 0,
+      "upper": 73
+    },
+    {
+      "date": "2026-05-03",
+      "day": "Sun",
+      "predicted": 37,
+      "lower": 0,
+      "upper": 83
+    },
+    {
+      "date": "2026-05-04",
+      "day": "Mon",
+      "predicted": 131,
+      "lower": 83,
+      "upper": 177
+    }
+  ],
+  "hist_30": [
+    {
+      "date": "30/03",
+      "actual": 112,
+      "predicted": 129
+    },
+    {
+      "date": "31/03",
+      "actual": 136,
+      "predicted": 118
+    },
+    {
+      "date": "01/04",
+      "actual": 122,
+      "predicted": 111
+    },
+    {
+      "date": "02/04",
+      "actual": 157,
+      "predicted": 112
+    },
+    {
+      "date": "03/04",
+      "actual": 112,
+      "predicted": 106
+    },
+    {
+      "date": "05/04",
+      "actual": 2,
+      "predicted": 60
+    },
+    {
+      "date": "06/04",
+      "actual": 28,
+      "predicted": 149
+    },
+    {
+      "date": "07/04",
+      "actual": 150,
+      "predicted": 136
+    },
+    {
+      "date": "08/04",
+      "actual": 117,
+      "predicted": 126
+    },
+    {
+      "date": "09/04",
+      "actual": 129,
+      "predicted": 121
+    },
+    {
+      "date": "10/04",
+      "actual": 88,
+      "predicted": 106
+    },
+    {
+      "date": "11/04",
+      "actual": 4,
+      "predicted": 43
+    },
+    {
+      "date": "12/04",
+      "actual": 4,
+      "predicted": 44
+    },
+    {
+      "date": "13/04",
+      "actual": 183,
+      "predicted": 129
+    },
+    {
+      "date": "14/04",
+      "actual": 180,
+      "predicted": 119
+    },
+    {
+      "date": "15/04",
+      "actual": 107,
+      "predicted": 113
+    },
+    {
+      "date": "16/04",
+      "actual": 126,
+      "predicted": 112
+    },
+    {
+      "date": "17/04",
+      "actual": 106,
+      "predicted": 99
+    },
+    {
+      "date": "19/04",
+      "actual": 5,
+      "predicted": 37
+    },
+    {
+      "date": "20/04",
+      "actual": 172,
+      "predicted": 123
+    },
+    {
+      "date": "21/04",
+      "actual": 112,
+      "predicted": 113
+    },
+    {
+      "date": "22/04",
+      "actual": 122,
+      "predicted": 107
+    },
+    {
+      "date": "23/04",
+      "actual": 125,
+      "predicted": 106
+    },
+    {
+      "date": "24/04",
+      "actual": 102,
+      "predicted": 93
+    },
+    {
+      "date": "25/04",
+      "actual": 2,
+      "predicted": 32
+    },
+    {
+      "date": "26/04",
+      "actual": 6,
+      "predicted": 34
+    },
+    {
+      "date": "27/04",
+      "actual": 147,
+      "predicted": 120
+    },
+    {
+      "date": "28/04",
+      "actual": 45,
+      "predicted": 108
+    }
+  ],
+  "ci_breach": [
+    {
+      "name": "Drive H",
+      "rate": 9.09,
+      "count": 22
+    },
+    {
+      "name": "Intune",
+      "rate": 8.33,
+      "count": 180
+    },
+    {
+      "name": "PAM",
+      "rate": 8.33,
+      "count": 24
+    },
+    {
+      "name": "Authentification",
+      "rate": 7.14,
+      "count": 28
+    },
+    {
+      "name": "Visio 365",
+      "rate": 6.76,
+      "count": 74
+    },
+    {
+      "name": "Active Directory",
+      "rate": 5.26,
+      "count": 38
+    },
+    {
+      "name": "Excel 365",
+      "rate": 5.17,
+      "count": 290
+    },
+    {
+      "name": "Screen",
+      "rate": 5.0,
+      "count": 20
+    },
+    {
+      "name": "Edge",
+      "rate": 4.44,
+      "count": 135
+    },
+    {
+      "name": "CONTROL-M",
+      "rate": 4.17,
+      "count": 24
+    }
+  ],
+  "feature_imp": [
+    {
+      "feature": "Week-end",
+      "pct": 35.3
+    },
+    {
+      "feature": "Jour de semaine",
+      "pct": 14.3
+    },
+    {
+      "feature": "Raison escalade",
+      "pct": 11.9
+    },
+    {
+      "feature": "Volume journalier",
+      "pct": 10.9
+    },
+    {
+      "feature": "Taux rupture CI (historique)",
+      "pct": 8.8
+    },
+    {
+      "feature": "Groupe assignation",
+      "pct": 7.3
+    },
+    {
+      "feature": "Heure ouverture",
+      "pct": 6.9
+    },
+    {
+      "feature": "Type CI (encodé)",
+      "pct": 4.5
+    },
+    {
+      "feature": "Mois",
+      "pct": 0.1
+    }
+  ]
+}
