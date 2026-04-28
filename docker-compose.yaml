@@ -82,18 +82,11 @@ services:
       - ./data:/app/data:ro
       - ml_output:/app/ml_output
       - ./backend/ml_auto_refresh.py:/app/ml_auto_refresh.py:ro
+      - ./backend/requirements_ml.txt:/app/requirements_ml.txt:ro
     working_dir: /app
     command: >
-      sh -c "pip install --quiet --no-cache-dir
-             prophet==1.1.5
-             scikit-learn==1.4.2
-             watchdog==4.0.0
-             matplotlib==3.8.4
-             seaborn==0.13.2
-             pandas==2.2.2
-             numpy==1.26.4
-             &&
-             python ml_auto_refresh.py
+      bash -c "pip install --quiet --no-cache-dir -r requirements_ml.txt
+               && python ml_auto_refresh.py
                --csv /app/data/incident_sla.csv
                --out /app/ml_output"
     restart: unless-stopped
