@@ -84,19 +84,22 @@ pipeline {
         // ================= DOCKER =================
         stage('Docker - Build') {
             steps {
-                bat "docker-compose build"
+                bat """
+                docker-compose down --remove-orphans 2>nul
+                exit 0
+                """
+                bat "docker-compose build --no-cache"
             }
         }
 
         stage('Docker - Run') {
             steps {
-                bat "copy .env backend\\.env"
+                bat "copy .env backend\\.env 2>nul || exit 0"
                 bat """
-                docker stop frontend backend db prometheus grafana postgres-exporter 2>nul
-                docker rm -f frontend backend db prometheus grafana postgres-exporter 2>nul
+                docker rm -f frontend backend db prometheus grafana postgres-exporter ml_worker sonarqube sonarqube-init 2>nul
                 exit 0
                 """
-                bat "docker-compose up -d backend frontend db prometheus grafana postgres-exporter"
+                bat "docker-compose up -d backend frontend db prometheus grafana postgres-exporter ml_worker"
             }
         }
     }
