@@ -100,10 +100,10 @@ pipeline {
                 exit 0
                 """
                 bat "docker-compose up -d db"
-                bat "timeout /t 15 /nobreak"
+                bat "ping -n 16 127.0.0.1 > nul"
                 bat "docker exec db psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
                 bat "docker-compose up -d backend frontend prometheus grafana postgres-exporter ml_worker sonarqube"
-                bat "timeout /t 120 /nobreak"
+                bat "ping -n 121 127.0.0.1 > nul"
                 bat "docker-compose up -d sonarqube-init"
             }
         }
