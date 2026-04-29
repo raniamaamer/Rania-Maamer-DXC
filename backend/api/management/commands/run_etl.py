@@ -1039,26 +1039,24 @@ class Command(BaseCommand):
         df["_end_parsed"]   = pd.to_datetime(df.get("EndInterval"), errors="coerce", utc=True)
         df = df.dropna(subset=["_start_parsed"])
         # Conversion locale vectorisée
-        df["_sn"] = df["_start_parsed"].dt.tz_convert(None)
-        df["_en"] = df["_end_parsed"].dt.tz_convert(None)
-        df = df[df["_sn"].notna()]
+        df["sn"] = df["_start_parsed"].dt.tz_convert(None)
+        df["en"] = df["_end_parsed"].dt.tz_convert(None)
+        df = df[df["sn"].notna()]
         df = df[df["Queue"].notna() & df["account"].notna() & (df["account"] != "nan")]
-
-        # Champs dérivés vectorisés
-        df["_hour"]        = df["_sn"].dt.strftime("%H:%M")
-        df["_year"]        = df["_sn"].dt.year.astype(int)
-        df["_month"]       = df["_sn"].dt.month.astype(int)
-        df["_week"]        = df["_sn"].dt.isocalendar().week.astype(int)
-        df["_day_of_week"] = df["_sn"].dt.strftime("%A")
+        df["xhour"]        = df["sn"].dt.strftime("%H:%M")
+        df["xyear"]        = df["sn"].dt.year.astype(int)
+        df["xmonth"]       = df["sn"].dt.month.astype(int)
+        df["xweek"]        = df["sn"].dt.isocalendar().week.astype(int)
+        df["xday_of_week"] = df["sn"].dt.strftime("%A")
 
         for row in df.itertuples(index=False):
             qn_raw = str(getattr(row, "Queue", "") or "").strip()
             acc    = str(getattr(row, "account", "") or "").strip()
             if not qn_raw or not acc:
                 continue
-            sn = getattr(row, "_sn", None)
-            en = getattr(row, "_en", None)
-            if sn is None or pd.isna(sn):  # ← ajoute ce guard
+            sn = getattr(row, "sn", None)
+            en = getattr(row, "en", None)
+            if sn is None or pd.isna(sn):
                 continue
 
             def _f(attr, d=0.0):
@@ -1082,11 +1080,11 @@ class Command(BaseCommand):
                 language=str(getattr(row, "language", "") or "").strip() or None,
                 sla_config=sla_map.get(acc),
                 start_date=sn, end_date=en,
-                hour=getattr(row, "_hour", "00:00"),
-                year=getattr(row, "_year", 0),
-                month=getattr(row, "_month", 0),
-                week=getattr(row, "_week", 0),
-                day_of_week=getattr(row, "_day_of_week", ""),
+                hour=getattr(row, "xhour", "00:00"),
+                year=getattr(row, "xyear", 0),
+                month=getattr(row, "xmonth", 0),
+                week=getattr(row, "xweek", 0),
+                day_of_week=getattr(row, "xday_of_week", ""),
                 offered=_i("offered"), abandoned=_i("abandoned"), answered=_i("answered"),
                 ans_in_sla=_f("ans_in_sla"), abd_in_sla=_f("abd_in_sla"),
                 ans_out_sla=int(_f("ans_out_sla")), abd_out_sla=int(_f("abd_out_sla")),
