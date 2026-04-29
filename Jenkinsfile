@@ -65,8 +65,7 @@ pipeline {
                             -Dsonar.exclusions=backend/staticfiles/**,backend/**/migrations/** ^
                             -Dsonar.python.version=3.9 ^
                             -Dsonar.python.coverage.reportPaths=backend/coverage.xml ^
-                            -Dsonar.coverage.exclusions=backend/manage.py,backend/**/wsgi.py,backend/**/migrations/**,backend/api/management/commands/run_etl.py,backend/api/management/commands/load_today.py,backend/api/management/commands/archive_realtime.py,backend/api/management/commands/archive_to_historical.py,backend/api/management/commands/seed_missing_accounts.py,backend/api/scheduler.py ^
-                            -Dsonar.host.url=http://localhost:9000 ^
+                            -Dsonar.coverage.exclusions=backend/manage.py,backend/**/wsgi.py,backend/**/migrations/**,backend/api/management/commands/run_etl.py,backend/api/management/commands/load_today.py,backend/api/management/commands/archive_realtime.py,backend/api/management/commands/archive_to_historical.py,backend/api/management/commands/seed_missing_accounts.py,backend/api/scheduler.py,backend/gunicorn.conf.py,backend/ml_auto_refresh.py ^
                             -Dsonar.token=%SONAR_TOKEN%
                             """
                         }
