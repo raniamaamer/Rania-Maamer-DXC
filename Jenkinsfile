@@ -96,15 +96,14 @@ pipeline {
             steps {
                 bat "copy .env backend\\.env 2>nul || exit 0"
                 bat """
-                docker rm -f frontend backend db prometheus grafana postgres-exporter ml_worker sonarqube sonarqube-init 2>nul
+                docker rm -f frontend backend db prometheus grafana postgres-exporter ml_worker 2>nul
                 exit 0
                 """
                 bat "docker-compose up -d db"
                 bat "ping -n 16 127.0.0.1 > nul"
                 bat "docker exec db psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
-                bat "docker-compose up -d backend frontend prometheus grafana postgres-exporter ml_worker sonarqube"
-                bat "ping -n 121 127.0.0.1 > nul"
-                bat "docker-compose up -d sonarqube-init"
+                bat "docker-compose up -d backend frontend prometheus grafana postgres-exporter ml_worker"
+                bat "ping -n 30 127.0.0.1 > nul"
             }
         }
     }
