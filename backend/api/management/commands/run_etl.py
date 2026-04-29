@@ -1038,6 +1038,7 @@ class Command(BaseCommand):
         df["_start_parsed"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
         df["_end_parsed"]   = pd.to_datetime(df.get("EndInterval"), errors="coerce", utc=True)
         df = df.dropna(subset=["_start_parsed"])
+        df = df[df["_sn"].notna()]  # ← ajoute cette ligne
         df = df[df["Queue"].notna() & df["account"].notna() & (df["account"] != "nan")]
 
         # Conversion locale vectorisée
@@ -1058,6 +1059,8 @@ class Command(BaseCommand):
                 continue
             sn = getattr(row, "_sn", None)
             en = getattr(row, "_en", None)
+            if sn is None or pd.isna(sn):  # ← ajoute ce guard
+                continue
 
             def _f(attr, d=0.0):
                 v = getattr(row, attr, d)
