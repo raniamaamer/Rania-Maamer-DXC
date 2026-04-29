@@ -200,7 +200,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
       interval: 30s

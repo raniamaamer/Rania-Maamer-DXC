@@ -85,7 +85,7 @@ pipeline {
         stage('Docker - Build') {
             steps {
                 bat """
-                docker-compose down --remove-orphans 2>nul
+                docker rm -f frontend backend prometheus grafana postgres-exporter ml_worker 2>nul
                 exit 0
                 """
                 bat "docker-compose build --no-cache"
@@ -95,10 +95,6 @@ pipeline {
         stage('Docker - Run') {
             steps {
                 bat "copy .env backend\\.env 2>nul || exit 0"
-                bat """
-                docker rm -f frontend backend db prometheus grafana postgres-exporter ml_worker 2>nul
-                exit 0
-                """
                 bat "docker-compose up -d db"
                 bat "ping -n 16 127.0.0.1 > nul"
                 bat "docker exec db psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
