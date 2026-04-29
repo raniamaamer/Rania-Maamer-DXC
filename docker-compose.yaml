@@ -18,6 +18,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
@@ -58,6 +60,8 @@ services:
              python manage.py run_etl &&
              gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
     restart: unless-stopped
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
       interval: 30s
@@ -92,6 +96,8 @@ services:
               --out /app/ml_output
               && cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
     restart: unless-stopped
+    networks:
+      - dxc-network
     depends_on:
       - backend
     healthcheck:
@@ -115,6 +121,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d dxc_kpi_db"]
       interval: 10s
@@ -140,6 +148,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/ready"]
       interval: 30s
@@ -164,6 +174,8 @@ services:
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -182,6 +194,8 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - dxc-network
 
   # ── SonarQube — analyse qualité du code ─────────────────────
   sonarqube:
@@ -201,6 +215,8 @@ services:
       db:
         condition: service_healthy
     restart: always
+    networks:
+      - dxc-network
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
       interval: 30s
@@ -220,6 +236,8 @@ services:
         condition: service_healthy
     command: sh /init.sh
     restart: "no"
+    networks:
+      - dxc-network
 
 # ── Volumes persistants ──────────────────────────────────────
 volumes:
@@ -231,3 +249,9 @@ volumes:
   sonarqube_data:
   sonarqube_logs:
   ml_output:
+
+# ── Réseau fixe ──────────────────────────────────────────────
+networks:
+  dxc-network:
+    name: dxc-network
+    driver: bridge

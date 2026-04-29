@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         PYTHON = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
+        COMPOSE = "docker-compose -p rania-maamer"
     }
 
     stages {
@@ -88,17 +89,17 @@ pipeline {
                 docker rm -f frontend backend prometheus grafana postgres-exporter ml_worker 2>nul
                 exit 0
                 """
-                bat "docker-compose build --no-cache"
+                bat "%COMPOSE% build --no-cache"
             }
         }
 
         stage('Docker - Run') {
             steps {
                 bat "copy .env backend\\.env 2>nul || exit 0"
-                bat "docker-compose up -d db"
+                bat "%COMPOSE% up -d db"
                 bat "ping -n 16 127.0.0.1 > nul"
-                bat "docker exec db psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
-                bat "docker-compose up -d backend frontend prometheus grafana postgres-exporter ml_worker"
+                bat "docker exec rania-maamer-db-1 psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
+                bat "%COMPOSE% up -d backend frontend prometheus grafana postgres-exporter ml_worker"
                 bat "ping -n 30 127.0.0.1 > nul"
             }
         }
