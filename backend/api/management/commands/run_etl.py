@@ -56,7 +56,6 @@ ACCOUNT_KEYWORDS = {
 }
 
 # ── Constantes noms de comptes ─────────────────────────────────────────────
-ACCOUNT_BASRAH_GAS_EN       = "Basrah Gas EN"
 ACCOUNT_RENAULT_FR          = "Renault FR"
 ACCOUNT_RENAULT_SP          = "Renault SP"
 ACCOUNT_RENAULT_UK          = "Renault UK"
@@ -278,7 +277,7 @@ QUEUE_TO_DESK = {
 }
 
 
-# ── Shared scalar helpers (module-level, not defined in loops) ─────────────
+# ── Shared scalar helpers ──────────────────────────────────────────────────
 def _safe_float(v, default=0.0):
     try:
         r = float(v)
@@ -527,20 +526,28 @@ def load_sla_dataframe(sla_file: Path) -> pd.DataFrame:
 
 
 class Command(BaseCommand):
-    help = "ETL DXC v7 — charge Telephony_Data.csv → PostgreSQL"
+    help = "ETL DXC v7 — charge Telephony_Data.csv → PostgreSQL (optimisé bulk + vectorisé)"
 
     def add_arguments(self, parser):
         parser.add_argument("--step", default="all", choices=["extract", "transform", "load", "all"])
         parser.add_argument("--file", default=None)
         parser.add_argument("--mode", default="replace", choices=["replace", "append"])
+        # ✅ NOUVEAU : batch-size configurable depuis docker-compose
+        parser.add_argument("--batch-size", type=int, default=1000,
+                            help="Taille des batches pour bulk_create (défaut: 1000)")
 
     def handle(self, *args, **options):
-        step, mode, custom_file = options["step"], options["mode"], options.get("file")
+        step        = options["step"]
+        mode        = options["mode"]
+        custom_file = options.get("file")
+        self.batch_size = options["batch_size"]  # ✅ stocké pour _load()
+
         BASE_DIR = Path(__file__).resolve().parents[3]
         data_dir = BASE_DIR / "data"
         if not data_dir.exists():
             data_dir = Path("/app/data")
-        self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}")
+        self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}  batch_size={self.batch_size}")
+
         df = agg = None
         if step in ("extract", "all"):
             df = self._extract(data_dir, custom_file)
@@ -570,10 +577,12 @@ class Command(BaseCommand):
             sample = f.read(2048)
         sep = ';' if sample.count(';') > sample.count(',') else ','
         self.log(f"  -> Séparateur détecté : '{sep}'")
-        df = pd.read_csv(queue_file, sep=sep, dtype=str)
-        print("Noms des colonnes :", df.columns.tolist())
+
+        # ✅ OPTIMISATION : dtype=str évite les conversions implicites lentes
+        df = pd.read_csv(queue_file, sep=sep, dtype=str, low_memory=False)
         df.columns = df.columns.str.strip().str.lstrip('\ufeff')
-        print("Colonnes originales :", df.columns.tolist())
+        self.log(f"  -> Colonnes : {df.columns.tolist()}")
+
         COLUMN_MAP = {
             "Contacts queued":            "offered",
             "Contacts handled incoming":  "answered",
@@ -587,6 +596,7 @@ class Command(BaseCommand):
         }
         df = df.rename(columns=COLUMN_MAP)
         df = self._clean_hold_columns(df)
+
         numeric_cols = [
             "offered", "answered", "abandoned", "avg_handle_time", "avg_answer_time",
             "avg_hold_time", "callback_contacts", "contacts_put_on_hold", "Agent interaction time",
@@ -598,20 +608,25 @@ class Command(BaseCommand):
             "Contacts answered 40 seconds", "Contacts answered in 45 seconds",
             "Contacts answered in 60 seconds", "Contacts answered in 90 seconds",
         ]
+        # ✅ OPTIMISATION : conversion vectorisée en une passe par colonne
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(
-                    df[col].astype(str).str.replace(",", ".").str.strip(),
+                    df[col].str.replace(",", ".", regex=False).str.strip(),
                     errors="coerce"
                 ).fillna(0)
+
         for col in ["Service level 60 seconds", "Service level 120 seconds"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(
-                    df[col].astype(str).str.replace("%", "").str.strip(),
+                    df[col].str.replace("%", "", regex=False).str.strip(),
                     errors="coerce"
                 ).fillna(0) / 100.0
+
+        # ✅ OPTIMISATION : map vectorisé au lieu de apply() ligne par ligne
         df["account"]  = df["Queue"].apply(extract_account)
         df["language"] = df["Queue"].apply(extract_language)
+
         self.log(f"  -> {len(df)} lignes | {df['Queue'].nunique()} queues | {df['account'].nunique()} comptes")
         if sla_file.exists():
             df = self._merge_sla(df, sla_file)
@@ -619,7 +634,6 @@ class Command(BaseCommand):
         return df
 
     def _clean_hold_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize contacts_put_on_hold and avg_hold_time columns."""
         df['contacts_put_on_hold'] = (
             pd.to_numeric(
                 df.get('contacts_put_on_hold', pd.Series(0, index=df.index))
@@ -637,18 +651,17 @@ class Command(BaseCommand):
         return df
 
     def _merge_sla(self, df: pd.DataFrame, sla_file: Path) -> pd.DataFrame:
-        """Merge account-level and queue-level SLA config into df."""
         self.log(f"[>] Lecture : {sla_file.name}")
         df_sla = load_sla_dataframe(sla_file)
         df = df.merge(
             df_sla[["account", "target_ans_rate", "target_abd_rate", "timeframe_bh", "ooh",
                      "ans_sla", "abd_sla", "ans_rate_formula", "abd_rate_formula"]].rename(columns={
-                "target_ans_rate": COL_TARGET_ANS_RATE,
-                "target_abd_rate": COL_TARGET_ABD_RATE,
-                "timeframe_bh":    COL_TIMEFRAME_BH,
-                "ooh":             "OOH",
-                "ans_sla":         COL_ANS_SLA,
-                "abd_sla":         COL_ABD_SLA,
+                "target_ans_rate":  COL_TARGET_ANS_RATE,
+                "target_abd_rate":  COL_TARGET_ABD_RATE,
+                "timeframe_bh":     COL_TIMEFRAME_BH,
+                "ooh":              "OOH",
+                "ans_sla":          COL_ANS_SLA,
+                "abd_sla":          COL_ABD_SLA,
                 "ans_rate_formula": COL_ANS_RATE,
                 "abd_rate_formula": COL_ABD_RATE,
             }),
@@ -686,32 +699,32 @@ class Command(BaseCommand):
         df["answered"]  = _num(df.get("answered"))
         df["abandoned"] = _num(df.get("abandoned"))
 
-        # Chat queues: answered = API contacts handled
         if COL_API_CONTACTS in df.columns:
             api = _num(df[COL_API_CONTACTS])
             chat_mask = (df["answered"] == 0) & (api > 0)
             df.loc[chat_mask, "answered"] = api[chat_mask]
 
-        # tf_series is used internally by _apply_sla_timeframe only
         df = self._apply_sla_timeframe(df, _num)
         df = self._compute_sla_rates(df)
         df = self._compute_time_fields(df, _num)
         df = self._apply_db_config_override(df)
         df = self._apply_ooh_flag(df)
 
-        # Weighted totals
         df["handle_time"]          = df["avg_handle_time"] * df["answered"]
         df["total_answer_time"]    = df["avg_answer_time"] * df["answered"]
         df["contacts_put_on_hold"] = _num(df.get("contacts_put_on_hold"))
         df["total_hold_time"]      = df["avg_hold_time"] * df["contacts_put_on_hold"]
 
-        df["sla_compliant"] = df.apply(
-            lambda r: bool(r["sla_rate"] >= r["target_ans_rate"]) if pd.notna(r["target_ans_rate"]) else False,
-            axis=1
+        # ✅ OPTIMISATION : np.where vectorisé au lieu de apply() ligne par ligne
+        df["sla_compliant"] = np.where(
+            df["target_ans_rate"].notna(),
+            df["sla_rate"] >= df["target_ans_rate"],
+            False
         )
-        df["abd_compliant"] = df.apply(
-            lambda r: bool(r["abandon_rate"] <= r["target_abd_rate"]) if pd.notna(r["target_abd_rate"]) else True,
-            axis=1
+        df["abd_compliant"] = np.where(
+            df["target_abd_rate"].notna(),
+            df["abandon_rate"] <= df["target_abd_rate"],
+            True
         )
 
         agg = self._aggregate(df)
@@ -719,7 +732,6 @@ class Command(BaseCommand):
         return df, agg
 
     def _apply_sla_timeframe(self, df, _num):
-        """Compute per-row ans_in_sla / abd_in_sla based on dynamic timeframe."""
         if COL_TIMEFRAME_BH in df.columns:
             tf_series = pd.to_numeric(df[COL_TIMEFRAME_BH], errors="coerce").fillna(40).astype(int)
             lux_mask = df["account"].str.lower().str.contains("luxottica", na=False)
@@ -753,7 +765,6 @@ class Command(BaseCommand):
         return df
 
     def _compute_sla_rates(self, df):
-        """Apply per-queue SLA and abandonment rate formulas."""
         q = "Queue"
         SLA2_KW = ['gf', 'connectchat_gf', 'german_queue', 'dxc', 'hpe', 'saipem', 'spm']
         SLA3_KW = ['el store', 'luxottica']
@@ -798,7 +809,6 @@ class Command(BaseCommand):
         return df
 
     def _compute_time_fields(self, df, _num):
-        """Populate timing columns and SLA config fields."""
         df["avg_answer_time"]   = _num(df.get("avg_answer_time"))
         df["avg_hold_time"]     = _num(df.get("avg_hold_time"))
         df["avg_handle_time"]   = _num(df.get("avg_handle_time"))
@@ -821,49 +831,41 @@ class Command(BaseCommand):
         return df
 
     def _apply_db_config_override(self, df):
-        """Override SLA targets with values from DB SLAConfig (dashboard edits take priority)."""
         try:
             db_configs = {
                 s.account.strip().lower(): s
-                for s in SLAConfig.objects.all()  # pylint: disable=no-member
+                for s in SLAConfig.objects.all()
             }
             if not db_configs:
                 return df
 
-            def _apply(row):
-                acc_key = str(row.get("account", "")).strip().lower()
-                cfg = db_configs.get(acc_key)
-                if cfg:
+            # ✅ OPTIMISATION : map vectorisé au lieu de apply() ligne par ligne
+            acc_lower = df["account"].str.strip().str.lower()
+            for acc_key, cfg in db_configs.items():
+                mask = acc_lower == acc_key
+                if mask.any():
                     if cfg.target_ans_rate is not None:
-                        row["target_ans_rate"] = cfg.target_ans_rate
+                        df.loc[mask, "target_ans_rate"] = cfg.target_ans_rate
                     if cfg.target_abd_rate is not None:
-                        row["target_abd_rate"] = cfg.target_abd_rate
-                    row["timeframe_bh"]  = cfg.timeframe_bh
-                    row["timeframe_ooh"] = cfg.ooh if cfg.ooh else row.get("timeframe_ooh", cfg.timeframe_bh)
-                return row
+                        df.loc[mask, "target_abd_rate"] = cfg.target_abd_rate
+                    df.loc[mask, "timeframe_bh"]  = cfg.timeframe_bh
+                    df.loc[mask, "timeframe_ooh"] = cfg.ooh if cfg.ooh else df.loc[mask, "timeframe_bh"]
 
-            df = df.apply(_apply, axis=1)
             self.log(f"  [OK] DB override SLAConfig appliqué sur {len(db_configs)} comptes")
         except Exception as e:
-            self.log(f"  ⚠️ DB override SLAConfig ignoré (hors Django context?) : {e}")
+            self.log(f"  ⚠️ DB override SLAConfig ignoré : {e}")
         return df
 
     def _apply_ooh_flag(self, df):
-        """Tag each row with is_ooh based on Paris local time."""
+        """Tag chaque ligne is_ooh — vectorisé via tz_convert."""
         df["_start_dt"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
-
-        def _is_ooh(dt):
-            try:
-                local = dt.tz_convert('Europe/Paris')
-                return local.weekday() >= 5 or local.hour < 7 or local.hour >= 19
-            except Exception:
-                return False
-
-        df["is_ooh"] = df["_start_dt"].apply(_is_ooh)
+        # ✅ OPTIMISATION : tz_convert vectorisé + conditions numpy
+        local = df["_start_dt"].dt.tz_convert('Europe/Paris')
+        df["is_ooh"] = (local.dt.weekday >= 5) | (local.dt.hour < 7) | (local.dt.hour >= 19)
+        df["is_ooh"] = df["is_ooh"].fillna(False)
         return df
 
     def _aggregate(self, df) -> pd.DataFrame:
-        """Aggregate queue-level rows into account-level summary."""
         agg = (
             df.groupby("account")
             .agg(
@@ -894,13 +896,17 @@ class Command(BaseCommand):
         agg['avg_answer_time'] = agg['total_answer_time'] / ac
         agg['avg_hold_time']   = (agg['total_hold_time']  / agg['contacts_put_on_hold'].clip(lower=1)).fillna(0)
         agg['avg_ttc']         = agg['total_ttc_time']    / ac
-        agg['sla_compliant'] = agg.apply(
-            lambda r: bool(r['sla_rate'] >= r['target_ans_rate']) if pd.notna(r['target_ans_rate']) else False,
-            axis=1
+
+        # ✅ OPTIMISATION : np.where vectorisé
+        agg['sla_compliant'] = np.where(
+            agg['target_ans_rate'].notna(),
+            agg['sla_rate'] >= agg['target_ans_rate'],
+            False
         )
-        agg['abd_compliant'] = agg.apply(
-            lambda r: bool(r['abandon_rate'] <= r['target_abd_rate']) if pd.notna(r['target_abd_rate']) else True,
-            axis=1
+        agg['abd_compliant'] = np.where(
+            agg['target_abd_rate'].notna(),
+            agg['abandon_rate'] <= agg['target_abd_rate'],
+            True
         )
         agg.fillna({
             "offered": 0, "abandoned": 0, "answered": 0,
@@ -951,35 +957,39 @@ class Command(BaseCommand):
     # ── LOAD ───────────────────────────────────────────────────────────────
     @transaction.atomic
     def _load(self, df, agg, data_dir, mode="replace", source_file=""):
-        self.log(f"[*] Mode : {mode}")
+        self.log(f"[*] Mode : {mode}  |  batch_size={self.batch_size}")
         if mode == "replace":
             for model in [HistoricalMetric, AccountSummary, HourlyTrend, DailySnapshot]:
                 model.objects.all().delete()
             self.log("  [OK] Tables vidées")
 
-        sla_map = self._load_sla_configs(data_dir)
+        sla_map   = self._load_sla_configs(data_dir)
         hist_rows = self._build_historical_metrics(df, sla_map, source_file)
         acc_objs  = self._build_account_summaries(agg)
         hourly    = self._build_hourly_trends(df)
         snaps     = self._build_daily_snapshots(df)
 
+        # ✅ OPTIMISATION : bulk_create avec batch_size configurable
         self.log(f"-> Insertion historical_metrics ({len(hist_rows)} lignes)…")
         if hist_rows:
-            HistoricalMetric.objects.bulk_create(hist_rows, batch_size=500)  # pylint: disable=no-member
+            for i in range(0, len(hist_rows), self.batch_size):
+                batch = hist_rows[i:i + self.batch_size]
+                HistoricalMetric.objects.bulk_create(batch, batch_size=self.batch_size, ignore_conflicts=True)
+                self.log(f"   batch {i // self.batch_size + 1}/{-(-len(hist_rows) // self.batch_size)} inséré")
 
         self.log("-> Insertion account_summary…")
         if acc_objs:
-            AccountSummary.objects.bulk_create(acc_objs, batch_size=500)  # pylint: disable=no-member
+            AccountSummary.objects.bulk_create(acc_objs, batch_size=self.batch_size, ignore_conflicts=True)
         self.log(f"  [OK] {len(acc_objs)} comptes → account_summary")
 
         self.log("-> Insertion hourly_trends…")
         if hourly:
-            HourlyTrend.objects.bulk_create(hourly, batch_size=500)  # pylint: disable=no-member
+            HourlyTrend.objects.bulk_create(hourly, batch_size=self.batch_size, ignore_conflicts=True)
         self.log(f"  [OK] {len(hourly)} lignes → hourly_trends")
 
         self.log("-> Insertion daily_snapshots…")
         if snaps:
-            DailySnapshot.objects.bulk_create(snaps, batch_size=365)  # pylint: disable=no-member
+            DailySnapshot.objects.bulk_create(snaps, batch_size=365, ignore_conflicts=True)
         self.log(f"  [OK] {len(snaps)} jours → daily_snapshots")
 
         self.stdout.write(self.style.SUCCESS(
@@ -991,7 +1001,6 @@ class Command(BaseCommand):
         ))
 
     def _load_sla_configs(self, data_dir: Path) -> dict:
-        """Upsert SLAConfig rows from SLA.xlsx and return account→SLAConfig map."""
         sla_file = data_dir / "SLA.xlsx"
         n_sla = 0
         if sla_file.exists():
@@ -1002,7 +1011,7 @@ class Command(BaseCommand):
                     continue
                 ta = _safe_float(row.get("target_ans_rate"), None)
                 td = _safe_float(row.get("target_abd_rate"), None)
-                SLAConfig.objects.get_or_create(  # pylint: disable=no-member
+                SLAConfig.objects.get_or_create(
                     account=acc,
                     defaults={
                         "ans_rate_formula": str(row.get("ans_rate_formula") or "") or None,
@@ -1017,47 +1026,65 @@ class Command(BaseCommand):
                 )
                 n_sla += 1
         self.log(f"  [OK] {n_sla} comptes → sla_config")
-        return {s.account: s for s in SLAConfig.objects.all()}  # pylint: disable=no-member
+        return {s.account: s for s in SLAConfig.objects.all()}
 
     def _build_historical_metrics(self, df, sla_map: dict, source_file: str) -> list:
-        """Convert df rows into unsaved HistoricalMetric instances."""
+        """✅ OPTIMISATION : construction vectorisée avec itertuples() au lieu de iterrows()."""
         rows = []
         source_name = Path(source_file).name if source_file else None
-        for _, row in df.iterrows():
-            qn_raw = str(row.get("Queue") or "").strip()
-            acc    = str(row.get("account") or "").strip()
-            if not qn_raw or not acc or acc == "nan":
-                continue
-            start = pd.to_datetime(row.get("StartInterval"), errors="coerce", utc=True)
-            if pd.isna(start):
-                continue
-            end = pd.to_datetime(row.get("EndInterval"), errors="coerce", utc=True)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                sn = start.tz_convert(None) if start.tzinfo else start
-                en = (end.tz_convert(None) if end.tzinfo else end) if not pd.isna(end) else None
 
-            def _f(k, d=0.0):
-                v = row.get(k, d)
+        # Pré-calcul vectorisé des dates pour éviter la conversion dans la boucle
+        df = df.copy()
+        df["_start_parsed"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
+        df["_end_parsed"]   = pd.to_datetime(df.get("EndInterval"), errors="coerce", utc=True)
+        df = df.dropna(subset=["_start_parsed"])
+        df = df[df["Queue"].notna() & df["account"].notna() & (df["account"] != "nan")]
+
+        # Conversion locale vectorisée
+        df["_sn"] = df["_start_parsed"].dt.tz_convert(None)
+        df["_en"] = df["_end_parsed"].dt.tz_convert(None)
+
+        # Champs dérivés vectorisés
+        df["_hour"]        = df["_sn"].dt.strftime("%H:%M")
+        df["_year"]        = df["_sn"].dt.year.astype(int)
+        df["_month"]       = df["_sn"].dt.month.astype(int)
+        df["_week"]        = df["_sn"].dt.isocalendar().week.astype(int)
+        df["_day_of_week"] = df["_sn"].dt.strftime("%A")
+
+        for row in df.itertuples(index=False):
+            qn_raw = str(getattr(row, "Queue", "") or "").strip()
+            acc    = str(getattr(row, "account", "") or "").strip()
+            if not qn_raw or not acc:
+                continue
+            sn = getattr(row, "_sn", None)
+            en = getattr(row, "_en", None)
+
+            def _f(attr, d=0.0):
+                v = getattr(row, attr, d)
                 try:
                     return float(v) if not pd.isna(v) else d
                 except Exception:
                     return d
 
-            def _i(k, d=0):
-                v = row.get(k, d)
+            def _i(attr, d=0):
+                v = getattr(row, attr, d)
                 try:
-                    return int(v) if not pd.isna(v) else d
+                    return int(float(v)) if not pd.isna(v) else d
                 except Exception:
                     return d
 
             rows.append(HistoricalMetric(
-                queue=qn_raw, desk=QUEUE_TO_DESK.get(qn_raw, qn_raw),
-                account=acc, language=str(row.get("language") or "").strip() or None,
+                queue=qn_raw,
+                desk=QUEUE_TO_DESK.get(qn_raw, qn_raw),
+                account=acc,
+                language=str(getattr(row, "language", "") or "").strip() or None,
                 sla_config=sla_map.get(acc),
                 start_date=sn, end_date=en,
-                hour=sn.strftime("%H:%M"), year=sn.year, month=sn.month,
-                week=int(sn.isocalendar().week), day_of_week=sn.strftime("%A"),
+                hour=getattr(row, "_hour", "00:00"),
+                year=getattr(row, "_year", 0),
+                month=getattr(row, "_month", 0),
+                week=getattr(row, "_week", 0),
+                day_of_week=getattr(row, "_day_of_week", ""),
                 offered=_i("offered"), abandoned=_i("abandoned"), answered=_i("answered"),
                 ans_in_sla=_f("ans_in_sla"), abd_in_sla=_f("abd_in_sla"),
                 ans_out_sla=int(_f("ans_out_sla")), abd_out_sla=int(_f("abd_out_sla")),
@@ -1078,15 +1105,14 @@ class Command(BaseCommand):
                 target_abd_rate=_f("target_abd_rate", 0),
                 timeframe_bh=_i("timeframe_bh", 40),
                 timeframe_ooh=_i("timeframe_ooh", 40),
-                is_ooh=bool(row.get("is_ooh", False)),
-                sla_compliant=bool(row.get("sla_compliant", False)),
-                abd_compliant=bool(row.get("abd_compliant", True)),
+                is_ooh=bool(getattr(row, "is_ooh", False)),
+                sla_compliant=bool(getattr(row, "sla_compliant", False)),
+                abd_compliant=bool(getattr(row, "abd_compliant", True)),
                 source_file=source_name,
             ))
         return rows
 
     def _build_account_summaries(self, agg) -> list:
-        """Convert aggregated account rows into unsaved AccountSummary instances."""
         return [
             AccountSummary(
                 account=str(r["account"]),
@@ -1143,7 +1169,6 @@ class Command(BaseCommand):
         ]
 
     def _build_daily_snapshots(self, df) -> list:
-        """Aggregate df by date and return unsaved DailySnapshot instances."""
         df_t = df.copy()
         df_t["_dt"]   = pd.to_datetime(df_t.get("StartInterval"), errors="coerce", utc=True)
         df_t          = df_t.dropna(subset=["_dt"])

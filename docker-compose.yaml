@@ -16,7 +16,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - dxc-network
@@ -54,10 +55,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # ✅ FIX : gunicorn démarre IMMÉDIATEMENT — ETL tourne dans etl_worker séparé
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             python manage.py run_etl &&
              gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
     restart: unless-stopped
     networks:
@@ -66,8 +67,8 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 30s
+      retries: 5
+      start_period: 40s
     develop:
       watch:
         - action: rebuild
@@ -75,6 +76,32 @@ services:
           ignore:
             - ./backend/__pycache__
             - ./backend/*.pyc
+
+  # ── ETL Worker — séparé du backend pour ne pas bloquer gunicorn ──
+  etl_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: etl_worker
+    env_file:
+      - ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=dxc_backend.settings
+      - TZ=Africa/Tunis
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./data:/app/data
+      - ml_output:/app/ml_output
+    depends_on:
+      backend:
+        condition: service_healthy
+    # ✅ FIX : ETL tourne en mode optimisé --batch-size 1000
+    command: >
+      sh -c "python manage.py run_etl --batch-size 1000 && echo '[ETL] Terminé.'"
+    restart: "no"
+    networks:
+      - dxc-network
 
   # ── ML Worker — Prophet + Random Forest ─────────────────────
   ml_worker:
@@ -89,17 +116,16 @@ services:
       - ./backend/requirements_ml.txt:/app/requirements_ml.txt:ro
       - ./frontend/public:/app/frontend_public
     working_dir: /app
+    # ✅ FIX : syntaxe bash corrigée (pas de retour à la ligne dans la commande python)
+    # ✅ FIX : --once pour ne pas lancer le watchdog en boucle dans Docker
     command: >
-      bash -c "pip install --quiet --no-cache-dir -r requirements_ml.txt
-              && python ml_auto_refresh.py
-              --csv /app/data/incident_sla.csv
-              --out /app/ml_output
-              && cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
-    restart: unless-stopped
+      bash -c "pip install --quiet --no-cache-dir -r requirements_ml.txt && python ml_auto_refresh.py --csv /app/data/incident_sla.csv --out /app/ml_output --once && cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
+    restart: "no"
     networks:
       - dxc-network
     depends_on:
-      - backend
+      etl_worker:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "test", "-f", "/app/ml_output/ml_data.json"]
       interval: 60s
