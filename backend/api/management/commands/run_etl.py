@@ -612,7 +612,7 @@ class Command(BaseCommand):
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(
-                    df[col].str.replace(",", ".", regex=False).str.strip(),
+                    df[col].astype(str).str.replace(",", ".", regex=False).str.strip(),
                     errors="coerce"
                 ).fillna(0)
 
