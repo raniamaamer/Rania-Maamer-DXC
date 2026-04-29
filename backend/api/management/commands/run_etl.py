@@ -29,6 +29,9 @@ FORMULA_ANS_SLA3 = "(1-Ans out SLA/(offered-Abd in 60))"
 FORMULA_ABD_SLA5 = "(1-abd out 60 sec/(Offered-Abd in SLA))"
 FORMULA_ABD_SLA1 = "1-(Abd out SLA / Offered)"
 
+# ── Constante Basrah (doit être avant ACCOUNT_KEYWORDS) ───────────────────
+ACCOUNT_BASRAH_GAS_EN = "Basrah Gas EN"
+
 # ── Mapping queue → account ────────────────────────────────────────────────
 ACCOUNT_KEYWORDS = {
     "viatris":        "Viatris",
