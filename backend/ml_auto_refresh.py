@@ -199,8 +199,13 @@ def _train_rf(df: pd.DataFrame) -> dict:
     )
 
     rf = RandomForestClassifier(
-        n_estimators=200, max_depth=10,
-        class_weight="balanced", random_state=42, n_jobs=-1
+        n_estimators=200,
+        max_depth=10,
+        min_samples_leaf=5,
+        max_features="sqrt",
+        class_weight="balanced",
+        random_state=42,
+        n_jobs=-1,
     )
     rf.fit(X_train, y_train)
 
