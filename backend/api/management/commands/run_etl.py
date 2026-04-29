@@ -1038,12 +1038,11 @@ class Command(BaseCommand):
         df["_start_parsed"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
         df["_end_parsed"]   = pd.to_datetime(df.get("EndInterval"), errors="coerce", utc=True)
         df = df.dropna(subset=["_start_parsed"])
-        df = df[df["_sn"].notna()]  # ← ajoute cette ligne
-        df = df[df["Queue"].notna() & df["account"].notna() & (df["account"] != "nan")]
-
         # Conversion locale vectorisée
         df["_sn"] = df["_start_parsed"].dt.tz_convert(None)
         df["_en"] = df["_end_parsed"].dt.tz_convert(None)
+        df = df[df["_sn"].notna()]
+        df = df[df["Queue"].notna() & df["account"].notna() & (df["account"] != "nan")]
 
         # Champs dérivés vectorisés
         df["_hour"]        = df["_sn"].dt.strftime("%H:%M")
