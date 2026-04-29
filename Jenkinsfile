@@ -99,7 +99,12 @@ pipeline {
                 docker rm -f frontend backend db prometheus grafana postgres-exporter ml_worker sonarqube sonarqube-init 2>nul
                 exit 0
                 """
-                bat "docker-compose up -d backend frontend db prometheus grafana postgres-exporter ml_worker"
+                bat "docker-compose up -d db"
+                bat "timeout /t 15 /nobreak"
+                bat "docker exec db psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
+                bat "docker-compose up -d backend frontend prometheus grafana postgres-exporter ml_worker sonarqube"
+                bat "timeout /t 120 /nobreak"
+                bat "docker-compose up -d sonarqube-init"
             }
         }
     }
