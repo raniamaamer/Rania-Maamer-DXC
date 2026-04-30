@@ -96,9 +96,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    # ✅ FIX : ETL tourne en mode optimisé --batch-size 1000
     command: >
-      sh -c "python manage.py run_etl --batch-size 1000 && echo '[ETL] Terminé.'"
+      sh -c "python manage.py run_etl --batch-size 1000 --incremental && echo '[ETL] Terminé.'"
     restart: "no"
     networks:
       - dxc-network

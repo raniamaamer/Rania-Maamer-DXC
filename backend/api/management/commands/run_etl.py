@@ -532,36 +532,73 @@ class Command(BaseCommand):
         parser.add_argument("--step", default="all", choices=["extract", "transform", "load", "all"])
         parser.add_argument("--file", default=None)
         parser.add_argument("--mode", default="replace", choices=["replace", "append"])
-        # ✅ NOUVEAU : batch-size configurable depuis docker-compose
-        parser.add_argument("--batch-size", type=int, default=1000,
-                            help="Taille des batches pour bulk_create (défaut: 1000)")
+        parser.add_argument("--batch-size", type=int, default=1000)
+        # ✅ NOUVEAU : mode incrémental
+        parser.add_argument("--incremental", action="store_true",
+                            help="Charger uniquement les nouvelles données (plus rapide)")
 
     def handle(self, *args, **options):
         step        = options["step"]
         mode        = options["mode"]
         custom_file = options.get("file")
-        self.batch_size = options["batch_size"]  # ✅ stocké pour _load()
+        self.batch_size  = options["batch_size"]
+        incremental = options["incremental"]
 
         BASE_DIR = Path(__file__).resolve().parents[3]
         data_dir = BASE_DIR / "data"
         if not data_dir.exists():
             data_dir = Path("/app/data")
+
+        # ✅ MODE INCRÉMENTAL : détecte la dernière date déjà chargée
+        self.last_loaded_date = None
+        if incremental:
+            last = HistoricalMetric.objects.aggregate(last=Max('start_date'))['last']
+            if last:
+                self.last_loaded_date = last
+                mode = "append"  # pas de DELETE si incrémental
+                self.log(f"[INCRÉMENTAL] Depuis : {self.last_loaded_date} → mode append")
+            else:
+                self.log("[INCRÉMENTAL] Aucune donnée existante → full load")
+
         self.log(f"[DIR] {data_dir}  |  step={step}  mode={mode}  batch_size={self.batch_size}")
 
         df = agg = None
         if step in ("extract", "all"):
             df = self._extract(data_dir, custom_file)
+            df = self._filter_incremental(df)
+            if df is None:
+                return
+
         if step in ("transform", "all"):
             if df is None:
                 df = self._extract(data_dir, custom_file)
             df, agg = self._transform(df)
+
         if step in ("load", "all"):
             if df is None:
                 df = self._extract(data_dir, custom_file)
                 df, agg = self._transform(df)
             src = str(custom_file or (data_dir / "Telephony_Data.csv"))
             self._load(df, agg, data_dir, mode=mode, source_file=src)
+
         self.stdout.write(self.style.SUCCESS("[ETL] ✅ Pipeline terminé."))
+
+    def _filter_incremental(self, df):
+        if not self.last_loaded_date or df is None:
+            return df
+
+        df["_start_tmp"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
+        df["_start_tmp"] = df["_start_tmp"].dt.tz_convert(None)
+        before = len(df)
+        df = df[df["_start_tmp"] > pd.Timestamp(self.last_loaded_date)]
+        df = df.drop(columns=["_start_tmp"])
+        self.log(f"  -> Filtre incrémental : {before} → {len(df)} lignes nouvelles")
+
+        if len(df) == 0:
+            self.stdout.write(self.style.SUCCESS("[ETL] ✅ Aucune nouvelle donnée."))
+            return None
+
+        return df
 
     def log(self, msg):
         self.stdout.write(f"[ETL] {msg}")
