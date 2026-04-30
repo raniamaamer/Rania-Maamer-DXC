@@ -1,4 +1,6 @@
 import logging
+import json
+from pathlib import Path
 from django.db.models import Avg, Sum, Q, F, Max
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
@@ -1245,16 +1247,11 @@ class DebugMetricsView(APIView):
         return Response({'metrics': results, 'count': len(results)})
 
 class PredictionsView(APIView):
-    import json
-from pathlib import Path
-
-class PredictionsView(APIView):
     permission_classes = [AllowAny]
 
     ML_JSON_PATH = Path("/app/ml_output/ml_data.json")
 
     def _load_ml_data(self):
-        """Charge ml_data.json généré par le ML worker."""
         if self.ML_JSON_PATH.exists():
             try:
                 return json.loads(self.ML_JSON_PATH.read_text(encoding="utf-8"))
@@ -1264,20 +1261,18 @@ class PredictionsView(APIView):
 
     def get(self, request):
         data = self._load_ml_data()
-
         if data is None:
             return Response(
                 {"error": "ML data not available yet. Run ml_worker first."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-
         return Response({
             "forecast_7days":     data.get("future_7", []),
             "model_stats": {
-                "mae":         data.get("prophet", {}).get("mae"),
-                "rmse":        data.get("prophet", {}).get("rmse"),
-                "mape":        data.get("prophet", {}).get("mape"),
-                "auc_roc":     data.get("random_forest", {}).get("auc_roc"),
+                "mae":           data.get("prophet", {}).get("mae"),
+                "rmse":          data.get("prophet", {}).get("rmse"),
+                "mape":          data.get("prophet", {}).get("mape"),
+                "auc_roc":       data.get("random_forest", {}).get("auc_roc"),
                 "total_tickets": data.get("dataset", {}).get("total_incidents"),
                 "daily_avg":     data.get("dataset", {}).get("avg_daily_tickets"),
                 "breach_rate":   data.get("dataset", {}).get("breach_rate_pct"),
