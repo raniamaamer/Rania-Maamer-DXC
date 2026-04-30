@@ -591,7 +591,7 @@ class Command(BaseCommand):
         df["_start_tmp"] = pd.to_datetime(df["StartInterval"], errors="coerce", utc=True)
         df["_start_tmp"] = df["_start_tmp"].dt.tz_convert(None)
         before = len(df)
-        df = df[df["_start_tmp"] > pd.Timestamp(self.last_loaded_date)]
+        df = df[df["_start_tmp"] > pd.Timestamp(self.last_loaded_date).tz_localize(None)]
         df = df.drop(columns=["_start_tmp"])
         self.log(f"  -> Filtre incrémental : {before} → {len(df)} lignes nouvelles")
 
