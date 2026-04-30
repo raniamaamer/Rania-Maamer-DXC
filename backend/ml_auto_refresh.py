@@ -123,7 +123,7 @@ def _train_prophet(df: pd.DataFrame) -> dict:
         seasonality_prior_scale=10,
         interval_width=0.95,
         # ✅ OPTIMISATION : supprime les simulations Monte-Carlo → x3 plus rapide
-        uncertainty_samples=0,
+        uncertainty_samples=1000,
     )
     model.add_seasonality(name="monthly", period=30.5, fourier_order=5)
 
