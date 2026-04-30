@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import Max
 from api.models import (
     HistoricalMetric, AccountSummary, SLAConfig,
     HourlyTrend, DailySnapshot,
