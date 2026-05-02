@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+venv_ml/
+ml/venv_ml/
+.venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+media/
+staticfiles/
+
+# Jupyter
+.ipynb_checkpoints/
+lightning_logs/
+*.png
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# VS Code
+.vscode/
+
+# Docker
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
