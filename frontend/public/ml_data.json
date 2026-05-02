@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-28T23:17:05.265918",
+  "generated_at": "2026-05-01T00:05:15.739949",
   "dataset": {
     "total_incidents": 27702,
     "date_min": "2025-01-01",
@@ -11,53 +11,53 @@
   "prophet": {
     "mae": 29.2,
     "rmse": 38.7,
-    "mape": 298.2
+    "mape": 298.1
   },
   "random_forest": {
-    "auc_roc": 0.889
+    "auc_roc": 0.893
   },
   "future_7": [
     {
       "date": "2026-04-29",
       "day": "Wed",
       "predicted": 99,
-      "lower": 55,
-      "upper": 147
+      "lower": 52,
+      "upper": 146
     },
     {
       "date": "2026-04-30",
       "day": "Thu",
       "predicted": 95,
-      "lower": 48,
-      "upper": 146
+      "lower": 51,
+      "upper": 144
     },
     {
       "date": "2026-05-01",
       "day": "Fri",
       "predicted": 84,
       "lower": 38,
-      "upper": 129
+      "upper": 131
     },
     {
       "date": "2026-05-02",
       "day": "Sat",
       "predicted": 27,
       "lower": 0,
-      "upper": 73
+      "upper": 74
     },
     {
       "date": "2026-05-03",
       "day": "Sun",
       "predicted": 37,
       "lower": 0,
-      "upper": 83
+      "upper": 84
     },
     {
       "date": "2026-05-04",
       "day": "Mon",
       "predicted": 131,
-      "lower": 83,
-      "upper": 177
+      "lower": 81,
+      "upper": 176
     }
   ],
   "hist_30": [
@@ -257,15 +257,15 @@
   "feature_imp": [
     {
       "feature": "Week-end",
-      "pct": 35.3
+      "pct": 35.1
     },
     {
       "feature": "Jour de semaine",
-      "pct": 14.3
+      "pct": 13.9
     },
     {
       "feature": "Raison escalade",
-      "pct": 11.9
+      "pct": 12.5
     },
     {
       "feature": "Volume journalier",
@@ -273,23 +273,23 @@
     },
     {
       "feature": "Taux rupture CI (historique)",
-      "pct": 8.8
+      "pct": 8.5
     },
     {
       "feature": "Groupe assignation",
-      "pct": 7.3
+      "pct": 7.4
     },
     {
       "feature": "Heure ouverture",
-      "pct": 6.9
+      "pct": 7.1
     },
     {
       "feature": "Type CI (encodé)",
-      "pct": 4.5
+      "pct": 4.7
     },
     {
       "feature": "Mois",
-      "pct": 0.1
+      "pct": 0.0
     }
   ]
 }
