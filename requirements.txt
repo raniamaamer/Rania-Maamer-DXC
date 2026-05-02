@@ -47,6 +47,3 @@ django-apscheduler==0.6.2
 
 # ── API Documentation ─────────────────────────────────────
 drf-spectacular==0.27.2
-
-# ── Jupyter ───────────────────────────────────────────────
-ipykernel==7.2.0
