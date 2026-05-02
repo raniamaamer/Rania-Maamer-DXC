@@ -16,22 +16,21 @@ xlrd==2.0.1
 # ── Visualisation ─────────────────────────────────────────
 matplotlib==3.8.4
 seaborn==0.13.2
+plotly==6.7.0
+kaleido==0.2.1
 
-# ── ML / Forecasting ──────────────────────────────────────
-prophet==1.1.5
-neuralprophet==0.9.0
+# ── ML / Classification ───────────────────────────────────
 scikit-learn==1.5.2
 xgboost==2.1.1
-cmdstanpy==1.2.4
+
+# ── Forecasting ───────────────────────────────────────────
+neuralprophet==0.9.0
 
 # ── Deep Learning (NeuralProphet backend) ─────────────────
 torch==2.5.0
 pytorch-lightning==2.6.0
 torchmetrics==1.8.2
 captum==0.8.0
-
-# ── Export ────────────────────────────────────────────────
-kaleido==0.2.1
 
 # ── Dev tools ─────────────────────────────────────────────
 python-dotenv==1.0.1
@@ -48,3 +47,6 @@ django-apscheduler==0.6.2
 
 # ── API Documentation ─────────────────────────────────────
 drf-spectacular==0.27.2
+
+# ── Jupyter ───────────────────────────────────────────────
+ipykernel==7.2.0
