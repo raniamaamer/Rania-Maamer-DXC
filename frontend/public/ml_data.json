@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-01T00:05:15.739949",
+  "generated_at": "2026-05-02T14:07:23.320401",
   "dataset": {
     "total_incidents": 27702,
     "date_min": "2025-01-01",
@@ -21,15 +21,15 @@
       "date": "2026-04-29",
       "day": "Wed",
       "predicted": 99,
-      "lower": 52,
-      "upper": 146
+      "lower": 51,
+      "upper": 147
     },
     {
       "date": "2026-04-30",
       "day": "Thu",
       "predicted": 95,
-      "lower": 51,
-      "upper": 144
+      "lower": 52,
+      "upper": 143
     },
     {
       "date": "2026-05-01",
@@ -43,21 +43,21 @@
       "day": "Sat",
       "predicted": 27,
       "lower": 0,
-      "upper": 74
+      "upper": 75
     },
     {
       "date": "2026-05-03",
       "day": "Sun",
       "predicted": 37,
       "lower": 0,
-      "upper": 84
+      "upper": 81
     },
     {
       "date": "2026-05-04",
       "day": "Mon",
       "predicted": 131,
-      "lower": 81,
-      "upper": 176
+      "lower": 85,
+      "upper": 175
     }
   ],
   "hist_30": [
