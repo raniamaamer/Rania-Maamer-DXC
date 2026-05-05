@@ -303,3 +303,66 @@ class RealtimeMetric(models.Model):
         ]
     def __str__(self):
         return f"[RT] {self.queue} | {self.captured_at:%H:%M:%S} | in_queue={self.in_queue}"
+
+class TelephonyData(models.Model):
+    """Raw telephony data from Telephony_Data.csv"""
+    queue = models.CharField(max_length=200, db_index=True)
+    start_interval = models.DateTimeField(db_index=True)
+    end_interval = models.DateTimeField(null=True, blank=True)
+
+    # Abandoned by time bucket
+    abd_in_20s  = models.IntegerField(default=0, help_text="Contacts abandoned in 20 seconds")
+    abd_in_30s  = models.IntegerField(default=0, help_text="Contacts abandoned in 30 seconds")
+    abd_in_45s  = models.IntegerField(default=0, help_text="Contacts abandoned in 45 seconds")
+    abd_in_60s  = models.IntegerField(default=0, help_text="Contacts abandoned in 60 seconds")
+    abd_in_90s  = models.IntegerField(default=0, help_text="Contacts abandoned in 90 seconds")
+    abd_in_180s = models.IntegerField(default=0, help_text="Contacts abandoned in 180 seconds")
+
+    # Answered by time bucket
+    ans_in_20s  = models.IntegerField(default=0, help_text="Contacts answered in 20 seconds")
+    ans_in_30s  = models.IntegerField(default=0, help_text="Contacts answered in 30 seconds")
+    ans_in_45s  = models.IntegerField(default=0, help_text="Contacts answered in 45 seconds")
+    ans_in_60s  = models.IntegerField(default=0, help_text="Contacts answered in 60 seconds")
+    ans_in_90s  = models.IntegerField(default=0, help_text="Contacts answered in 90 seconds")
+    ans_in_180s = models.IntegerField(default=0, help_text="Contacts answered in 180 seconds")
+
+    # Service levels
+    service_level_60s  = models.FloatField(default=0.0, help_text="Service level 60 seconds")
+    service_level_120s = models.FloatField(default=0.0, help_text="Service level 120 seconds")
+
+    # Averages
+    agent_interaction_time   = models.FloatField(default=0.0)
+    avg_agent_interaction    = models.FloatField(default=0.0)
+    avg_customer_hold_time   = models.FloatField(default=0.0)
+    avg_handle_time          = models.FloatField(default=0.0)
+    avg_queue_abandon_time   = models.FloatField(default=0.0)
+    avg_queue_answer_time    = models.FloatField(default=0.0)
+
+    # Contacts
+    api_contacts             = models.IntegerField(default=0)
+    api_contacts_handled     = models.IntegerField(default=0)
+    callback_contacts        = models.IntegerField(default=0)
+    callback_contacts_handled = models.IntegerField(default=0)
+    contacts_abandoned       = models.IntegerField(default=0)
+    contacts_handled_inbound = models.IntegerField(default=0)
+    contacts_handled_outbound = models.IntegerField(default=0)
+    contacts_put_on_hold     = models.IntegerField(default=0)
+    contacts_queued          = models.IntegerField(default=0)
+
+    # SLA thresholds (40s)
+    abd_in_40s = models.IntegerField(default=0, help_text="Contacts abandoned in 40 seconds")
+    ans_in_40s = models.IntegerField(default=0, help_text="Contacts answered in 40 seconds")
+
+    loaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'telephony_data'
+        verbose_name = 'Telephony Data'
+        verbose_name_plural = 'Telephony Data'
+        ordering = ['-start_interval']
+        indexes = [
+            models.Index(fields=['queue', 'start_interval'], name='idx_tel_queue_date'),
+        ]
+
+    def __str__(self):
+        return f"{self.queue} | {self.start_interval}"
