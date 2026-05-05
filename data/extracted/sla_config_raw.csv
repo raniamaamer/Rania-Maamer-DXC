@@ -1,17 +1,3 @@
-account,Ans Rate,Abd Rate,Timeframe BH,OOH,Ans SLA,Abd SLA,Target Ans rate,Target Abd rate
-Renault,(Ans in SLA /(offered-Abd in SLA)),(1-(Abd out SLA/(Offered)),40,180.0,SLA1,Abd1,0.9,0.95
-Nissan,(Ans in SLA /(offered-Abd in SLA)),(1-(Abd out SLA/(Offered)),40,40.0,SLA1,Abd1,0.9,0.95
-Basrah Gas EN,(Ans in SLA/(Offered-Abd in SLA)),(Abd out SLA/(offered-Abd in SLA)),60,60.0,SLA1,Abd2,,
-Philips,(Ans in SLA/(Offered-Abd in SLA)),(Abd out SLA/(offered-Abd in SLA)),60,60.0,SLA1,Abd2,0.8,0.05
-Viatris,(Ans in SLA /(offered-Abd in SLA)),(Abd out SLA/(offered-Abd in SLA)),60,60.0,SLA1,Abd2,0.8,0.05
-XPO,(Ans in SLA /(offered-Abd in SLA)),(Abd out SLA/(offered-Abd in SLA)),30,30.0,SLA1,Abd2,0.9,0.03
-Nestle,(Ans in SLA/ (offered-Abd in SLA)),,30,30.0,SLA1(30sec),SLA1(45sec),0.91,0.85
-Luxottica,(1-Ans out SLA/ (offered-Abd in 60)),(1-abd out 60 sec/(Offered-Abd in SLA)),30,30.0,SLA3,Abd5,0.9,0.95
-GF,Ans in SLA /Answered ,Abd out SLA/Answered ,20,20.0,SLA2,Abd3,0.8,0.05
-DXC IT,Ans in SLA/Answered ,(Abd out SLA/(offered-Abd in SLA)),60,60.0,SLA2,Abd2,0.7,0.05
-HPE,Ans in SLA/Answered ,(Abd out SLA/(offered-Abd in SLA)),60,60.0,SLA2,Abd2,0.9,0.03
-Servier,(Ans in SLA /(offered-Abd in SLA)),Abd out SLA/offered,30,30.0,SLA1,Abd4,0.9,0.025
-Sonova,(Ans in SLA /(offered-Abd in SLA)),Abd out SLA/offered,60,60.0,SLA1,Abd4,0.8,0.05
-Saipem,Ans in SLA/Answered ,Abd out SLA /Offered,45,45.0,SLA2,Abd4,0.85,
-Sony,ASA:Average Speed Answer,(Abd out SLA/(Offered-Abd in SLA),30,30.0,SLA1,Abd2,30 sec,0.05
-Nestlé,"Answ 30""","Answ 45""","Answ 90""",,,,,
+version https://git-lfs.github.com/spec/v1
+oid sha256:1810f5cbce0dcf14ace90664e5b2f0927e26ea0f8df7cf1129341a079314e23e
+size 1549
