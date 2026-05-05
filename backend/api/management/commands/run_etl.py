@@ -847,10 +847,14 @@ class Command(BaseCommand):
         return df
 
     def _compute_time_fields(self, df, _num):
-        df["avg_answer_time"]   = _num(df.get("avg_answer_time"))
-        df["avg_hold_time"]     = _num(df.get("avg_hold_time"))
-        df["avg_handle_time"]   = _num(df.get("avg_handle_time"))
-        df["callback_contacts"] = _num(df.get("callback_contacts")).astype(int)
+        df["avg_answer_time"]      = _num(df.get("avg_answer_time"))
+        df["avg_hold_time"]        = _num(df.get("avg_hold_time"))       
+        df["avg_handle_time"]      = _num(df.get("avg_handle_time"))
+        df["contacts_put_on_hold"] = _num(df.get("contacts_put_on_hold")) 
+        df["callback_contacts"]    = _num(df.get("callback_contacts")).astype(int)
+
+        df["total_hold_time"] = df["avg_hold_time"] * df["contacts_put_on_hold"]
+
         if "Average agent interaction time" in df.columns:
             df["avg_ttc"] = _num(df["Average agent interaction time"])
         else:
@@ -1139,6 +1143,7 @@ class Command(BaseCommand):
                 total_answer_time=_f("total_answer_time"),
                 contacts_put_on_hold=_i("contacts_put_on_hold"),
                 total_hold_time=_f("total_hold_time"),
+                answered_with_hold=_i("contacts_put_on_hold"),
                 target_ans_rate=_f("target_ans_rate", 0),
                 target_abd_rate=_f("target_abd_rate", 0),
                 timeframe_bh=_i("timeframe_bh", 40),
