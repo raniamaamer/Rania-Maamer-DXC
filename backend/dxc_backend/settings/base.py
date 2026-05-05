@@ -152,3 +152,9 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# ── TEST CONFIGURATION ───────────────────────────────────────────────────────
+DATABASES['default']['TEST'] = {
+    'NAME': 'test_dxc_kpi_db',
+    'SERIALIZE': False,  
+}

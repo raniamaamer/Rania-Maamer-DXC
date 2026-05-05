@@ -29,7 +29,7 @@ pipeline {
         stage('Backend - Tests Django') {
             steps {
                 dir('backend') {
-                    bat "%PYTHON% -m pytest api/tests.py --cov=. --cov-report=xml:coverage.xml --ds=dxc_backend.settings --no-cov-on-fail -v"
+                    bat "%PYTHON% -m pytest api/tests.py --cov=api --cov-report=xml:coverage.xml --ds=dxc_backend.settings --no-cov-on-fail -v"
                 }
             }
         }
