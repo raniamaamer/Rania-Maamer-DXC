@@ -39,3 +39,10 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Large data files (use Git LFS or store externally)
+data/raw/
+
+# Excel temp and lock files
+~$*.xlsx
+~$*.xls
