@@ -6,24 +6,14 @@ ENV PYTHONPATH="/app"
 
 WORKDIR /app
 
-# ── Upgrade pip ───────────────────────────────────────────────────
 RUN pip install --upgrade pip
 
-# ── Librairies lourdes en premier (couche cachée) ─────────────────
-RUN pip install --no-cache-dir \
-    numpy==1.26.4 \
-    pandas==2.2.2 \
-    matplotlib==3.8.4 \
-    seaborn==0.13.2
-
-# ── Reste des dépendances ─────────────────────────────────────────
+# ✅ requirements EN PREMIER → cache préservé si pas modifié
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Code source ───────────────────────────────────────────────────
+# Code source après → re-build rapide si seulement le code change
 COPY backend/ .
-
-# ── Données CSV — copiées dans l'image au moment du build ─────────
 COPY data/ /app/data/
 
 EXPOSE 8000
