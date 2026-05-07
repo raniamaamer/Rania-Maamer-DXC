@@ -104,21 +104,25 @@ services:
 
   # ── ML Worker — Prophet + Random Forest ─────────────────────
   ml_worker:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.ml  
     container_name: ml_worker
     environment:
       - TZ=Africa/Tunis
+    env_file:
+      - ./backend/.env
     volumes:
       - ./data:/app/data:ro
       - ml_output:/app/ml_output
-      - ./backend/ml_auto_refresh.py:/app/ml_auto_refresh.py:ro
-      - ./backend/requirements_ml.txt:/app/requirements_ml.txt:ro
       - ./frontend/public:/app/frontend_public
     working_dir: /app
-    # ✅ FIX : syntaxe bash corrigée (pas de retour à la ligne dans la commande python)
-    # ✅ FIX : --once pour ne pas lancer le watchdog en boucle dans Docker
     command: >
-      bash -c "pip install --quiet --no-cache-dir -r requirements_ml.txt && python ml_auto_refresh.py --csv /app/data/incident_sla.csv --out /app/ml_output --once && cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
+      bash -c "python ml_auto_refresh.py
+               --csv /app/data/incident_sla.csv
+               --out /app/ml_output
+               --once &&
+               cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
     restart: "no"
     networks:
       - dxc-network
