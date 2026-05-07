@@ -89,7 +89,6 @@ pipeline {
                 docker rm -f frontend backend prometheus grafana postgres-exporter ml_worker 2>nul
                 exit 0
                 """
-                // ✅ Sans --no-cache → utilise le cache Docker
                 bat "%COMPOSE% build"
             }
         }
@@ -110,13 +109,14 @@ pipeline {
             steps {
                 dir('backend') {
                     bat """
-                    %PYTHON% ml_auto_refresh.py ^
+                    set PYTHONIOENCODING=utf-8 && %PYTHON% ml_auto_refresh.py ^
                         --csv ../data/incident_sla.csv ^
                         --out ../data/output ^
                         --once
                     """
                     bat """
-                    set SMTP_USER=%GMAIL_USR% ^
+                    set PYTHONIOENCODING=utf-8 ^
+                    && set SMTP_USER=%GMAIL_USR% ^
                     && set SMTP_PASSWORD=%GMAIL_PSW% ^
                     && %PYTHON% sla_alert_mailer.py ^
                         --json ../data/output/ml_data.json
@@ -207,13 +207,6 @@ pipeline {
                         <li>Vérifiez que <code>sla_alert_mailer.py</code> est dans <code>backend/</code></li>
                         <li>Vérifiez le credential <code>gmail-smtp</code> dans Jenkins</li>
                         <li>Vérifiez les logs du container <code>ml_worker</code></li>
-                    '''
-                } else if (failedStage.toLowerCase().contains('db') || failedStage.toLowerCase().contains('database')) {
-                    failureSource = '🗄️ Base de données (PostgreSQL)'
-                    failureDetails = '''
-                        <li>Vérifiez que le container <code>db</code> est healthy</li>
-                        <li>Vérifiez les variables DB dans <code>backend/.env</code></li>
-                        <li>Vérifiez les migrations Django</li>
                     '''
                 } else {
                     failureSource = "❓ Étape : ${failedStage}"
