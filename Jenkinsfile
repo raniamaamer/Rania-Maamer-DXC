@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
-        PYTHON = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
+        PYTHON  = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
         COMPOSE = "docker-compose -p rania-maamer"
+        GMAIL   = credentials('gmail-smtp')
     }
 
     stages {
@@ -102,6 +103,26 @@ pipeline {
                 bat "ping -n 30 127.0.0.1 > nul"
             }
         }
+
+        // ================= ML + SLA ALERT =================
+        stage('ML Pipeline + SLA Alert') {
+            steps {
+                dir('backend') {
+                    bat """
+                    %PYTHON% ml_auto_refresh.py ^
+                        --csv ../data/incident_sla.csv ^
+                        --out ../data/output ^
+                        --once
+                    """
+                    bat """
+                    set SMTP_USER=%GMAIL_USR% ^
+                    && set SMTP_PASSWORD=%GMAIL_PSW% ^
+                    && %PYTHON% sla_alert_mailer.py ^
+                        --json ../data/output/ml_data.json
+                    """
+                }
+            }
+        }
     }
 
     post {
@@ -131,6 +152,7 @@ pipeline {
                             <li>✅ SonarQube Quality Gate</li>
                             <li>✅ Docker - Build</li>
                             <li>✅ Docker - Run</li>
+                            <li>✅ ML Pipeline + SLA Alert</li>
                         </ul>
                         <p>🚀 L'application DXC Tunisia est déployée et opérationnelle.</p>
                     </body>
@@ -176,6 +198,14 @@ pipeline {
                         <li>Vérifiez que docker-compose.yml est valide</li>
                         <li>Vérifiez les variables d\'environnement dans <code>.env</code></li>
                         <li>Vérifiez que la base de données PostgreSQL démarre correctement</li>
+                    '''
+                } else if (failedStage.toLowerCase().contains('ml') || failedStage.toLowerCase().contains('sla')) {
+                    failureSource = '🤖 ML Pipeline / SLA Alert'
+                    failureDetails = '''
+                        <li>Vérifiez que <code>incident_sla.csv</code> existe dans <code>data/</code></li>
+                        <li>Vérifiez que <code>sla_alert_mailer.py</code> est dans <code>backend/</code></li>
+                        <li>Vérifiez le credential <code>gmail-smtp</code> dans Jenkins</li>
+                        <li>Vérifiez les logs du container <code>ml_worker</code></li>
                     '''
                 } else if (failedStage.toLowerCase().contains('db') || failedStage.toLowerCase().contains('database')) {
                     failureSource = '🗄️ Base de données (PostgreSQL)'
