@@ -76,7 +76,7 @@ def run_pipeline(csv_path: Path, out_dir: Path) -> dict:
 
 def _load_data(csv_path: Path) -> pd.DataFrame:
     # ✅ OPTIMISATION : lecture avec dtypes explicites pour éviter l'inférence lente
-    df = pd.read_csv(csv_path, low_memory=False)
+    df = pd.read_csv(csv_path, low_memory=False, sep=';')
 
     # ✅ OPTIMISATION : parse_dates vectorisé en une seule passe
     df["inc_opened_at"] = pd.to_datetime(df["inc_opened_at"], dayfirst=True, errors="coerce")
