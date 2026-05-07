@@ -10,6 +10,7 @@ omit =
     api/management/commands/seed_missing_accounts.py
     api/scheduler.py
     dxc_backend/wsgi.py
+    backend/sla_alert_mailer.py
 
 [report]
 omit =
@@ -23,3 +24,4 @@ omit =
     api/management/commands/seed_missing_accounts.py
     api/scheduler.py
     dxc_backend/wsgi.py
+    backend/sla_alert_mailer.py
