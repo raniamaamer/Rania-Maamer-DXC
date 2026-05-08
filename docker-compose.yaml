@@ -102,6 +102,25 @@ services:
     networks:
       - dxc-network
 
+# ── Frontend Dev (Vite HMR) ── ← AJOUTE ICI
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    command: npm run dev
+    networks:
+      - dxc-network
+    depends_on:
+      - backend
+    profiles:
+      - dev
+
   # ── ML Worker — Prophet + Random Forest ─────────────────────
   ml_worker:
     build:

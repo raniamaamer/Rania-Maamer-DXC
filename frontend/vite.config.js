@@ -1,15 +1,18 @@
-// vite.config.js
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 5173,
+    host: true,           
+    watch: {
+      usePolling: true,   
+      interval: 500,
+    },
     proxy: {
-      // Proxy /api/* → Django backend
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://backend:8000', 
         changeOrigin: true,
         secure: false,
       }
