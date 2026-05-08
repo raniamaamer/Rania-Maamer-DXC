@@ -129,7 +129,7 @@ function ForecastChart({ future7 }) {
           data: future7.map(d => d.predicted),
           backgroundColor: future7.map(d =>
             d.predicted > 100 ? 'rgba(59,106,200,0.85)' :
-            d.predicted < 40  ? 'rgba(26,158,110,0.75)' :
+            d.predicted < 40  ? 'rgba(232,132,90,0.85)' :
                                 'rgba(59,106,200,0.55)'
           ),
           borderRadius: 6, borderSkipped: false,
@@ -321,12 +321,12 @@ function FIBar({ feature, pct }) {
 function ForecastDayCard({ day, date, predicted, lower, upper }) {
   const isHigh = predicted > 100
   const isLow  = predicted < 40
-  const bgColor  = isHigh ? DXC.bluePale : isLow ? DXC.greenPale : DXC.bgSurface
-  const valColor = isHigh ? DXC.blue     : isLow ? DXC.green     : DXC.text
+  const bgColor  = isHigh ? DXC.bluePale : isLow ? DXC.orangePale : DXC.bgSurface
+  const valColor = isHigh ? DXC.blue     : isLow ? DXC.orange     : DXC.text
   return (
     <div style={{
       background: bgColor,
-      border: `1px solid ${isHigh ? 'rgba(59,106,200,0.2)' : isLow ? 'rgba(26,158,110,0.2)' : DXC.border}`,
+      border: `1px solid ${isHigh ? 'rgba(59,106,200,0.2)' : isLow ? 'rgba(232,132,90,0.2)' : DXC.border}`,
       borderRadius: 10, padding: '12px 10px', textAlign: 'center',
     }}>
       <div style={{ fontSize: 10, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{day}</div>
