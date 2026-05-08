@@ -577,13 +577,6 @@ export default function Predictions() {
           >
             <ForecastChart future7={future_7} />
           </ChartCard>
-          <div style={{ marginTop: 12, padding: '10px 14px', background: DXC.bgSurface, borderRadius: 8, border: `1px solid ${DXC.border}` }}>
-            <span style={{ fontSize: 11, color: DXC.textMuted }}>
-              💡 <b>Lecture :</b> Bleu foncé = pic prévu (&gt;100 tickets) · Vert = creux anticipé (&lt;40 tickets) ·{' '}
-              {picJour.day} {picJour.date} = pic attendu ({picJour.predicted} tickets).
-              Week-end = creux normal ({future_7.filter(d => d.predicted < 40).map(d => d.predicted).join('–')} tickets).
-            </span>
-          </div>
         </div>
       )}
 
