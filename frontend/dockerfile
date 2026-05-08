@@ -1,20 +1,19 @@
-# ── Stage commun ──────────────────────────────────────────────
 FROM node:18-alpine AS base
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# ── Stage DEV (hot reload) ────────────────────────────────────
+# ── DEV ──────────────────────────
 FROM base AS dev
 EXPOSE 5173
 CMD ["npm", "run", "dev"]
 
-# ── Stage BUILD (prod) ────────────────────────────────────────
+# ── BUILD ─────────────────────────
 FROM base AS build
 COPY . .
 RUN npm run build
 
-# ── Stage PROD (Nginx) ────────────────────────────────────────
+# ── PROD ──────────────────────────
 FROM nginx:alpine AS prod
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=build /app/dist /usr/share/nginx/html
