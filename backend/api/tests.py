@@ -9,8 +9,10 @@ from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from django.utils import timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 import datetime
+import json
+from pathlib import Path
 import numpy as np
 
 from api.models import (
@@ -25,6 +27,7 @@ from api.serializers import (
 from api.views import (
     _recalc_sla_for_account, _abandon_rate, _answer_rate,
     _weighted_times, sec_to_mmss, _parse_rate, parse_int_param,
+    build_time_filter,
 )
 
 
@@ -279,6 +282,30 @@ class RecalcSLATest(TestCase):
         result = _recalc_sla_for_account("Saipem FR", 75, 5, 25, 100, 80)
         self.assertAlmostEqual(result, 75 / 80, places=3)
 
+    def test_sony_asa_within_30sec(self):
+        """Sony avec ASA ≤ 30 → SLA = 1.0"""
+        result = _recalc_sla_for_account("Sony Global", 80, 5, 15, 100, 90, avg_answer_time=25.0)
+        self.assertAlmostEqual(result, 1.0)
+
+    def test_sony_asa_above_30sec(self):
+        """Sony avec ASA > 30 → SLA calculé sur answered."""
+        result = _recalc_sla_for_account("Sony Global", 80, 5, 15, 100, 90, avg_answer_time=45.0)
+        self.assertLess(result, 1.0)
+        self.assertGreater(result, 0.0)
+
+    def test_sla3_negative_capped_at_zero(self):
+        """SLA3 qui donne négatif → max(0.0, ...)"""
+        result = _recalc_sla_for_account(
+            "El Store EN", ans_in_sla=5, abd_in_sla=2,
+            ans_out_sla=200, offered=100, answered=95, abd_in_60=5,
+        )
+        self.assertGreaterEqual(result, 0.0)
+
+    def test_sla2_dxc_it(self):
+        """DXC IT utilise SLA2 = ans_in_sla / answered."""
+        result = _recalc_sla_for_account("DXC IT", 75, 5, 20, 100, 90)
+        self.assertAlmostEqual(result, 75 / 90, places=3)
+
 
 class AbandonRateTest(TestCase):
     """Tests de _abandon_rate."""
@@ -485,8 +512,10 @@ class AccountSummarySerializerTest(TestCase):
 
     def test_serializer_fields(self):
         s = AccountSummarySerializer(self.acc)
-        for field in ["account", "offered", "sla_rate", "sla_compliant"]:
-            self.assertIn(field, s.data)
+        self.assertIn("account", s.data)
+        self.assertIn("offered", s.data)
+        self.assertIn("sla_rate", s.data)
+        self.assertIn("sla_compliant", s.data)
 
     def test_sla_gap_in_output(self):
         s = AccountSummarySerializer(self.acc)
@@ -583,17 +612,48 @@ class OverviewViewTest(APITestCase):
         response = self.client.get("/api/overview/?month=4")
         self.assertEqual(response.status_code, 200)
 
+    def test_overview_with_week_filter(self):
+        response = self.client.get("/api/overview/?week=15")
+        self.assertEqual(response.status_code, 200)
+
+    def test_overview_with_day_filter(self):
+        response = self.client.get("/api/overview/?day=1")
+        self.assertEqual(response.status_code, 200)
+
+    def test_overview_with_language_filter(self):
+        response = self.client.get("/api/overview/?language=fr")
+        self.assertEqual(response.status_code, 200)
+
+    def test_overview_with_interval_filter(self):
+        response = self.client.get("/api/overview/?interval=09:00")
+        self.assertEqual(response.status_code, 200)
+
+    def test_overview_compliance_rate_zero_accounts(self):
+        """BD vide → compliance_rate = 0 (division par zéro protégée)."""
+        HistoricalMetric.objects.all().delete()
+        response = self.client.get("/api/overview/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["compliance_rate"], 0)
+
 
 class AccountListViewTest(APITestCase):
     """Tests de l'endpoint GET /api/accounts/."""
 
     def setUp(self):
+        SLAConfig.objects.create(
+            account="Renault",
+            timeframe_bh=40,
+            target_ans_rate=0.80,
+            target_abd_rate=0.05,
+            target_other_rate=0.10,
+        )
         HistoricalMetric.objects.create(
             queue="Renault FR Queue", account="Renault",
             start_date=timezone.now(), hour="10:00",
             year=2024, month=4, week=15,
             offered=500, abandoned=20, answered=480,
             ans_in_sla=400.0, abd_in_sla=5.0,
+            abd_out_sla=15.0, abd_out_60=10.0,
             sla_rate=0.83, target_ans_rate=0.80, target_abd_rate=0.05,
             handle_time=24000.0, total_answer_time=4800.0,
         )
@@ -620,6 +680,43 @@ class AccountListViewTest(APITestCase):
             self.assertGreaterEqual(acc["sla_rate"], 0.0)
             self.assertLessEqual(acc["sla_rate"], 1.0)
 
+    def test_account_with_sla_config_target_other_rate(self):
+        """target_other_rate du SLAConfig est inclus dans la réponse."""
+        response = self.client.get("/api/accounts/")
+        renault = next((a for a in response.json() if a["account"] == "Renault"), None)
+        self.assertIsNotNone(renault)
+        self.assertIsNotNone(renault.get("target_other_rate"))
+        self.assertAlmostEqual(renault["target_other_rate"], 0.10, places=3)
+
+    def test_account_null_account_name_excluded(self):
+        """Les lignes sans nom de compte ne doivent pas apparaître."""
+        HistoricalMetric.objects.create(
+            queue="NoAccount", account="",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=50, abandoned=2, answered=48,
+            sla_rate=0.90, target_ans_rate=0.80,
+        )
+        response = self.client.get("/api/accounts/")
+        names = [a["account"] for a in response.json()]
+        self.assertNotIn("", names)
+
+    def test_account_abd_compliant_none_when_no_target(self):
+        """abd_compliant = None quand target_abd_rate = 0."""
+        HistoricalMetric.objects.create(
+            queue="NoTarget", account="NoTargetAcc",
+            start_date=timezone.now(), hour="11:00",
+            year=2024, month=4, week=15,
+            offered=100, abandoned=5, answered=95,
+            sla_rate=0.90, target_ans_rate=0, target_abd_rate=0,
+        )
+        response = self.client.get("/api/accounts/")
+        no_target = next(
+            (a for a in response.json() if a["account"] == "NoTargetAcc"), None
+        )
+        self.assertIsNotNone(no_target)
+        self.assertIsNone(no_target["abd_compliant"])
+
 
 class QueueListViewTest(APITestCase):
     """Tests de l'endpoint GET /api/queues/."""
@@ -633,6 +730,14 @@ class QueueListViewTest(APITestCase):
             ans_in_sla=165.0, abd_in_sla=2.0,
             sla_rate=0.87, target_ans_rate=0.80,
             handle_time=9500.0, total_answer_time=1900.0,
+        )
+        HistoricalMetric.objects.create(
+            queue="OOH Queue", account="OOHAcc",
+            start_date=timezone.now(), hour="22:00",
+            year=2024, month=4, week=15,
+            offered=30, abandoned=1, answered=29,
+            sla_rate=0.95, target_ans_rate=0.80,
+            is_ooh=True,
         )
 
     def test_queues_returns_200(self):
@@ -650,10 +755,26 @@ class QueueListViewTest(APITestCase):
         response = self.client.get("/api/queues/?is_ooh=false")
         self.assertEqual(response.status_code, 200)
 
+    def test_queues_filter_by_is_ooh_true(self):
+        response = self.client.get("/api/queues/?is_ooh=true")
+        self.assertEqual(response.status_code, 200)
+
     def test_queues_limit_param(self):
         response = self.client.get("/api/queues/?limit=5")
         self.assertEqual(response.status_code, 200)
         self.assertLessEqual(len(response.json()), 5)
+
+    def test_queues_limit_respected_many_records(self):
+        for i in range(10):
+            HistoricalMetric.objects.create(
+                queue=f"Q{i}", account=f"Acc{i}",
+                start_date=timezone.now(), hour="10:00",
+                year=2024, month=4, week=15,
+                offered=100, abandoned=5, answered=95,
+                sla_rate=0.90, target_ans_rate=0.80,
+            )
+        response = self.client.get("/api/queues/?limit=3")
+        self.assertLessEqual(len(response.json()), 3)
 
 
 class HourlyTrendViewTest(APITestCase):
@@ -683,6 +804,12 @@ class HourlyTrendViewTest(APITestCase):
         today = str(datetime.date.today())
         response = self.client.get(f"/api/hourly/?date={today}")
         self.assertEqual(response.status_code, 200)
+
+    def test_hourly_account_all_no_filter(self):
+        """account=all → pas de filtre appliqué."""
+        response = self.client.get("/api/hourly/?account=all")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(response.json()), 0)
 
 
 class Bottom5ViewTest(APITestCase):
@@ -721,6 +848,24 @@ class Trend7DaysViewTest(APITestCase):
     def test_trend7_filter_by_account(self):
         response = self.client.get("/api/trend7/?account=Renault")
         self.assertEqual(response.status_code, 200)
+
+    def test_trend7_account_all_no_filter(self):
+        response = self.client.get("/api/trend7/?account=all")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.json(), list)
+
+    def test_trend7_response_fields(self):
+        HistoricalMetric.objects.create(
+            queue="TrendQ", account="TrendAcc",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=100, abandoned=5, answered=95,
+            sla_rate=0.88, target_ans_rate=0.80,
+        )
+        items = self.client.get("/api/trend7/").json()
+        if items:
+            for key in ["account", "date", "sla_rate", "offered", "abandoned", "abandon_rate"]:
+                self.assertIn(key, items[0])
 
 
 class DailySnapshotViewTest(APITestCase):
@@ -787,6 +932,47 @@ class SLAConfigViewTest(APITestCase):
         self.cfg.refresh_from_db()
         self.assertEqual(self.cfg.timeframe_bh, 50)
 
+    def test_post_with_invalid_timeframe_bh_returns_400(self):
+        """timeframe_bh non convertible → 400."""
+        payload = {
+            "account": "ErrorAcc",
+            "timeframe_bh": "not_a_number",
+            "target_ans_rate": "80",
+            "target_abd_rate": "5",
+        }
+        response = self.client.post("/api/sla-config/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_post_with_ans_sla_code_maps_formula(self):
+        """ans_sla code valide → ans_rate_formula rempli depuis FORMULA_MAP."""
+        payload = {
+            "account": "FormulaAcc",
+            "timeframe_bh": "40",
+            "target_ans_rate": "80",
+            "target_abd_rate": "5",
+            "ans_sla": "SLA1",
+            "abd_sla": "Abd2",
+        }
+        response = self.client.post("/api/sla-config/", payload, format="json")
+        self.assertIn(response.status_code, [200, 201])
+        obj = SLAConfig.objects.get(account="FormulaAcc")
+        self.assertEqual(obj.ans_sla, "SLA1")
+        self.assertIsNotNone(obj.ans_rate_formula)
+
+    def test_post_with_empty_ans_sla_sets_none(self):
+        """ans_sla vide → ans_sla=None."""
+        payload = {
+            "account": "EmptySLAAcc",
+            "timeframe_bh": "40",
+            "target_ans_rate": "0.80",
+            "target_abd_rate": "0.05",
+            "ans_sla": "",
+        }
+        response = self.client.post("/api/sla-config/", payload, format="json")
+        self.assertIn(response.status_code, [200, 201])
+        obj = SLAConfig.objects.get(account="EmptySLAAcc")
+        self.assertIsNone(obj.ans_sla)
+
 
 class SLAConfigDetailViewTest(APITestCase):
     """Tests des endpoints PUT/DELETE /api/sla-config/<pk>/."""
@@ -824,9 +1010,54 @@ class SLAConfigDetailViewTest(APITestCase):
         self.cfg.refresh_from_db()
         self.assertEqual(self.cfg.ans_sla, "SLA1")
 
+    def test_put_invalid_timeframe_returns_400(self):
+        payload = {"timeframe_bh": "bad_value"}
+        response = self.client.put(
+            f"/api/sla-config/{self.cfg.pk}/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_put_with_target_other_rate(self):
+        payload = {"target_other_rate": "10"}
+        response = self.client.put(
+            f"/api/sla-config/{self.cfg.pk}/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cfg.refresh_from_db()
+        self.assertAlmostEqual(self.cfg.target_other_rate, 0.10, places=4)
+
+    def test_put_with_abd_sla_code(self):
+        payload = {"timeframe_bh": 40, "abd_sla": "Abd4"}
+        response = self.client.put(
+            f"/api/sla-config/{self.cfg.pk}/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cfg.refresh_from_db()
+        self.assertEqual(self.cfg.abd_sla, "Abd4")
+
+    def test_put_with_empty_abd_sla_sets_none(self):
+        """abd_sla='' → abd_sla=None."""
+        payload = {"timeframe_bh": 40, "abd_sla": ""}
+        response = self.client.put(
+            f"/api/sla-config/{self.cfg.pk}/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.cfg.refresh_from_db()
+        self.assertIsNone(self.cfg.abd_sla)
+
 
 class RealtimeViewTest(APITestCase):
     """Tests de l'endpoint GET/POST /api/realtime/."""
+
+    def setUp(self):
+        RealtimeMetric.objects.create(
+            queue="RTQ_FR", account="FRAcc",
+            language="fr",
+            captured_at=timezone.now(), hour="14:00",
+            offered=80, abandoned=3, answered=77,
+            sla_rate=0.90, target_ans_rate=0.80,
+            avg_handle_time=180.0, longest_wait_time=45.0,
+        )
 
     def test_get_realtime_returns_200(self):
         self.assertEqual(self.client.get("/api/realtime/").status_code, 200)
@@ -836,6 +1067,34 @@ class RealtimeViewTest(APITestCase):
         data = response.json()
         self.assertIn("summary", data)
         self.assertIn("queues", data)
+
+    def test_get_realtime_summary_keys_complete(self):
+        """Vérifie toutes les clés du summary realtime."""
+        summary = self.client.get("/api/realtime/").json()["summary"]
+        for key in [
+            "total_offered", "total_abandoned", "total_answered",
+            "total_in_queue", "total_agents_available", "total_agents_busy",
+            "avg_sla_rate", "avg_abandon_rate", "avg_handle_time",
+            "avg_longest_wait", "total_accounts", "total_queues", "compliant_queues",
+        ]:
+            self.assertIn(key, summary)
+
+    def test_get_realtime_filter_by_account(self):
+        response = self.client.get("/api/realtime/?account=Renault")
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_realtime_filter_by_language(self):
+        response = self.client.get("/api/realtime/?language=fr")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("queues", response.json())
+
+    def test_get_realtime_filter_language_all(self):
+        response = self.client.get("/api/realtime/?language=all")
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_realtime_filter_account_all(self):
+        response = self.client.get("/api/realtime/?account=all")
+        self.assertEqual(response.status_code, 200)
 
     def test_post_realtime_creates_metric(self):
         payload = {
@@ -860,10 +1119,6 @@ class RealtimeViewTest(APITestCase):
         }
         response = self.client.post("/api/realtime/", payload, format="json")
         self.assertEqual(response.status_code, 400)
-
-    def test_get_realtime_filter_by_account(self):
-        response = self.client.get("/api/realtime/?account=Renault")
-        self.assertEqual(response.status_code, 200)
 
 
 class HistoricalViewTest(APITestCase):
@@ -906,6 +1161,19 @@ class HistoricalViewTest(APITestCase):
 class DeskLangueViewTest(APITestCase):
     """Tests de l'endpoint GET /api/desk-langue/."""
 
+    def setUp(self):
+        HistoricalMetric.objects.create(
+            queue="Viatris FR", account="Viatris",
+            desk="FR Desk",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=200, abandoned=10, answered=190,
+            ans_in_sla=160.0, abd_in_sla=3.0,
+            sla_rate=0.83, target_ans_rate=0.80,
+            handle_time=9500.0, total_answer_time=1900.0,
+            is_ooh=False,
+        )
+
     def test_desk_langue_returns_200(self):
         self.assertEqual(self.client.get("/api/desk-langue/").status_code, 200)
 
@@ -918,9 +1186,58 @@ class DeskLangueViewTest(APITestCase):
         self.assertIn("rows", data)
         self.assertIn("count", data)
 
+    def test_desk_langue_filter_is_ooh_false(self):
+        response = self.client.get("/api/desk-langue/?is_ooh=false")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("rows", response.json())
+
+    def test_desk_langue_filter_is_ooh_true(self):
+        response = self.client.get("/api/desk-langue/?is_ooh=true")
+        self.assertEqual(response.status_code, 200)
+
+    def test_desk_langue_total_row_present_with_data(self):
+        """La ligne 'Total' est ajoutée quand il y a des données."""
+        rows = self.client.get("/api/desk-langue/?account=Viatris").json()["rows"]
+        self.assertTrue(any(r["desk_langue"] == "Total" for r in rows))
+
+    def test_desk_langue_empty_db_no_total(self):
+        """Sans données → rows vide, pas de ligne Total."""
+        HistoricalMetric.objects.all().delete()
+        rows = self.client.get("/api/desk-langue/").json()["rows"]
+        self.assertFalse(any(r.get("desk_langue") == "Total" for r in rows))
+
+    def test_desk_langue_multi_account_global_abd(self):
+        """Plusieurs comptes → abandon rate global (pas par compte)."""
+        HistoricalMetric.objects.create(
+            queue="Renault FR", account="Renault",
+            desk="FR Desk",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=100, abandoned=5, answered=95,
+            ans_in_sla=80.0, abd_in_sla=2.0,
+            sla_rate=0.83, target_ans_rate=0.80,
+        )
+        rows = self.client.get("/api/desk-langue/").json()["rows"]
+        total = next((r for r in rows if r.get("desk_langue") == "Total"), None)
+        self.assertIsNotNone(total)
+
 
 class DebugMetricsViewTest(APITestCase):
     """Tests de l'endpoint GET /api/debug-metrics/."""
+
+    def setUp(self):
+        HistoricalMetric.objects.create(
+            queue="DebugQ", account="DebugAcc",
+            desk="Debug Desk",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=100, abandoned=5, answered=50,
+            contacts_put_on_hold=10,
+            avg_handle_time=180.0, avg_answer_time=30.0,
+            avg_ttc=60.0, average_hold_time=45.0,
+            sla_rate=0.85, target_ans_rate=0.80,
+            is_ooh=False,
+        )
 
     def test_debug_metrics_returns_200(self):
         self.assertEqual(self.client.get("/api/debug-metrics/").status_code, 200)
@@ -930,9 +1247,151 @@ class DebugMetricsViewTest(APITestCase):
         self.assertIn("metrics", data)
         self.assertIn("count", data)
 
+    def test_debug_metrics_filter_is_ooh_false(self):
+        response = self.client.get("/api/debug-metrics/?is_ooh=false")
+        self.assertEqual(response.status_code, 200)
+
+    def test_debug_metrics_filter_is_ooh_true(self):
+        response = self.client.get("/api/debug-metrics/?is_ooh=true")
+        self.assertEqual(response.status_code, 200)
+
+    def test_debug_metrics_filter_account_all(self):
+        response = self.client.get("/api/debug-metrics/?account=all")
+        self.assertEqual(response.status_code, 200)
+
+    def test_debug_metrics_result_row_structure(self):
+        data = self.client.get("/api/debug-metrics/?account=DebugAcc").json()
+        if data["count"] > 0:
+            row = data["metrics"][0]
+            for key in ["desk", "account", "offered", "answered", "abandoned"]:
+                self.assertIn(key, row)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. TESTS D'INTÉGRATION — Flux complets
+# 5. TESTS DES VUES — PredictionsView
+# ══════════════════════════════════════════════════════════════════════════════
+
+class PredictionsViewTest(APITestCase):
+    """Couvre PredictionsView.get — fichier ML absent, présent, corrompu."""
+
+    ML_PATH = "api.views.PredictionsView.ML_JSON_PATH"
+
+    def test_predictions_ml_file_missing_returns_503(self):
+        with patch(self.ML_PATH, new_callable=PropertyMock) as mock_path:
+            p = MagicMock(spec=Path)
+            p.exists.return_value = False
+            mock_path.return_value = p
+            response = self.client.get("/api/predictions/")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("error", response.json())
+
+    def test_predictions_ml_file_present_returns_200(self):
+        ml_payload = {
+            "future_7": [{"ds": "2024-05-01", "yhat": 120}],
+            "prophet": {"mae": 5.2, "rmse": 7.1, "mape": 3.4},
+            "random_forest": {"auc_roc": 0.91},
+            "dataset": {
+                "total_incidents": 5000,
+                "avg_daily_tickets": 68.5,
+                "breach_rate_pct": 12.3,
+            },
+            "ci_breach": [{"ci": "CI001", "rate": 0.15}],
+            "feature_imp": [{"feature": "priority", "importance": 0.42}],
+            "generated_at": "2024-05-01T12:00:00",
+        }
+        with patch(self.ML_PATH, new_callable=PropertyMock) as mock_path:
+            p = MagicMock(spec=Path)
+            p.exists.return_value = True
+            p.read_text.return_value = json.dumps(ml_payload)
+            mock_path.return_value = p
+            response = self.client.get("/api/predictions/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        for key in ["forecast_7days", "model_stats", "ci_breach_rates", "feature_importance"]:
+            self.assertIn(key, data)
+        self.assertEqual(data["forecast_7days"], ml_payload["future_7"])
+        self.assertAlmostEqual(data["model_stats"]["mae"], 5.2)
+
+    def test_predictions_ml_file_corrupt_json_returns_503(self):
+        with patch(self.ML_PATH, new_callable=PropertyMock) as mock_path:
+            p = MagicMock(spec=Path)
+            p.exists.return_value = True
+            p.read_text.return_value = "NOT_VALID_JSON{{{"
+            mock_path.return_value = p
+            response = self.client.get("/api/predictions/")
+        self.assertEqual(response.status_code, 503)
+
+    def test_predictions_ml_empty_dict_returns_200(self):
+        """Fichier ML vide → 200 avec valeurs None/[] pour les clés manquantes."""
+        with patch(self.ML_PATH, new_callable=PropertyMock) as mock_path:
+            p = MagicMock(spec=Path)
+            p.exists.return_value = True
+            p.read_text.return_value = json.dumps({})
+            mock_path.return_value = p
+            response = self.client.get("/api/predictions/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["forecast_7days"], [])
+        self.assertIsNone(data["model_stats"]["mae"])
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. TESTS DES HELPERS — build_time_filter branches non couvertes
+# ══════════════════════════════════════════════════════════════════════════════
+
+class BuildTimeFilterTest(TestCase):
+    """Couvre les branches day, language, interval de build_time_filter."""
+
+    def _req(self, params):
+        r = MagicMock()
+        r.GET.get = lambda key, default=None: params.get(key, default)
+        return r
+
+    def test_day_monday(self):
+        f = build_time_filter(self._req({"day": "1"}))
+        self.assertIsNotNone(f)
+
+    def test_day_friday(self):
+        f = build_time_filter(self._req({"day": "5"}))
+        self.assertIsNotNone(f)
+
+    def test_day_invalid_out_of_range(self):
+        """day=7 n'est pas dans DAY_MAP → pas de filtre day_of_week."""
+        f = build_time_filter(self._req({"day": "7"}))
+        self.assertIsNotNone(f)
+
+    def test_language_all_excluded(self):
+        f = build_time_filter(self._req({"language": "all"}))
+        qs = HistoricalMetric.objects.filter(f)
+        self.assertIsNotNone(qs)
+
+    def test_language_fr_filter(self):
+        f = build_time_filter(self._req({"language": "fr"}))
+        self.assertIsNotNone(f)
+
+    def test_interval_all_excluded(self):
+        f = build_time_filter(self._req({"interval": "all"}))
+        self.assertIsNotNone(f)
+
+    def test_interval_specific_hour(self):
+        f = build_time_filter(self._req({"interval": "09:00"}))
+        self.assertIsNotNone(f)
+
+    def test_combined_all_params(self):
+        f = build_time_filter(self._req({
+            "year": "2024", "month": "4", "week": "15",
+            "day": "3", "language": "fr", "interval": "10:00",
+        }))
+        self.assertIsNotNone(f)
+
+    def test_prefix_applied(self):
+        """prefix != '' → les clés du filtre ont le préfixe."""
+        f = build_time_filter(self._req({"year": "2024"}), prefix="metric__")
+        self.assertIn("metric__year", str(f))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 7. TESTS D'INTÉGRATION — Flux complets
 # ══════════════════════════════════════════════════════════════════════════════
 
 class IntegrationSLAConfigFlowTest(APITestCase):
@@ -1005,7 +1464,7 @@ class IntegrationOverviewWithDataTest(APITestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. TESTS DES MANAGEMENT COMMANDS (run_etl functions uniquement)
+# 8. TESTS DES MANAGEMENT COMMANDS (run_etl functions uniquement)
 # ══════════════════════════════════════════════════════════════════════════════
 
 class RunETLFunctionsTest(TestCase):
@@ -1106,7 +1565,7 @@ class RunETLCommandTest(TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. TESTS SCHEDULER
+# 9. TESTS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
 
 class SchedulerTest(TestCase):
