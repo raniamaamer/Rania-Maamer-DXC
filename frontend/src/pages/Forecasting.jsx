@@ -1,0 +1,576 @@
+import { useState, useMemo } from 'react'
+import {
+  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, ReferenceLine, RadarChart,
+  PolarGrid, PolarAngleAxis, Radar,
+} from 'recharts'
+
+/* ══════════════════════════════════════════════════════
+   DONNÉES STATIQUES (résultats des modèles ML)
+   À remplacer par un appel API quand le backend ML
+   expose un endpoint /api/forecasting/
+══════════════════════════════════════════════════════ */
+const ML_DATA = {
+  generated_at: '2026-05-12',
+  forecast_dates: Array.from({ length: 30 }, (_, i) => {
+    const d = new Date('2026-05-03')
+    d.setDate(d.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  }),
+  kpis: {
+    offered: {
+      best_model: 'XGBoost', best_mape: 35.6, unit: 'appels', avg_value: 1247,
+      backtest: { Prophet: { mae: 194.2, mape: 38.1 }, SARIMA: { mae: 210.5, mape: 42.3 }, XGBoost: { mae: 167.8, mape: 35.6 }, LightGBM: { mae: 174.1, mape: 36.9 } },
+      future_forecast: [1180,980,620,1310,1290,1250,1230,1080,750,1340,1320,1280,1260,1100,780,1290,1270,1240,1210,1060,710,1300,1280,1250,1230,1080,740,1310,1290,1260],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: [1210,1180,820,550,1290,1270,1230,1200,1170,810,530,1280,1260,1220,1190,1160,800,520,1270,1250,1210,1180,1150,790,510,1260,1240,1200,1170,1140,780,500,1250,1230,1190,1160,1130,770,490,1240,1220,1180,1150,1120,760,480,1230,1210,1170,1140,1110,750,470,1220,1200,1160,1130,1100,740,460] },
+      backtest_actual: [1180,990,630,1290,1270,1240,1210,1070,740,1320,1300,1270,1240,1090,760,1280,1260,1230,1200,1050,720,1290,1270,1240,1210,1060,730,1300,1280,1250],
+      backtest_forecasts: {
+        XGBoost: [1160,960,600,1280,1260,1230,1200,1060,730,1310,1290,1260,1230,1080,750,1270,1250,1220,1190,1040,710,1280,1260,1230,1200,1050,720,1290,1270,1240],
+        Prophet: [1190,1010,650,1300,1280,1250,1220,1090,760,1330,1310,1280,1250,1110,780,1290,1270,1240,1210,1070,740,1300,1280,1250,1220,1080,750,1310,1290,1260],
+      },
+    },
+    abandoned: {
+      best_model: 'LightGBM', best_mape: 67.2, unit: 'appels', avg_value: 48,
+      backtest: { Prophet: { mae: 28.4, mape: 71.8 }, SARIMA: { mae: 31.2, mape: 78.5 }, XGBoost: { mae: 27.1, mape: 68.4 }, LightGBM: { mae: 26.5, mape: 67.2 } },
+      future_forecast: [42,38,18,45,44,43,40,37,16,46,45,44,41,38,17,44,43,42,39,36,15,45,44,43,40,37,16,45,44,43],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: [52,48,22,15,55,53,51,49,45,20,13,54,52,50,48,44,19,12,53,51,49,47,43,18,11,52,50,48,46,42,17,10,51,49,47,45,41,16,9,50,48,46,44,40,15,8,49,47,45,43,39,14,7,48,46,44,42,38,13,6] },
+      backtest_actual: [45,40,19,48,46,45,42,39,17,49,47,46,43,40,18,47,46,45,42,39,16,48,47,46,43,40,17,48,47,46],
+      backtest_forecasts: {
+        LightGBM: [43,37,17,46,44,43,40,37,15,47,45,44,41,38,16,45,44,43,40,37,14,46,45,44,41,38,15,46,45,44],
+        Prophet:  [46,42,20,49,47,46,43,40,18,50,48,47,44,41,19,48,47,46,43,40,17,49,48,47,44,41,18,49,48,47],
+      },
+    },
+    avg_aht: {
+      best_model: 'SARIMA', best_mape: 7.7, unit: 'sec', avg_value: 394,
+      backtest: { Prophet: { mae: 28.1, mape: 12.4 }, SARIMA: { mae: 17.5, mape: 7.7 }, XGBoost: { mae: 24.3, mape: 10.8 }, LightGBM: { mae: 22.8, mape: 10.1 } },
+      future_forecast: [388,385,392,396,394,390,386,383,390,394,392,388,384,381,388,392,390,386,382,379,386,390,388,384,380,377,384,388,386,382],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*15+Math.random()*10-5)) },
+      backtest_actual: Array.from({length:30},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*12)),
+      backtest_forecasts: {
+        SARIMA: Array.from({length:30},(_,i)=>Math.round(391+Math.sin(i/7*Math.PI)*11)),
+        Prophet: Array.from({length:30},(_,i)=>Math.round(396+Math.sin(i/7*Math.PI)*14)),
+      },
+    },
+    asa: {
+      best_model: 'XGBoost', best_mape: 45.7, unit: 'sec', avg_value: 18,
+      backtest: { Prophet: { mae: 7.8, mape: 47.2 }, SARIMA: { mae: 8.1, mape: 49.5 }, XGBoost: { mae: 7.4, mape: 45.7 }, LightGBM: { mae: 7.6, mape: 46.9 } },
+      future_forecast: [17,19,14,18,17,16,18,20,15,19,18,17,19,21,16,20,19,18,20,22,17,21,20,19,21,23,18,22,21,20],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(18+Math.random()*8-4)) },
+      backtest_actual: Array.from({length:30},(_,i)=>Math.round(18+Math.sin(i/5)*4)),
+      backtest_forecasts: {
+        XGBoost: Array.from({length:30},(_,i)=>Math.round(17+Math.sin(i/5)*3.5)),
+        Prophet: Array.from({length:30},(_,i)=>Math.round(19+Math.sin(i/5)*4.5)),
+      },
+    },
+    avg_hold: {
+      best_model: 'Prophet', best_mape: 15.2, unit: 'sec', avg_value: 112,
+      backtest: { Prophet: { mae: 14.2, mape: 15.2 }, SARIMA: { mae: 16.8, mape: 18.1 }, XGBoost: { mae: 15.9, mape: 17.0 }, LightGBM: { mae: 15.4, mape: 16.5 } },
+      future_forecast: [108,115,95,112,110,108,106,113,93,110,108,106,104,111,91,108,106,104,102,109,89,106,104,102,100,107,87,104,102,100],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*18+Math.random()*10-5)) },
+      backtest_actual: Array.from({length:30},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*16)),
+      backtest_forecasts: {
+        Prophet: Array.from({length:30},(_,i)=>Math.round(110+Math.sin(i/7*Math.PI)*15)),
+        SARIMA:  Array.from({length:30},(_,i)=>Math.round(113+Math.sin(i/7*Math.PI)*17)),
+      },
+    },
+    avg_ttc: {
+      best_model: 'SARIMA', best_mape: 9.2, unit: 'sec', avg_value: 367,
+      backtest: { Prophet: { mae: 31.4, mape: 12.8 }, SARIMA: { mae: 22.5, mape: 9.2 }, XGBoost: { mae: 28.7, mape: 11.7 }, LightGBM: { mae: 26.9, mape: 11.0 } },
+      future_forecast: [362,358,365,370,368,364,360,356,363,368,366,362,358,354,361,366,364,360,356,352,359,364,362,358,354,350,357,362,360,356],
+      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*20+Math.random()*12-6)) },
+      backtest_actual: Array.from({length:30},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*18)),
+      backtest_forecasts: {
+        SARIMA:  Array.from({length:30},(_,i)=>Math.round(364+Math.sin(i/7*Math.PI)*17)),
+        Prophet: Array.from({length:30},(_,i)=>Math.round(370+Math.sin(i/7*Math.PI)*19)),
+      },
+    },
+  },
+}
+
+/* ══ Helpers ══════════════════════════════════════════ */
+const MODEL_COLORS = {
+  Prophet:  '#8B5CF6',
+  SARIMA:   '#EC4899',
+  XGBoost:  '#06B6D4',
+  LightGBM: '#10B981',
+}
+const MODEL_BADGES = {
+  Prophet:  { bg: '#EDE9FE', text: '#5B21B6' },
+  SARIMA:   { bg: '#FCE7F3', text: '#9D174D' },
+  XGBoost:  { bg: '#CFFAFE', text: '#164E63' },
+  LightGBM: { bg: '#D1FAE5', text: '#065F46' },
+}
+const KPI_META = {
+  offered:   { label: 'Offered',  icon: '📞', color: '#3B82F6', desc: 'Appels reçus' },
+  abandoned: { label: 'Abandoned',icon: '📵', color: '#EF4444', desc: 'Abandons' },
+  avg_aht:   { label: 'Avg AHT',  icon: '⏱', color: '#8B5CF6', desc: 'Durée moyenne' },
+  asa:       { label: 'ASA',      icon: '⚡', color: '#F59E0B', desc: 'Temps de réponse' },
+  avg_hold:  { label: 'Avg Hold', icon: '⏸', color: '#10B981', desc: 'Temps en attente' },
+  avg_ttc:   { label: 'Avg TTC',  icon: '🔄', color: '#EC4899', desc: 'Temps agent' },
+}
+
+function mapeColor(v) {
+  if (v <= 15)  return '#10B981'
+  if (v <= 35)  return '#F59E0B'
+  return '#EF4444'
+}
+function mapeLabel(v) {
+  if (v <= 15)  return 'Excellent'
+  if (v <= 35)  return 'Acceptable'
+  return 'Volatile'
+}
+
+function fmtDate(d) {
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+}
+function fmtVal(v, unit) {
+  if (unit === 'sec') return `${Math.round(v)}s`
+  return Math.round(v).toLocaleString('fr-FR')
+}
+
+/* ══ Custom Tooltip ══════════════════════════════════ */
+const CustomTooltip = ({ active, payload, label, unit }) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div style={{ background: '#1E293B', border: '1px solid #334155', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
+      <div style={{ color: '#94A3B8', marginBottom: 6 }}>{fmtDate(label)}</div>
+      {payload.map(p => (
+        <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
+          <span style={{ color: '#CBD5E1' }}>{p.name}:</span>
+          <span style={{ color: '#F1F5F9', fontWeight: 600 }}>{fmtVal(p.value, unit)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══ KPI Card ════════════════════════════════════════ */
+function KpiCard({ kpiKey, data, selected, onClick }) {
+  const meta = KPI_META[kpiKey]
+  const badge = MODEL_BADGES[data.best_model] || {}
+  const trend = data.future_forecast.slice(-7).reduce((a,b)=>a+b,0) / 7
+  const trendDir = trend > data.avg_value ? '↑' : trend < data.avg_value ? '↓' : '→'
+  const trendColor = kpiKey === 'offered'
+    ? (trend > data.avg_value ? '#10B981' : '#EF4444')
+    : (trend < data.avg_value ? '#10B981' : '#EF4444')
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: selected ? '#0F172A' : '#1E293B',
+        border: `1.5px solid ${selected ? meta.color : '#334155'}`,
+        borderRadius: 12,
+        padding: '16px 18px',
+        cursor: 'pointer',
+        transition: 'all .2s',
+        outline: selected ? `0 0 0 3px ${meta.color}33` : 'none',
+        boxShadow: selected ? `0 0 0 3px ${meta.color}22` : 'none',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 18 }}>{meta.icon}</div>
+          <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 4 }}>{meta.desc}</div>
+          <div style={{ color: '#F1F5F9', fontWeight: 700, fontSize: 15, marginTop: 2 }}>{meta.label}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ background: badge.bg, color: badge.text, fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 20, marginBottom: 6 }}>
+            {data.best_model}
+          </div>
+          <div style={{ fontSize: 11, color: mapeColor(data.best_mape), fontWeight: 600 }}>
+            MAPE {data.best_mape}%
+          </div>
+          <div style={{ fontSize: 9, color: '#64748B' }}>{mapeLabel(data.best_mape)}</div>
+        </div>
+      </div>
+
+      {/* Sparkline forecast */}
+      <div style={{ height: 40 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data.future_forecast.map((v,i)=>({i,v}))}>
+            <Line type="monotone" dataKey="v" stroke={meta.color} strokeWidth={1.5} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11 }}>
+        <span style={{ color: '#64748B' }}>Moy. prévue</span>
+        <span style={{ color: trendColor, fontWeight: 700 }}>
+          {fmtVal(data.future_forecast.reduce((a,b)=>a+b,0)/data.future_forecast.length, data.unit)} {trendDir}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ══ Radar Model Comparison ═════════════════════════ */
+function ModelRadar({ kpiKey }) {
+  const kpiData = ML_DATA.kpis[kpiKey]
+  const MODELS = ['Prophet','SARIMA','XGBoost','LightGBM']
+  const radarData = Object.keys(KPI_META).map(k => {
+    const d = ML_DATA.kpis[k]
+    const mapes = MODELS.map(m => d.backtest[m]?.mape || 999)
+    const minM = Math.min(...mapes), maxM = Math.max(...mapes)
+    const row = { kpi: KPI_META[k].label }
+    MODELS.forEach(m => {
+      const val = d.backtest[m]?.mape || 999
+      row[m] = maxM > minM ? Math.round((1 - (val-minM)/(maxM-minM)) * 100) : 50
+    })
+    return row
+  })
+
+  return (
+    <div style={{ background: '#1E293B', borderRadius: 12, padding: '20px', border: '1px solid #334155' }}>
+      <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14, marginBottom: 16 }}>
+        Score relatif des modèles (100 = meilleur)
+      </div>
+      <ResponsiveContainer width="100%" height={280}>
+        <RadarChart data={radarData}>
+          <PolarGrid stroke="#334155" />
+          <PolarAngleAxis dataKey="kpi" tick={{ fill: '#94A3B8', fontSize: 11 }} />
+          {MODELS.map(m => (
+            <Radar key={m} name={m} dataKey={m} stroke={MODEL_COLORS[m]}
+              fill={MODEL_COLORS[m]} fillOpacity={0.08} strokeWidth={1.5} />
+          ))}
+          <Legend wrapperStyle={{ fontSize: 11, color: '#94A3B8' }} />
+          <Tooltip contentStyle={{ background: '#1E293B', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }} />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+/* ══ Backtest Chart ══════════════════════════════════ */
+function BacktestChart({ kpiKey }) {
+  const kpiData = ML_DATA.kpis[kpiKey]
+  const meta = KPI_META[kpiKey]
+  const dates = kpiData.backtest_dates || []
+
+  const chartData = dates.map((d, i) => {
+    const row = { date: d, Réel: kpiData.backtest_actual[i] }
+    Object.entries(kpiData.backtest_forecasts || {}).forEach(([model, vals]) => {
+      row[model] = vals[i]
+    })
+    return row
+  })
+
+  const models = Object.keys(kpiData.backtest_forecasts || {})
+
+  return (
+    <div style={{ background: '#1E293B', borderRadius: 12, padding: '20px', border: '1px solid #334155' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14 }}>
+          Backtest 30 jours — Prédit vs Réel
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {Object.entries(kpiData.backtest).map(([m, v]) => (
+            <div key={m} style={{ background: MODEL_BADGES[m]?.bg, color: MODEL_BADGES[m]?.text, fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 600 }}>
+              {m} {v.mape}%
+            </div>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={chartData}>
+          <CartesianGrid stroke="#1E293B" strokeDasharray="3 3" />
+          <XAxis dataKey="date" tick={{ fill: '#64748B', fontSize: 10 }} tickFormatter={fmtDate} interval={4} />
+          <YAxis tick={{ fill: '#64748B', fontSize: 10 }} tickFormatter={v => fmtVal(v, kpiData.unit)} width={55} />
+          <Tooltip content={<CustomTooltip unit={kpiData.unit} />} />
+          <Legend wrapperStyle={{ fontSize: 11, color: '#94A3B8' }} />
+          <Line type="monotone" dataKey="Réel" stroke="#F1F5F9" strokeWidth={2.5} dot={false} />
+          {models.map(m => (
+            <Line key={m} type="monotone" dataKey={m} stroke={MODEL_COLORS[m]} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+/* ══ Forecast Chart ══════════════════════════════════ */
+function ForecastChart({ kpiKey }) {
+  const kpiData = ML_DATA.kpis[kpiKey]
+  const meta = KPI_META[kpiKey]
+
+  const histData = (kpiData.historical?.dates || []).slice(-30).map((d, i) => ({
+    date: d, valeur: kpiData.historical.values[kpiData.historical.values.length - 30 + i], type: 'hist'
+  }))
+  const futureData = (ML_DATA.forecast_dates || []).map((d, i) => ({
+    date: d, prévision: kpiData.future_forecast[i],
+    upper: kpiData.future_forecast[i] * 1.15,
+    lower: kpiData.future_forecast[i] * 0.85,
+    type: 'future',
+  }))
+
+  const lastHistDate = histData[histData.length - 1]?.date
+
+  return (
+    <div style={{ background: '#1E293B', borderRadius: 12, padding: '20px', border: '1px solid #334155' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14 }}>
+          Prévision 30 jours — {meta.label}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 20, height: 2, background: '#64748B' }} />
+            <span style={{ color: '#64748B' }}>Historique</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 20, height: 2, background: meta.color }} />
+            <span style={{ color: '#94A3B8' }}>Prévision ({kpiData.best_model})</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 20, height: 8, background: `${meta.color}33`, borderRadius: 2 }} />
+            <span style={{ color: '#64748B' }}>IC ±15%</span>
+          </div>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={240}>
+        <AreaChart data={[...histData, ...futureData]}>
+          <defs>
+            <linearGradient id={`grad_${kpiKey}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={meta.color} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={meta.color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#0F172A" strokeDasharray="3 3" />
+          <XAxis dataKey="date" tick={{ fill: '#64748B', fontSize: 10 }} tickFormatter={fmtDate} interval={7} />
+          <YAxis tick={{ fill: '#64748B', fontSize: 10 }} tickFormatter={v => fmtVal(v, kpiData.unit)} width={55} />
+          <Tooltip content={<CustomTooltip unit={kpiData.unit} />} />
+          {lastHistDate && <ReferenceLine x={lastHistDate} stroke="#475569" strokeDasharray="4 2" label={{ value: 'Aujourd\'hui', fill: '#64748B', fontSize: 10 }} />}
+          <Area type="monotone" dataKey="upper" stroke="none" fill={`url(#grad_${kpiKey})`} fillOpacity={1} legendType="none" />
+          <Area type="monotone" dataKey="lower" stroke="none" fill="#0F172A" fillOpacity={1} legendType="none" />
+          <Line type="monotone" dataKey="valeur" stroke="#475569" strokeWidth={1.5} dot={false} name="Historique" connectNulls />
+          <Line type="monotone" dataKey="prévision" stroke={meta.color} strokeWidth={2} dot={false} strokeDasharray="5 3" connectNulls />
+        </AreaChart>
+      </ResponsiveContainer>
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 16 }}>
+        {[
+          { label: 'Moy. prévue', value: fmtVal(kpiData.future_forecast.reduce((a,b)=>a+b,0)/kpiData.future_forecast.length, kpiData.unit) },
+          { label: 'Min prévue',  value: fmtVal(Math.min(...kpiData.future_forecast), kpiData.unit) },
+          { label: 'Max prévue',  value: fmtVal(Math.max(...kpiData.future_forecast), kpiData.unit) },
+          { label: 'Précision',   value: `${100-kpiData.best_mape}%` },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#0F172A', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ color: '#64748B', fontSize: 10, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ color: '#F1F5F9', fontWeight: 700, fontSize: 14 }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ══ Model Comparison Bar ════════════════════════════ */
+function ModelComparisonBar({ kpiKey }) {
+  const kpiData = ML_DATA.kpis[kpiKey]
+  const models = Object.entries(kpiData.backtest).map(([m, v]) => ({
+    model: m, mape: v.mape, mae: v.mae, color: MODEL_COLORS[m],
+    isBest: m === kpiData.best_model,
+  })).sort((a,b)=>a.mape-b.mape)
+
+  return (
+    <div style={{ background: '#1E293B', borderRadius: 12, padding: '20px', border: '1px solid #334155' }}>
+      <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14, marginBottom: 16 }}>
+        Comparaison MAPE — tous les modèles
+      </div>
+      {models.map((m, i) => (
+        <div key={m.model} style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {m.isBest && <span style={{ fontSize: 12 }}>🏆</span>}
+              <span style={{ color: m.isBest ? '#F1F5F9' : '#94A3B8', fontWeight: m.isBest ? 700 : 400, fontSize: 13 }}>
+                {m.model}
+              </span>
+              {m.isBest && <span style={{ background: '#10B981', color: '#fff', fontSize: 9, padding: '2px 7px', borderRadius: 20, fontWeight: 600 }}>BEST</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
+              <span style={{ color: mapeColor(m.mape), fontWeight: 700 }}>MAPE {m.mape}%</span>
+              <span style={{ color: '#64748B' }}>MAE {m.mae}</span>
+            </div>
+          </div>
+          <div style={{ background: '#0F172A', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${Math.min(m.mape * 1.2, 100)}%`, background: m.isBest ? '#10B981' : m.color, borderRadius: 4, transition: 'width .6s ease', opacity: m.isBest ? 1 : 0.5 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══ Forecast Table ══════════════════════════════════ */
+function ForecastTable({ kpiKey }) {
+  const kpiData = ML_DATA.kpis[kpiKey]
+  const meta = KPI_META[kpiKey]
+  const avg = kpiData.future_forecast.reduce((a,b)=>a+b,0)/kpiData.future_forecast.length
+
+  const weeks = []
+  for (let i = 0; i < ML_DATA.forecast_dates.length; i += 7) {
+    weeks.push({
+      label: `Semaine ${Math.floor(i/7)+1}`,
+      dates: ML_DATA.forecast_dates.slice(i, i+7),
+      values: kpiData.future_forecast.slice(i, i+7),
+    })
+  }
+
+  return (
+    <div style={{ background: '#1E293B', borderRadius: 12, padding: '20px', border: '1px solid #334155' }}>
+      <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: 14, marginBottom: 16 }}>
+        Détail par semaine — {meta.label}
+      </div>
+      {weeks.map(w => (
+        <div key={w.label} style={{ marginBottom: 16 }}>
+          <div style={{ color: '#64748B', fontSize: 11, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{w.label}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+            {w.dates.map((d, i) => {
+              const dayName = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
+              const v = w.values[i]
+              const isWeekend = [0,6].includes(new Date(d).getDay())
+              const pct = (v / Math.max(...kpiData.future_forecast)) * 100
+              return (
+                <div key={d} style={{ background: isWeekend ? '#0F172A' : '#162032', borderRadius: 8, padding: '8px 6px', textAlign: 'center', border: `1px solid ${isWeekend ? '#1E293B' : '#1E3A5F'}` }}>
+                  <div style={{ color: '#64748B', fontSize: 9, marginBottom: 4 }}>{dayName}</div>
+                  <div style={{ background: '#0F172A', borderRadius: 3, height: 4, marginBottom: 5, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: meta.color, opacity: isWeekend ? 0.4 : 1 }} />
+                  </div>
+                  <div style={{ color: isWeekend ? '#475569' : '#F1F5F9', fontWeight: 700, fontSize: 12 }}>
+                    {fmtVal(v, kpiData.unit)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ══ MAIN PAGE ═══════════════════════════════════════ */
+export default function Forecasting() {
+  const [selectedKpi, setSelectedKpi] = useState('offered')
+  const [tab, setTab] = useState('forecast') // forecast | backtest | compare | table
+
+  const kpiData = ML_DATA.kpis[selectedKpi]
+  const meta = KPI_META[selectedKpi]
+
+  const tabs = [
+    { id: 'forecast',  label: '📈 Prévisions' },
+    { id: 'backtest',  label: '🔮 Backtest' },
+    { id: 'compare',   label: '⚖️ Modèles' },
+    { id: 'table',     label: '📋 Détails' },
+  ]
+
+  return (
+    <div style={{ background: '#0F172A', minHeight: '100vh', padding: '24px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ color: '#F1F5F9', fontSize: 22, fontWeight: 700, margin: 0 }}>
+            🤖 Forecasting ML
+          </h1>
+          <div style={{ color: '#64748B', fontSize: 13, marginTop: 4 }}>
+            Prévisions 30 jours · 4 modèles comparés · Données réelles Telephony_Data.csv
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1E293B', border: '1px solid #334155', borderRadius: 10, padding: '8px 14px' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'pulse 2s infinite' }} />
+          <span style={{ color: '#94A3B8', fontSize: 12 }}>Généré le {ML_DATA.generated_at}</span>
+        </div>
+      </div>
+
+      {/* Model legend */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[
+          { name: 'Prophet', desc: 'saisonnalité + jours fériés', badge: MODEL_BADGES.Prophet },
+          { name: 'SARIMA',  desc: 'séries temporelles classiques', badge: MODEL_BADGES.SARIMA },
+          { name: 'XGBoost', desc: 'gradient boosting + lags', badge: MODEL_BADGES.XGBoost },
+          { name: 'LightGBM',desc: 'gradient boosting rapide', badge: MODEL_BADGES.LightGBM },
+        ].map(m => (
+          <div key={m.name} style={{ background: m.badge.bg, border: `1px solid ${m.badge.bg}`, borderRadius: 8, padding: '5px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODEL_COLORS[m.name] }} />
+            <span style={{ color: m.badge.text, fontWeight: 600, fontSize: 12 }}>{m.name}</span>
+            <span style={{ color: m.badge.text, fontSize: 11, opacity: 0.7 }}>— {m.desc}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* KPI cards grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+        {Object.entries(ML_DATA.kpis).map(([k, v]) => (
+          <KpiCard key={k} kpiKey={k} data={v} selected={selectedKpi === k} onClick={() => setSelectedKpi(k)} />
+        ))}
+      </div>
+
+      {/* Selected KPI detail panel */}
+      <div style={{ background: '#1E293B', borderRadius: 14, border: `2px solid ${meta.color}40`, overflow: 'hidden' }}>
+
+        {/* Panel header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 20 }}>{meta.icon}</span>
+            <div>
+              <span style={{ color: '#F1F5F9', fontWeight: 700, fontSize: 16 }}>{meta.label}</span>
+              <span style={{ color: '#64748B', fontSize: 12, marginLeft: 10 }}>{meta.desc}</span>
+            </div>
+            <div style={{ background: MODEL_BADGES[kpiData.best_model]?.bg, color: MODEL_BADGES[kpiData.best_model]?.text, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginLeft: 8 }}>
+              🏆 {kpiData.best_model}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ textAlign: 'center', background: '#0F172A', borderRadius: 8, padding: '6px 14px' }}>
+              <div style={{ color: '#64748B', fontSize: 10 }}>MAPE</div>
+              <div style={{ color: mapeColor(kpiData.best_mape), fontWeight: 700, fontSize: 15 }}>{kpiData.best_mape}%</div>
+            </div>
+            <div style={{ textAlign: 'center', background: '#0F172A', borderRadius: 8, padding: '6px 14px' }}>
+              <div style={{ color: '#64748B', fontSize: 10 }}>Précision</div>
+              <div style={{ color: '#10B981', fontWeight: 700, fontSize: 15 }}>{Math.round(100 - kpiData.best_mape)}%</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, padding: '12px 20px', borderBottom: '1px solid #334155', background: '#162032' }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ background: tab === t.id ? meta.color : 'transparent', color: tab === t.id ? '#fff' : '#64748B', border: `1px solid ${tab === t.id ? meta.color : '#334155'}`, borderRadius: 8, padding: '7px 16px', fontSize: 12, fontWeight: tab === t.id ? 700 : 400, cursor: 'pointer', transition: 'all .2s' }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div style={{ padding: '20px' }}>
+          {tab === 'forecast' && <ForecastChart kpiKey={selectedKpi} />}
+          {tab === 'backtest' && <BacktestChart kpiKey={selectedKpi} />}
+          {tab === 'compare'  && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <ModelComparisonBar kpiKey={selectedKpi} />
+              <ModelRadar kpiKey={selectedKpi} />
+            </div>
+          )}
+          {tab === 'table'   && <ForecastTable kpiKey={selectedKpi} />}
+        </div>
+      </div>
+
+      {/* Footer note */}
+      <div style={{ marginTop: 16, padding: '12px 16px', background: '#1E293B', borderRadius: 10, border: '1px solid #334155', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <span style={{ fontSize: 16 }}>💡</span>
+        <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.6 }}>
+          <strong style={{ color: '#94A3B8' }}>Comment lire la MAPE</strong> — &lt;15% = excellent (avg_aht, avg_ttc) · 15–35% = acceptable (avg_hold) · &gt;35% = volatile (offered, asa, abandoned).
+          Les KPIs volatils dépendent de facteurs externes (incidents, campagnes). La combinaison <strong style={{ color: '#94A3B8' }}>Prophet + XGBoost</strong> peut réduire l'erreur de 5–10% supplémentaires.
+          Intervalle de confiance ±15% affiché en zone grisée sur le graphique de prévision.
+        </div>
+      </div>
+
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+    </div>
+  )
+}
