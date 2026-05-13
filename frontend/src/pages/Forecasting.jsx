@@ -6,11 +6,6 @@ import {
   PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts'
 
-/* ══════════════════════════════════════════════════════
-   DONNÉES STATIQUES (résultats des modèles ML)
-   À remplacer par un appel API quand le backend ML
-   expose un endpoint /api/forecasting/
-══════════════════════════════════════════════════════ */
 const ML_DATA = {
   generated_at: '2026-05-12',
   forecast_dates: Array.from({ length: 30 }, (_, i) => {
@@ -88,7 +83,7 @@ const ML_DATA = {
   },
 }
 
-/* ══ DXC Design Tokens ════════════════════════════════ */
+/* ══ Light Design Tokens (matching Image 2) ══════════ */
 const DXC = {
   blue:        '#3B6AC8',
   blueLight:   '#6B8FD4',
@@ -104,15 +99,14 @@ const DXC = {
   amberPale:   '#FDF4E3',
   purple:      '#7B6FC8',
   purplePale:  '#F0EEF9',
-  text:        '#1A1D2E',
+  text:        '#111827',
   textMuted:   '#6B7280',
   border:      '#E5E7EB',
   bg:          '#FFFFFF',
-  bgSurface:   '#F7F9FC',
-  bgAlt:       '#F0F4FA',
+  bgSurface:   '#F9FAFB',
+  bgAlt:       '#F3F4F6',
 }
 
-/* ══ Model Colors & Badges ════════════════════════════ */
 const MODEL_COLORS = {
   Prophet:  '#7B6FC8',
   SARIMA:   '#E8845A',
@@ -159,12 +153,11 @@ function fmtVal(v, unit) {
   return Math.round(v).toLocaleString('fr-FR')
 }
 
-/* ══ Custom Tooltip ══════════════════════════════════ */
 const CustomTooltip = ({ active, payload, label, unit }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
-      <div style={{ color: DXC.textMuted, marginBottom: 6 }}>{fmtDate(label)}</div>
+    <div style={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}>
+      <div style={{ color: DXC.textMuted, marginBottom: 6, fontWeight: 600 }}>{fmtDate(label)}</div>
       {payload.map(p => (
         <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
@@ -176,7 +169,6 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   )
 }
 
-/* ══ KPI Card ════════════════════════════════════════ */
 function KpiCard({ kpiKey, data, selected, onClick }) {
   const meta = KPI_META[kpiKey]
   const badge = MODEL_BADGES[data.best_model] || {}
@@ -190,14 +182,16 @@ function KpiCard({ kpiKey, data, selected, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background: DXC.bg,
+        background: '#FFFFFF',
         border: `1px solid ${selected ? meta.color : DXC.border}`,
         borderTop: `3px solid ${meta.color}`,
         borderRadius: 12,
         padding: '16px 18px',
         cursor: 'pointer',
         transition: 'all .2s',
-        boxShadow: selected ? `0 0 0 3px ${meta.color}22, 0 1px 4px rgba(0,0,0,0.06)` : '0 1px 4px rgba(0,0,0,0.06)',
+        boxShadow: selected
+          ? `0 0 0 3px ${meta.color}22, 0 2px 8px rgba(0,0,0,0.08)`
+          : '0 1px 4px rgba(0,0,0,0.05)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -235,7 +229,6 @@ function KpiCard({ kpiKey, data, selected, onClick }) {
   )
 }
 
-/* ══ Radar Model Comparison ═════════════════════════ */
 function ModelRadar({ kpiKey }) {
   const MODELS = ['Prophet','SARIMA','XGBoost','LightGBM']
   const radarData = Object.keys(KPI_META).map(k => {
@@ -251,7 +244,7 @@ function ModelRadar({ kpiKey }) {
   })
 
   return (
-    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
       <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Score relatif des modèles (100 = meilleur)
       </div>
@@ -264,14 +257,13 @@ function ModelRadar({ kpiKey }) {
               fill={MODEL_COLORS[m]} fillOpacity={0.1} strokeWidth={1.5} />
           ))}
           <Legend wrapperStyle={{ fontSize: 11, color: DXC.textMuted }} />
-          <Tooltip contentStyle={{ background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 8, fontSize: 11 }} />
+          <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 8, fontSize: 11 }} />
         </RadarChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-/* ══ Backtest Chart ══════════════════════════════════ */
 function BacktestChart({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const dates = ML_DATA.forecast_dates || []
@@ -287,7 +279,7 @@ function BacktestChart({ kpiKey }) {
   const models = Object.keys(kpiData.backtest_forecasts || {})
 
   return (
-    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Backtest 30 jours — Prédit vs Réel
@@ -317,7 +309,6 @@ function BacktestChart({ kpiKey }) {
   )
 }
 
-/* ══ Forecast Chart ══════════════════════════════════ */
 function ForecastChart({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const meta = KPI_META[kpiKey]
@@ -335,7 +326,7 @@ function ForecastChart({ kpiKey }) {
   const lastHistDate = histData[histData.length - 1]?.date
 
   return (
-    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Prévision 30 jours — {meta.label}
@@ -373,7 +364,7 @@ function ForecastChart({ kpiKey }) {
               label={{ value: "Aujourd'hui", fill: DXC.textMuted, fontSize: 10 }} />
           )}
           <Area type="monotone" dataKey="upper" stroke="none" fill={`url(#grad_${kpiKey})`} fillOpacity={1} legendType="none" />
-          <Area type="monotone" dataKey="lower" stroke="none" fill={DXC.bg} fillOpacity={1} legendType="none" />
+          <Area type="monotone" dataKey="lower" stroke="none" fill="#FFFFFF" fillOpacity={1} legendType="none" />
           <Line type="monotone" dataKey="valeur" stroke={DXC.border} strokeWidth={1.5} dot={false} name="Historique" connectNulls />
           <Line type="monotone" dataKey="prévision" stroke={meta.color} strokeWidth={2} dot={false} strokeDasharray="5 3" connectNulls />
         </AreaChart>
@@ -396,7 +387,6 @@ function ForecastChart({ kpiKey }) {
   )
 }
 
-/* ══ Model Comparison Bar ════════════════════════════ */
 function ModelComparisonBar({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const models = Object.entries(kpiData.backtest).map(([m, v]) => ({
@@ -405,7 +395,7 @@ function ModelComparisonBar({ kpiKey }) {
   })).sort((a,b)=>a.mape-b.mape)
 
   return (
-    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
       <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Comparaison MAPE — tous les modèles
       </div>
@@ -435,7 +425,6 @@ function ModelComparisonBar({ kpiKey }) {
   )
 }
 
-/* ══ Forecast Table ══════════════════════════════════ */
 function ForecastTable({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const meta = KPI_META[kpiKey]
@@ -450,7 +439,7 @@ function ForecastTable({ kpiKey }) {
   }
 
   return (
-    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
       <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Détail par semaine — {meta.label}
       </div>
@@ -465,7 +454,7 @@ function ForecastTable({ kpiKey }) {
               const pct = (v / Math.max(...kpiData.future_forecast)) * 100
               return (
                 <div key={d} style={{
-                  background: isWeekend ? DXC.bgAlt : DXC.bgSurface,
+                  background: isWeekend ? DXC.bgAlt : '#FFFFFF',
                   borderRadius: 8, padding: '8px 6px', textAlign: 'center',
                   border: `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
                 }}>
@@ -486,7 +475,6 @@ function ForecastTable({ kpiKey }) {
   )
 }
 
-/* ══ MAIN PAGE ═══════════════════════════════════════ */
 export default function Forecasting() {
   const [selectedKpi, setSelectedKpi] = useState('offered')
   const [tab, setTab] = useState('forecast')
@@ -502,7 +490,12 @@ export default function Forecasting() {
   ]
 
   return (
-    <div style={{ background: DXC.bgSurface, minHeight: '100vh', padding: '24px', fontFamily: "'Syne', system-ui, sans-serif" }}>
+    <div style={{
+      background: '#F9FAFB',
+      minHeight: '100vh',
+      padding: '24px',
+      fontFamily: "'Syne', system-ui, sans-serif",
+    }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
@@ -514,7 +507,7 @@ export default function Forecasting() {
             Prévisions 30 jours · 4 modèles comparés · Données réelles Telephony_Data.csv
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FFFFFF', border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: DXC.green }} />
           <span style={{ color: DXC.textMuted, fontSize: 12 }}>Généré le {ML_DATA.generated_at}</span>
         </div>
@@ -528,7 +521,7 @@ export default function Forecasting() {
           { name: 'XGBoost',  desc: 'gradient boosting + lags',       badge: MODEL_BADGES.XGBoost },
           { name: 'LightGBM', desc: 'gradient boosting rapide',       badge: MODEL_BADGES.LightGBM },
         ].map(m => (
-          <div key={m.name} style={{ background: m.badge.bg, border: `1px solid ${m.badge.bg}`, borderRadius: 8, padding: '5px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div key={m.name} style={{ background: m.badge.bg, border: `1px solid ${DXC.border}`, borderRadius: 8, padding: '5px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODEL_COLORS[m.name] }} />
             <span style={{ color: m.badge.text, fontWeight: 700, fontSize: 12 }}>{m.name}</span>
             <span style={{ color: m.badge.text, fontSize: 11, opacity: 0.7 }}>— {m.desc}</span>
@@ -544,10 +537,17 @@ export default function Forecasting() {
       </div>
 
       {/* Selected KPI detail panel */}
-      <div style={{ background: DXC.bg, borderRadius: 14, border: `1px solid ${DXC.border}`, borderTop: `3px solid ${meta.color}`, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+      <div style={{
+        background: '#FFFFFF',
+        borderRadius: 14,
+        border: `1px solid ${DXC.border}`,
+        borderTop: `3px solid ${meta.color}`,
+        overflow: 'hidden',
+        boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+      }}>
 
         {/* Panel header */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DXC.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: DXC.bgSurface }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DXC.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 20 }}>{meta.icon}</span>
             <div>
@@ -571,7 +571,7 @@ export default function Forecasting() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${DXC.border}` }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${DXC.border}`, background: '#FFFFFF' }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{
@@ -593,7 +593,7 @@ export default function Forecasting() {
         </div>
 
         {/* Tab content */}
-        <div style={{ padding: '20px', background: DXC.bgSurface }}>
+        <div style={{ padding: '20px', background: '#F9FAFB' }}>
           {tab === 'forecast' && <ForecastChart kpiKey={selectedKpi} />}
           {tab === 'backtest' && <BacktestChart kpiKey={selectedKpi} />}
           {tab === 'compare'  && (
