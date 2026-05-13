@@ -247,7 +247,7 @@ function ModelRadar({ kpiKey }) {
 function BacktestChart({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const meta = KPI_META[kpiKey]
-  const dates = kpiData.backtest_dates || []
+  const dates = ML_DATA.forecast_dates || []
 
   const chartData = dates.map((d, i) => {
     const row = { date: d, Réel: kpiData.backtest_actual[i] }
