@@ -28,6 +28,7 @@ lightning_logs/
 # Testing
 .pytest_cache/
 .coverage
+.coveragerc
 htmlcov/
 
 # VS Code
@@ -35,6 +36,7 @@ htmlcov/
 
 # Docker
 .dockerignore
+*/.dockerignore
 
 # OS
 .DS_Store
