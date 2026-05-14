@@ -76,7 +76,27 @@ def run_pipeline(csv_path: Path, out_dir: Path) -> dict:
 
 def _load_data(csv_path: Path) -> pd.DataFrame:
     # ✅ OPTIMISATION : lecture avec dtypes explicites pour éviter l'inférence lente
-    chunks = pd.read_csv(csv_path, sep=";", low_memory=False, chunksize=50000)
+    COLS_NEEDED = [
+        "inc_opened_at", "account", "queue_name",
+        "sla1_met", "sla2_met", "sla3_met"   # adaptez selon vos vraies colonnes
+    ]
+
+    chunks = []
+    for chunk in pd.read_csv(
+        csv_path,
+        sep=";",
+        usecols=lambda c: c in COLS_NEEDED,   # ignorer les colonnes inutiles
+        dtype={
+            "account":    "category",          # économise beaucoup de RAM
+            "queue_name": "category",
+            "sla1_met":   "int8",
+            "sla2_met":   "int8",
+            "sla3_met":   "int8",
+        },
+        chunksize=50000
+    ):
+        chunks.append(chunk)
+
     df = pd.concat(chunks, ignore_index=True)
 
     # ✅ OPTIMISATION : parse_dates vectorisé en une seule passe
