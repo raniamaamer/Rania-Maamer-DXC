@@ -31,6 +31,8 @@ lightning_logs/
 .coverage
 .coveragerc
 htmlcov/
+pytest.ini
+**/pytest.ini
 
 # VS Code
 .vscode/
