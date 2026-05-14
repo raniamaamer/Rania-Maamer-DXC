@@ -89,7 +89,7 @@ pipeline {
                 docker rm -f frontend backend prometheus grafana postgres-exporter ml_worker 2>nul
                 exit 0
                 """
-                bat "%COMPOSE% build"
+                bat "%COMPOSE% build --no-cache"
             }
         }
 
