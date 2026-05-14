@@ -86,7 +86,7 @@ pipeline {
         stage('Docker - Build') {
             steps {
                 bat """
-                docker rm -f frontend backend prometheus grafana postgres-exporter ml_worker 2>nul
+                docker-compose -p rania-maamer down --remove-orphans 2>nul
                 exit 0
                 """
                 bat "%COMPOSE% build --no-cache"
