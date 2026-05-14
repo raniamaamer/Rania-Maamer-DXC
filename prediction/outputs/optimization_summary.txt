@@ -1,0 +1,28 @@
+
+OPTIMIZATIONS APPLIED:
+├─ Enhanced XGBoost Features: +20 new predictors (lags, MAs, volatility)
+├─ SARIMA Tuning: m=7 (full week) + d=1 differencing + extended p/q
+├─ Ensemble Voting: Weighted average by inverse MAE
+├─ Business Constraints: Rates [0-100%], Volumes [0, inf)
+└─ Post-processing: Ensure realistic predictions
+
+COMPARISON:
+  Original Predictions: 14 KPIs × 7 days = 98 forecasts
+  Optimization Impact: 77 constraints applied
+
+MODELS TRAINED:
+  - SARIMA: 11 KPIs best
+  - Prophet: 0 KPIs best
+  - XGBoost: 3 KPIs best
+
+FILES GENERATED:
+  - outputs/predictions_j7_optimized.csv (new - with constraints)
+  - outputs/predictions_j7_servier.csv (original)
+  - outputs/leaderboard_complet.csv (model performance)
+  - outputs/meilleur_modele_par_kpi.csv (best by KPI)
+
+NEXT STEPS:
+  [Future] Run enhanced XGBoost on all 14 KPIs for better accuracy
+  [Future] Implement dynamic ensemble weights (learning-based)
+  [Future] Add LSTM for temporal pattern learning
+  [Future] Deploy predictions to production system
