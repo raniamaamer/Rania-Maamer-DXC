@@ -7,7 +7,7 @@ RUN npm install
 # ── BUILD ─────────────────────────
 FROM base AS build
 WORKDIR /app
-COPY --from=base /app/node_modules ./node_modules   # ← ajouter cette ligne
+COPY --from=base /app/node_modules ./node_modules   
 COPY . .
 RUN npm run build
 
