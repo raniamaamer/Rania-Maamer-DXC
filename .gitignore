@@ -32,9 +32,6 @@ htmlcov/
 # VS Code
 .vscode/
 
-# Docker
-.dockerignore
-*/.dockerignore
 
 # OS
 .DS_Store
