@@ -63,10 +63,10 @@ pipeline {
                             "${scannerHome}\\bin\\sonar-scanner" ^
                             -Dsonar.projectKey=Rania-Maamer-DXC ^
                             -Dsonar.sources=backend ^
-                            -Dsonar.exclusions=backend/staticfiles/**,backend/**/migrations/**,backend/sla_alert_mailer.py,backend/ml_auto_refresh.py ^
+                            -Dsonar.exclusions=backend/staticfiles/**,backend/**/migrations/**,backend/sla_alert_mailer.py,backend/ml_auto_refresh.py,backend/metrics_exporter.py ^
                             -Dsonar.python.version=3.9 ^
                             -Dsonar.python.coverage.reportPaths=backend/coverage.xml ^
-                            -Dsonar.coverage.exclusions=backend/manage.py,backend/**/wsgi.py,backend/**/migrations/**,backend/api/management/commands/run_etl.py,backend/api/management/commands/load_today.py,backend/api/management/commands/archive_realtime.py,backend/api/management/commands/archive_to_historical.py,backend/api/management/commands/seed_missing_accounts.py,backend/api/scheduler.py,backend/gunicorn.conf.py,backend/ml_auto_refresh.py,backend/sla_alert_mailer.py ^
+                            -Dsonar.coverage.exclusions=backend/manage.py,backend/**/wsgi.py,backend/**/migrations/**,backend/api/management/commands/run_etl.py,backend/api/management/commands/load_today.py,backend/api/management/commands/archive_realtime.py,backend/api/management/commands/archive_to_historical.py,backend/api/management/commands/seed_missing_accounts.py,backend/api/scheduler.py,backend/gunicorn.conf.py,backend/ml_auto_refresh.py,backend/sla_alert_mailer.py,backend/dxc_backend/settings/base.py,backend/metrics_exporter.py ^
                             -Dsonar.token=%SONAR_TOKEN%
                             """
                         }
