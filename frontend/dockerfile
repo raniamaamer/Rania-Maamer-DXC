@@ -11,6 +11,7 @@ CMD ["npm", "run", "dev"]
 # ── BUILD ─────────────────────────
 FROM base AS build
 COPY . .
+RUN npm install   # <-- ajouter cette ligne
 RUN npm run build
 
 # ── PROD ──────────────────────────
