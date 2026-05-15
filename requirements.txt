@@ -22,6 +22,7 @@ kaleido==0.2.1
 # ── ML / Classification ───────────────────────────────────
 scikit-learn==1.5.2
 xgboost==2.1.1
+nvidia-nccl-cu12==0.0.0
 
 # ── Forecasting ───────────────────────────────────────────
 prophet==1.1.5

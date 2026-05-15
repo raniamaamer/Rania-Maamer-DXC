@@ -89,7 +89,7 @@ pipeline {
                 docker-compose -p rania-maamer down --remove-orphans 2>nul
                 exit 0
                 """
-                bat "%COMPOSE% build --no-cache"
+                bat "%COMPOSE% build"
             }
         }
 
