@@ -69,10 +69,8 @@ def run_pipeline(csv_path: Path, out_dir: Path) -> dict:
     _print_summary(df, prophet_results, rf_results)
     return payload
 
-
-# ══════════════════════════════════════════════════════════════════════════════
 # CHARGEMENT
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 def _load_data(csv_path: Path) -> pd.DataFrame:
     # ✅ OPTIMISATION : lecture avec dtypes explicites pour éviter l'inférence lente
