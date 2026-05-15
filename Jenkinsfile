@@ -110,7 +110,7 @@ pipeline {
                 dir('backend') {
                     bat """
                     set PYTHONIOENCODING=utf-8 && %PYTHON% ml_auto_refresh.py ^
-                        --csv ../data/incident_sla.csv ^
+                        --csv ../data/output/incident_sla_cleaned.csv ^
                         --out ../data/output ^
                         --once
                     """
