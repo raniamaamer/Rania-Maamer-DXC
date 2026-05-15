@@ -126,7 +126,7 @@ def _load_data(csv_path: Path) -> pd.DataFrame:
 
     # ✅ CORRECTION 3 : vérification défensive avant fillna
     if "inc_cmdb_ci" in df.columns:
-        df["inc_cmdb_ci"] = df["inc_cmdb_ci"].fillna("Unknown")
+        df["inc_cmdb_ci"] = df["inc_cmdb_ci"].astype(str).replace("nan", "Unknown").fillna("Unknown")
     else:
         print("⚠️  Colonne 'inc_cmdb_ci' absente — valeur par défaut 'Unknown' appliquée")
         df["inc_cmdb_ci"] = "Unknown"
