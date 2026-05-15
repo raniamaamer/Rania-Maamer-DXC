@@ -17,30 +17,47 @@ ENV/
 
 # ── Variables d'environnement ─────────────────────────────────
 .env
-# (le .env sera injecté via docker-compose env_file)
+.env.*                         # ← ajouté : .env.prod, .env.local, etc.
 
-# ── Données / Notebooks (trop lourds) ────────────────────────
+# ── Données / Notebooks ───────────────────────────────────────
 ML/data/
 ML/*.ipynb
+ml_output/                     # ← ajouté : outputs ML potentiellement lourds
+data/                          # ← ajouté : le dossier ./data monté en volume de toute façon
+*.csv                          # ← ajouté : incident_sla.csv peut être énorme
+*.log                          # ← ajouté : logs Django/gunicorn
 
 # ── Tests / Coverage ─────────────────────────────────────────
 .pytest_cache/
 htmlcov/
 .coverage
 coverage.xml
+tests/                         # ← ajouté : inutile en prod
 
 # ── IDE ───────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
+*.swo                          # ← ajouté
 
 # ── Git ───────────────────────────────────────────────────────
 .git/
 .gitignore
+.gitattributes                 # ← ajouté
 
 # ── Docker ───────────────────────────────────────────────────
 Dockerfile
+Dockerfile.*                   # ← ajouté : Dockerfile.ml, Dockerfile.dev
 .dockerignore
+docker-compose*.yml            # ← ajouté : inutile dans le conteneur
 
-# ── Fichiers statiques collectés (générés au build) ──────────
+# ── Fichiers statiques collectés ──────────────────────────────
 staticfiles/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store                      # ← ajouté
+Thumbs.db                      # ← ajouté
+
+# ── Docs ──────────────────────────────────────────────────────
+*.md                           # ← ajouté
+docs/                          # ← ajouté

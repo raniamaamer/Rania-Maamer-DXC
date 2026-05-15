@@ -2,23 +2,41 @@
 node_modules/
 npm-debug.log*
 yarn-error.log*
+yarn-debug.log*                # ← ajouté
 
 # ── Build (généré par Vite au moment du docker build) ────────
 dist/
+build/                         # ← ajouté : au cas où
 
 # ── Variables d'environnement ─────────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.production                # ← ajouté : évite leak prod
+
+# ── Tests / Coverage ─────────────────────────────────────────
+coverage/                      # ← ajouté
+*.test.*                       # ← ajouté : inutile en prod
 
 # ── IDE ───────────────────────────────────────────────────────
 .vscode/
 .idea/
+*.swp                          # ← ajouté : vim
+*.swo                          # ← ajouté : vim
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store                      # ← ajouté : Mac
+Thumbs.db                      # ← ajouté : Windows
 
 # ── Git ───────────────────────────────────────────────────────
 .git/
 .gitignore
+.gitattributes                 # ← ajouté
 
 # ── Docker ───────────────────────────────────────────────────
 Dockerfile
+Dockerfile.*                   # ← ajouté : Dockerfile.dev etc.
 .dockerignore
+
+# ── Docs ─────────────────────────────────────────────────────
+*.md                           # ← ajouté : README inutile dans le conteneur

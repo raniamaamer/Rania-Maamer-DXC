@@ -10,7 +10,8 @@ RUN pip install --upgrade pip
 
 # ✅ requirements EN PREMIER → cache préservé si pas modifié
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Code source après → re-build rapide si seulement le code change
 COPY backend/ .
