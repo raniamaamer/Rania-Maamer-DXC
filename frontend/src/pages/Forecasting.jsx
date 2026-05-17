@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -6,19 +6,81 @@ import {
   PolarGrid, PolarAngleAxis, Radar,
 } from 'recharts'
 
-const ML_DATA = {
-  generated_at: '2026-05-12',
-  forecast_dates: Array.from({ length: 30 }, (_, i) => {
-    const d = new Date('2026-05-03')
+/* ══ Generate dates ══════════════════════════════════════════════════ */
+function genDates(start, count) {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(start)
     d.setDate(d.getDate() + i)
     return d.toISOString().slice(0, 10)
-  }),
+  })
+}
+
+function genHistDates(count) {
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date('2026-03-03')
+    d.setDate(d.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+/* ══ Generate 365-day forecasts ══════════════════════════════════════ */
+function genOffered(len) {
+  const weekly = [1180, 980, 620, 1310, 1290, 1250, 1230]
+  return Array.from({ length: len }, (_, i) => {
+    const w = weekly[i % 7]
+    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 80)
+    const trend = Math.round(-i * 0.12)
+    return Math.max(w + seasonal + trend, 400)
+  })
+}
+
+function genAbandoned(len) {
+  const weekly = [42, 38, 18, 45, 44, 43, 40]
+  return Array.from({ length: len }, (_, i) => {
+    const w = weekly[i % 7]
+    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 5)
+    return Math.max(w + seasonal, 8)
+  })
+}
+
+function genAht(len) {
+  return Array.from({ length: len }, (_, i) =>
+    Math.round(394 + Math.sin((i / 7) * Math.PI) * 15 + Math.sin((i / 365) * 2 * Math.PI) * 20)
+  )
+}
+
+function genAsa(len) {
+  return Array.from({ length: len }, (_, i) =>
+    Math.round(18 + Math.sin(i / 5) * 4 + Math.sin((i / 365) * 2 * Math.PI) * 3)
+  )
+}
+
+function genHold(len) {
+  const weekly = [108, 115, 95, 112, 110, 108, 106]
+  return Array.from({ length: len }, (_, i) => {
+    const w = weekly[i % 7]
+    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 15)
+    return Math.max(w + seasonal, 60)
+  })
+}
+
+function genTtc(len) {
+  return Array.from({ length: len }, (_, i) =>
+    Math.round(367 + Math.sin((i / 7) * Math.PI) * 20 + Math.sin((i / 365) * 2 * Math.PI) * 25)
+  )
+}
+
+const FORECAST_LEN = 365
+
+const ML_DATA = {
+  generated_at: '2026-05-12',
+  forecast_dates: genDates('2026-05-03', FORECAST_LEN),
   kpis: {
     offered: {
       best_model: 'XGBoost', best_mape: 35.6, unit: 'appels', avg_value: 1247,
       backtest: { Prophet: { mae: 194.2, mape: 38.1 }, SARIMA: { mae: 210.5, mape: 42.3 }, XGBoost: { mae: 167.8, mape: 35.6 }, LightGBM: { mae: 174.1, mape: 36.9 } },
-      future_forecast: [1180,980,620,1310,1290,1250,1230,1080,750,1340,1320,1280,1260,1100,780,1290,1270,1240,1210,1060,710,1300,1280,1250,1230,1080,740,1310,1290,1260],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: [1210,1180,820,550,1290,1270,1230,1200,1170,810,530,1280,1260,1220,1190,1160,800,520,1270,1250,1210,1180,1150,790,510,1260,1240,1200,1170,1140,780,500,1250,1230,1190,1160,1130,770,490,1240,1220,1180,1150,1120,760,480,1230,1210,1170,1140,1110,750,470,1220,1200,1160,1130,1100,740,460] },
+      future_forecast: genOffered(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: [1210,1180,820,550,1290,1270,1230,1200,1170,810,530,1280,1260,1220,1190,1160,800,520,1270,1250,1210,1180,1150,790,510,1260,1240,1200,1170,1140,780,500,1250,1230,1190,1160,1130,770,490,1240,1220,1180,1150,1120,760,480,1230,1210,1170,1140,1110,750,470,1220,1200,1160,1130,1100,740,460] },
       backtest_actual: [1180,990,630,1290,1270,1240,1210,1070,740,1320,1300,1270,1240,1090,760,1280,1260,1230,1200,1050,720,1290,1270,1240,1210,1060,730,1300,1280,1250],
       backtest_forecasts: {
         XGBoost: [1160,960,600,1280,1260,1230,1200,1060,730,1310,1290,1260,1230,1080,750,1270,1250,1220,1190,1040,710,1280,1260,1230,1200,1050,720,1290,1270,1240],
@@ -28,8 +90,8 @@ const ML_DATA = {
     abandoned: {
       best_model: 'LightGBM', best_mape: 67.2, unit: 'appels', avg_value: 48,
       backtest: { Prophet: { mae: 28.4, mape: 71.8 }, SARIMA: { mae: 31.2, mape: 78.5 }, XGBoost: { mae: 27.1, mape: 68.4 }, LightGBM: { mae: 26.5, mape: 67.2 } },
-      future_forecast: [42,38,18,45,44,43,40,37,16,46,45,44,41,38,17,44,43,42,39,36,15,45,44,43,40,37,16,45,44,43],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: [52,48,22,15,55,53,51,49,45,20,13,54,52,50,48,44,19,12,53,51,49,47,43,18,11,52,50,48,46,42,17,10,51,49,47,45,41,16,9,50,48,46,44,40,15,8,49,47,45,43,39,14,7,48,46,44,42,38,13,6] },
+      future_forecast: genAbandoned(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: [52,48,22,15,55,53,51,49,45,20,13,54,52,50,48,44,19,12,53,51,49,47,43,18,11,52,50,48,46,42,17,10,51,49,47,45,41,16,9,50,48,46,44,40,15,8,49,47,45,43,39,14,7,48,46,44,42,38,13,6] },
       backtest_actual: [45,40,19,48,46,45,42,39,17,49,47,46,43,40,18,47,46,45,42,39,16,48,47,46,43,40,17,48,47,46],
       backtest_forecasts: {
         LightGBM: [43,37,17,46,44,43,40,37,15,47,45,44,41,38,16,45,44,43,40,37,14,46,45,44,41,38,15,46,45,44],
@@ -39,19 +101,19 @@ const ML_DATA = {
     avg_aht: {
       best_model: 'SARIMA', best_mape: 7.7, unit: 'sec', avg_value: 394,
       backtest: { Prophet: { mae: 28.1, mape: 12.4 }, SARIMA: { mae: 17.5, mape: 7.7 }, XGBoost: { mae: 24.3, mape: 10.8 }, LightGBM: { mae: 22.8, mape: 10.1 } },
-      future_forecast: [388,385,392,396,394,390,386,383,390,394,392,388,384,381,388,392,390,386,382,379,386,390,388,384,380,377,384,388,386,382],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*15+Math.random()*10-5)) },
+      future_forecast: genAht(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*15+Math.random()*10-5)) },
       backtest_actual: Array.from({length:30},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*12)),
       backtest_forecasts: {
-        SARIMA: Array.from({length:30},(_,i)=>Math.round(391+Math.sin(i/7*Math.PI)*11)),
+        SARIMA:  Array.from({length:30},(_,i)=>Math.round(391+Math.sin(i/7*Math.PI)*11)),
         Prophet: Array.from({length:30},(_,i)=>Math.round(396+Math.sin(i/7*Math.PI)*14)),
       },
     },
     asa: {
       best_model: 'XGBoost', best_mape: 45.7, unit: 'sec', avg_value: 18,
       backtest: { Prophet: { mae: 7.8, mape: 47.2 }, SARIMA: { mae: 8.1, mape: 49.5 }, XGBoost: { mae: 7.4, mape: 45.7 }, LightGBM: { mae: 7.6, mape: 46.9 } },
-      future_forecast: [17,19,14,18,17,16,18,20,15,19,18,17,19,21,16,20,19,18,20,22,17,21,20,19,21,23,18,22,21,20],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(18+Math.random()*8-4)) },
+      future_forecast: genAsa(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(18+Math.random()*8-4)) },
       backtest_actual: Array.from({length:30},(_,i)=>Math.round(18+Math.sin(i/5)*4)),
       backtest_forecasts: {
         XGBoost: Array.from({length:30},(_,i)=>Math.round(17+Math.sin(i/5)*3.5)),
@@ -61,8 +123,8 @@ const ML_DATA = {
     avg_hold: {
       best_model: 'Prophet', best_mape: 15.2, unit: 'sec', avg_value: 112,
       backtest: { Prophet: { mae: 14.2, mape: 15.2 }, SARIMA: { mae: 16.8, mape: 18.1 }, XGBoost: { mae: 15.9, mape: 17.0 }, LightGBM: { mae: 15.4, mape: 16.5 } },
-      future_forecast: [108,115,95,112,110,108,106,113,93,110,108,106,104,111,91,108,106,104,102,109,89,106,104,102,100,107,87,104,102,100],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*18+Math.random()*10-5)) },
+      future_forecast: genHold(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*18+Math.random()*10-5)) },
       backtest_actual: Array.from({length:30},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*16)),
       backtest_forecasts: {
         Prophet: Array.from({length:30},(_,i)=>Math.round(110+Math.sin(i/7*Math.PI)*15)),
@@ -72,8 +134,8 @@ const ML_DATA = {
     avg_ttc: {
       best_model: 'SARIMA', best_mape: 9.2, unit: 'sec', avg_value: 367,
       backtest: { Prophet: { mae: 31.4, mape: 12.8 }, SARIMA: { mae: 22.5, mape: 9.2 }, XGBoost: { mae: 28.7, mape: 11.7 }, LightGBM: { mae: 26.9, mape: 11.0 } },
-      future_forecast: [362,358,365,370,368,364,360,356,363,368,366,362,358,354,361,366,364,360,356,352,359,364,362,358,354,350,357,362,360,356],
-      historical: { dates: Array.from({length:60},(_,i)=>{const d=new Date('2026-03-03');d.setDate(d.getDate()+i);return d.toISOString().slice(0,10)}), values: Array.from({length:60},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*20+Math.random()*12-6)) },
+      future_forecast: genTtc(FORECAST_LEN),
+      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*20+Math.random()*12-6)) },
       backtest_actual: Array.from({length:30},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*18)),
       backtest_forecasts: {
         SARIMA:  Array.from({length:30},(_,i)=>Math.round(364+Math.sin(i/7*Math.PI)*17)),
@@ -83,7 +145,7 @@ const ML_DATA = {
   },
 }
 
-/* ══ Light Design Tokens (matching Image 2) ══════════ */
+/* ══ Design Tokens ═══════════════════════════════════════════════════ */
 const DXC = {
   blue:        '#3B6AC8',
   blueLight:   '#6B8FD4',
@@ -129,6 +191,12 @@ const KPI_META = {
   avg_ttc:   { label: 'Avg TTC',   icon: '🔄',  color: DXC.orange, desc: 'Temps agent' },
 }
 
+const HORIZONS = [
+  { value: 7,   label: 'J+7' },
+  { value: 30,  label: 'J+30' },
+  { value: 365, label: '1 an' },
+]
+
 function mapeColor(v) {
   if (v <= 15) return DXC.green
   if (v <= 35) return DXC.amber
@@ -153,6 +221,35 @@ function fmtVal(v, unit) {
   return Math.round(v).toLocaleString('fr-FR')
 }
 
+/* ══ Horizon Toggle ══════════════════════════════════════════════════ */
+function HorizonToggle({ horizon, setHorizon, color, onReset }) {
+  return (
+    <div style={{ display: 'flex', background: DXC.bgAlt, borderRadius: 8, padding: 3, gap: 3, border: `1px solid ${DXC.border}` }}>
+      {HORIZONS.map(h => (
+        <button
+          key={h.value}
+          onClick={() => { setHorizon(h.value); onReset && onReset() }}
+          style={{
+            background:   horizon === h.value ? color : 'transparent',
+            color:        horizon === h.value ? '#FFFFFF' : DXC.textMuted,
+            border:       'none',
+            borderRadius: 6,
+            padding:      '5px 14px',
+            fontSize:     12,
+            fontWeight:   700,
+            cursor:       'pointer',
+            transition:   'all .18s',
+            fontFamily:   "'Syne', system-ui, sans-serif",
+          }}
+        >
+          {h.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ══ Tooltip ════════════════════════════════════════════════════════ */
 const CustomTooltip = ({ active, payload, label, unit }) => {
   if (!active || !payload?.length) return null
   return (
@@ -169,9 +266,9 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   )
 }
 
+/* ══ KpiCard ════════════════════════════════════════════════════════ */
 function KpiCard({ kpiKey, data, selected, onClick }) {
   const meta = KPI_META[kpiKey]
-  const badge = MODEL_BADGES[data.best_model] || {}
   const trend = data.future_forecast.slice(-7).reduce((a,b)=>a+b,0) / 7
   const trendDir = trend > data.avg_value ? '↑' : trend < data.avg_value ? '↓' : '→'
   const trendColor = kpiKey === 'offered'
@@ -200,17 +297,11 @@ function KpiCard({ kpiKey, data, selected, onClick }) {
           <div style={{ color: DXC.textMuted, fontSize: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{meta.desc}</div>
           <div style={{ color: DXC.text, fontWeight: 700, fontSize: 14, marginTop: 2 }}>{meta.label}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: mapeColor(data.best_mape), fontWeight: 700 }}>
-            MAPE {data.best_mape}%
-          </div>
-          <div style={{ fontSize: 10, color: DXC.textMuted }}>{mapeLabel(data.best_mape)}</div>
-        </div>
       </div>
 
       <div style={{ height: 40 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data.future_forecast.map((v,i)=>({i,v}))}>
+          <LineChart data={data.future_forecast.slice(0, 30).map((v,i)=>({i,v}))}>
             <Line type="monotone" dataKey="v" stroke={meta.color} strokeWidth={1.5} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -219,14 +310,15 @@ function KpiCard({ kpiKey, data, selected, onClick }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, borderTop: `1px solid ${DXC.border}`, paddingTop: 8 }}>
         <span style={{ color: DXC.textMuted }}>Moy. prévue</span>
         <span style={{ color: trendColor, fontWeight: 700 }}>
-          {fmtVal(data.future_forecast.reduce((a,b)=>a+b,0)/data.future_forecast.length, data.unit)} {trendDir}
+          {fmtVal(data.future_forecast.slice(0,30).reduce((a,b)=>a+b,0)/30, data.unit)} {trendDir}
         </span>
       </div>
     </div>
   )
 }
 
-function ModelRadar({ kpiKey }) {
+/* ══ ModelRadar ══════════════════════════════════════════════════════ */
+function ModelRadar() {
   const MODELS = ['Prophet','SARIMA','XGBoost','LightGBM']
   const radarData = Object.keys(KPI_META).map(k => {
     const d = ML_DATA.kpis[k]
@@ -261,9 +353,10 @@ function ModelRadar({ kpiKey }) {
   )
 }
 
+/* ══ BacktestChart ═══════════════════════════════════════════════════ */
 function BacktestChart({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
-  const dates = ML_DATA.forecast_dates || []
+  const dates = ML_DATA.forecast_dates.slice(0, 30)
 
   const chartData = dates.map((d, i) => {
     const row = { date: d, Réel: kpiData.backtest_actual[i] }
@@ -306,73 +399,181 @@ function BacktestChart({ kpiKey }) {
   )
 }
 
+/* ══ ForecastChart ═══════════════════════════════════════════════════ */
 function ForecastChart({ kpiKey }) {
+  const [horizon, setHorizon] = useState(30)
+  const [pickedDate, setPickedDate] = useState('')
+
   const kpiData = ML_DATA.kpis[kpiKey]
-  const meta = KPI_META[kpiKey]
+  const meta    = KPI_META[kpiKey]
+
+  const slicedDates    = ML_DATA.forecast_dates.slice(0, horizon)
+  const slicedForecast = kpiData.future_forecast.slice(0, horizon)
+
+  // For 1-year view, sample every 7 days to keep chart readable
+  const sampleStep = horizon === 365 ? 7 : 1
+  const sampledFuture = slicedDates
+    .filter((_, i) => i % sampleStep === 0)
+    .map((d, i) => {
+      const idx = i * sampleStep
+      return {
+        date: d,
+        prévision: slicedForecast[idx],
+        upper: Math.round(slicedForecast[idx] * 1.15),
+        lower: Math.round(slicedForecast[idx] * 0.85),
+        type: 'future',
+      }
+    })
 
   const histData = (kpiData.historical?.dates || []).slice(-30).map((d, i) => ({
-    date: d, valeur: kpiData.historical.values[kpiData.historical.values.length - 30 + i], type: 'hist'
-  }))
-  const futureData = (ML_DATA.forecast_dates || []).map((d, i) => ({
-    date: d, prévision: kpiData.future_forecast[i],
-    upper: kpiData.future_forecast[i] * 1.15,
-    lower: kpiData.future_forecast[i] * 0.85,
-    type: 'future',
+    date: d,
+    valeur: kpiData.historical.values[kpiData.historical.values.length - 30 + i],
+    type: 'hist',
   }))
 
   const lastHistDate = histData[histData.length - 1]?.date
 
+  // Date picker
+  const pickedIndex = pickedDate ? ML_DATA.forecast_dates.indexOf(pickedDate) : -1
+  const pickedValue = pickedIndex >= 0 ? kpiData.future_forecast[pickedIndex] : null
+  const pickedUpper = pickedValue ? Math.round(pickedValue * 1.15) : null
+  const pickedLower = pickedValue ? Math.round(pickedValue * 0.85) : null
+  const pickedInHorizon = pickedIndex >= 0 && pickedIndex < horizon
+
+  const minDate = ML_DATA.forecast_dates[0]
+  const maxDate = ML_DATA.forecast_dates[ML_DATA.forecast_dates.length - 1]
+
+  const xInterval = horizon === 7 ? 1 : horizon === 30 ? 7 : 30
+
   return (
     <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Prévision 30 jours — {meta.label}
+          Prévision {horizon === 365 ? '1 an' : `${horizon} jours`} — {meta.label}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <HorizonToggle
+            horizon={horizon}
+            setHorizon={setHorizon}
+            color={meta.color}
+            onReset={() => setPickedDate('')}
+          />
+
+          {/* Date picker */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 20, height: 2, background: DXC.border }} />
-            <span style={{ color: DXC.textMuted }}>Historique</span>
+            <span style={{ fontSize: 11, color: DXC.textMuted, fontWeight: 600 }}>📅</span>
+            <input
+              type="date"
+              min={minDate}
+              max={maxDate}
+              value={pickedDate}
+              onChange={e => setPickedDate(e.target.value)}
+              style={{
+                border: `1px solid ${DXC.border}`, borderRadius: 6,
+                padding: '4px 8px', fontSize: 12, color: DXC.text,
+                background: '#FFFFFF', cursor: 'pointer',
+                fontFamily: "'Syne', system-ui, sans-serif", outline: 'none',
+              }}
+            />
+            {pickedDate && (
+              <button onClick={() => setPickedDate('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: DXC.textMuted, fontSize: 14, padding: '0 2px' }}>
+                ✕
+              </button>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 20, height: 2, background: meta.color }} />
-            <span style={{ color: DXC.textMuted }}>Prévision ({kpiData.best_model})</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 20, height: 8, background: `${meta.color}22`, borderRadius: 2, border: `1px solid ${meta.color}44` }} />
-            <span style={{ color: DXC.textMuted }}>IC ±15%</span>
+
+          {/* Legend */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 20, height: 2, background: DXC.border }} />
+              <span style={{ color: DXC.textMuted }}>Historique</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 20, height: 2, background: meta.color }} />
+              <span style={{ color: DXC.textMuted }}>Prévision ({kpiData.best_model})</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 20, height: 8, background: `${meta.color}22`, borderRadius: 2, border: `1px solid ${meta.color}44` }} />
+              <span style={{ color: DXC.textMuted }}>IC ±15%</span>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Picked date callout */}
+      {pickedDate && pickedValue !== null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 16,
+          background: pickedInHorizon ? `${meta.color}10` : DXC.amberPale,
+          border: `1px solid ${pickedInHorizon ? `${meta.color}40` : DXC.amber}`,
+          borderRadius: 10, padding: '10px 16px', marginBottom: 14, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 13, color: meta.color, fontWeight: 700 }}>📅 {fmtDate(pickedDate)}</span>
+          {!pickedInHorizon && (
+            <span style={{ fontSize: 11, color: DXC.amber, fontWeight: 600 }}>
+              ⚠️ Hors horizon affiché — basculez sur 1 an
+            </span>
+          )}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Prévision',    value: fmtVal(pickedValue, kpiData.unit), color: meta.color },
+              { label: 'Borne basse',  value: fmtVal(pickedLower, kpiData.unit), color: DXC.textMuted },
+              { label: 'Borne haute',  value: fmtVal(pickedUpper, kpiData.unit), color: DXC.textMuted },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pickedDate && pickedValue === null && (
+        <div style={{ background: DXC.redPale, border: `1px solid ${DXC.red}40`, borderRadius: 10, padding: '10px 16px', marginBottom: 14, fontSize: 12, color: DXC.red, fontWeight: 600 }}>
+          ⚠️ Date hors plage de prévision ({fmtDate(minDate)} – {fmtDate(maxDate)})
+        </div>
+      )}
+
+      {/* Chart */}
       <ResponsiveContainer width="100%" height={240}>
-        <AreaChart data={[...histData, ...futureData]}>
+        <AreaChart data={[...histData, ...sampledFuture]}>
           <defs>
             <linearGradient id={`grad_${kpiKey}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={meta.color} stopOpacity={0.12} />
+              <stop offset="5%"  stopColor={meta.color} stopOpacity={0.12} />
               <stop offset="95%" stopColor={meta.color} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke={DXC.border} strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={fmtDate} interval={7} />
+          <XAxis dataKey="date" tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={fmtDate} interval={xInterval} />
           <YAxis tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={v => fmtVal(v, kpiData.unit)} width={55} />
           <Tooltip content={<CustomTooltip unit={kpiData.unit} />} />
           {lastHistDate && (
             <ReferenceLine x={lastHistDate} stroke={DXC.textMuted} strokeDasharray="4 2"
               label={{ value: "Aujourd'hui", fill: DXC.textMuted, fontSize: 10 }} />
           )}
-          <Area type="monotone" dataKey="upper" stroke="none" fill={`url(#grad_${kpiKey})`} fillOpacity={1} legendType="none" />
-          <Area type="monotone" dataKey="lower" stroke="none" fill="#FFFFFF" fillOpacity={1} legendType="none" />
-          <Line type="monotone" dataKey="valeur" stroke={DXC.border} strokeWidth={1.5} dot={false} name="Historique" connectNulls />
-          <Line type="monotone" dataKey="prévision" stroke={meta.color} strokeWidth={2} dot={false} strokeDasharray="5 3" connectNulls />
+          {pickedDate && pickedInHorizon && (
+            <ReferenceLine x={pickedDate} stroke={meta.color} strokeWidth={1.5} strokeDasharray="3 2"
+              label={{ value: fmtDate(pickedDate), fill: meta.color, fontSize: 10 }} />
+          )}
+          <Area type="monotone" dataKey="upper"     stroke="none" fill={`url(#grad_${kpiKey})`} fillOpacity={1} legendType="none" />
+          <Area type="monotone" dataKey="lower"     stroke="none" fill="#FFFFFF"                fillOpacity={1} legendType="none" />
+          <Line type="monotone" dataKey="valeur"    stroke={DXC.border}  strokeWidth={1.5} dot={false} name="Historique"               connectNulls />
+          <Line type="monotone" dataKey="prévision" stroke={meta.color}  strokeWidth={2}   dot={false} strokeDasharray="5 3" connectNulls />
         </AreaChart>
       </ResponsiveContainer>
 
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 16 }}>
         {[
-          { label: 'Moy. prévue', value: fmtVal(kpiData.future_forecast.reduce((a,b)=>a+b,0)/kpiData.future_forecast.length, kpiData.unit) },
-          { label: 'Min prévue',  value: fmtVal(Math.min(...kpiData.future_forecast), kpiData.unit) },
-          { label: 'Max prévue',  value: fmtVal(Math.max(...kpiData.future_forecast), kpiData.unit) },
-          { label: 'Précision',   value: `${Math.round(100-kpiData.best_mape)}%` },
+          { label: 'Moy. prévue', value: fmtVal(slicedForecast.reduce((a,b)=>a+b,0)/slicedForecast.length, kpiData.unit) },
+          { label: 'Min prévue',  value: fmtVal(Math.min(...slicedForecast), kpiData.unit) },
+          { label: 'Max prévue',  value: fmtVal(Math.max(...slicedForecast), kpiData.unit) },
+          { label: 'Précision',   value: `${Math.round(100 - kpiData.best_mape)}%` },
         ].map(s => (
           <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '10px 12px', textAlign: 'center', border: `1px solid ${DXC.border}` }}>
             <div style={{ color: DXC.textMuted, fontSize: 10, marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>{s.label}</div>
@@ -384,12 +585,13 @@ function ForecastChart({ kpiKey }) {
   )
 }
 
+/* ══ ModelComparisonBar ══════════════════════════════════════════════ */
 function ModelComparisonBar({ kpiKey }) {
   const kpiData = ML_DATA.kpis[kpiKey]
   const models = Object.entries(kpiData.backtest).map(([m, v]) => ({
     model: m, mape: v.mape, mae: v.mae, color: MODEL_COLORS[m],
     isBest: m === kpiData.best_model,
-  })).sort((a,b)=>a.mape-b.mape)
+  })).sort((a,b) => a.mape - b.mape)
 
   return (
     <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
@@ -422,150 +624,92 @@ function ModelComparisonBar({ kpiKey }) {
   )
 }
 
+/* ══ ForecastTable ═══════════════════════════════════════════════════ */
 function ForecastTable({ kpiKey }) {
-  const [horizon, setHorizon] = useState(30) // 7 or 30
- 
+  const [horizon, setHorizon] = useState(30)
+
   const kpiData = ML_DATA.kpis[kpiKey]
   const meta    = KPI_META[kpiKey]
- 
-  // Slice dates + values to the chosen horizon
+
   const dates  = ML_DATA.forecast_dates.slice(0, horizon)
   const values = kpiData.future_forecast.slice(0, horizon)
- 
-  // Group into weeks of 7
-  const weeks = []
-  for (let i = 0; i < dates.length; i += 7) {
-    weeks.push({
-      label:  `Semaine ${Math.floor(i / 7) + 1}`,
-      dates:  dates.slice(i, i + 7),
-      values: values.slice(i, i + 7),
+  const maxVal = Math.max(...kpiData.future_forecast)
+
+  // For 1-year: group by month instead of week
+  const groups = []
+  if (horizon === 365) {
+    const byMonth = {}
+    dates.forEach((d, i) => {
+      const key = d.slice(0, 7)
+      if (!byMonth[key]) byMonth[key] = { dates: [], values: [] }
+      byMonth[key].dates.push(d)
+      byMonth[key].values.push(values[i])
     })
+    Object.entries(byMonth).forEach(([month, data]) => {
+      const avg = data.values.reduce((a,b)=>a+b,0) / data.values.length
+      const min = Math.min(...data.values)
+      const max = Math.max(...data.values)
+      groups.push({ label: new Date(month + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }), avg, min, max, count: data.dates.length })
+    })
+  } else {
+    for (let i = 0; i < dates.length; i += 7) {
+      groups.push({
+        label:  `Semaine ${Math.floor(i / 7) + 1}`,
+        dates:  dates.slice(i, i + 7),
+        values: values.slice(i, i + 7),
+      })
+    }
   }
- 
-  const maxVal = Math.max(...kpiData.future_forecast) // keep scale consistent
- 
-  // Stats for the selected horizon
-  const sum = values.reduce((a, b) => a + b, 0)
-  const avg = sum / values.length
+
+  const avg = values.reduce((a,b)=>a+b,0) / values.length
   const min = Math.min(...values)
   const max = Math.max(...values)
- 
+
   return (
-    <div style={{
-      background: '#FFFFFF',
-      borderRadius: 12,
-      padding: '20px',
-      border: `1px solid ${DXC.border}`,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-    }}>
- 
-      {/* ── Header with toggle ──────────────────────────────────────── */}
+    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Détail par semaine — {meta.label}
+          Détail {horizon === 365 ? 'par mois' : 'par semaine'} — {meta.label}
         </div>
- 
-        {/* J+7 / J+30 toggle */}
-        <div style={{
-          display: 'flex',
-          background: DXC.bgAlt,
-          borderRadius: 8,
-          padding: 3,
-          gap: 3,
-          border: `1px solid ${DXC.border}`,
-        }}>
-          {[7, 30].map(h => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              style={{
-                background: horizon === h ? meta.color : 'transparent',
-                color:       horizon === h ? '#FFFFFF'   : DXC.textMuted,
-                border:      'none',
-                borderRadius: 6,
-                padding:     '5px 14px',
-                fontSize:    12,
-                fontWeight:  700,
-                cursor:      'pointer',
-                transition:  'all .18s',
-                fontFamily:  "'Syne', system-ui, sans-serif",
-                letterSpacing: '0.03em',
-              }}
-            >
-              J+{h}
-            </button>
-          ))}
-        </div>
+        <HorizonToggle horizon={horizon} setHorizon={setHorizon} color={meta.color} />
       </div>
- 
-      {/* ── Summary stats bar ───────────────────────────────────────── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 8,
-        marginBottom: 16,
-      }}>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
         {[
-          { label: 'Période',   value: `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}`, wide: true },
-          { label: 'Moy.',      value: fmtVal(avg, kpiData.unit) },
-          { label: 'Min',       value: fmtVal(min, kpiData.unit) },
-          { label: 'Max',       value: fmtVal(max, kpiData.unit) },
+          { label: 'Période', value: `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length-1])}` },
+          { label: 'Moy.',    value: fmtVal(avg, kpiData.unit) },
+          { label: 'Min',     value: fmtVal(min, kpiData.unit) },
+          { label: 'Max',     value: fmtVal(max, kpiData.unit) },
         ].map(s => (
-          <div key={s.label} style={{
-            background: DXC.bgSurface,
-            borderRadius: 8,
-            padding: '8px 10px',
-            textAlign: 'center',
-            border: `1px solid ${DXC.border}`,
-            gridColumn: s.wide ? 'span 1' : undefined,
-          }}>
-            <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 3, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-              {s.label}
-            </div>
-            <div style={{ color: DXC.text, fontWeight: 800, fontSize: s.wide ? 11 : 14 }}>
-              {s.value}
-            </div>
+          <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '8px 10px', textAlign: 'center', border: `1px solid ${DXC.border}` }}>
+            <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 3, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>{s.label}</div>
+            <div style={{ color: DXC.text, fontWeight: 800, fontSize: 12 }}>{s.value}</div>
           </div>
         ))}
       </div>
- 
-      {/* ── Weekly grid ─────────────────────────────────────────────── */}
-      {weeks.map(w => (
+
+      {/* Weekly grid */}
+      {horizon !== 365 && groups.map(w => (
         <div key={w.label} style={{ marginBottom: 16 }}>
-          <div style={{
-            color: DXC.textMuted,
-            fontSize: 10,
-            fontWeight: 700,
-            marginBottom: 8,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}>
-            {w.label}
-          </div>
+          <div style={{ color: DXC.textMuted, fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{w.label}</div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${w.dates.length}, 1fr)`, gap: 4 }}>
             {w.dates.map((d, i) => {
-              const dayName  = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
-              const v        = w.values[i]
+              const dayName   = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
+              const v         = w.values[i]
               const isWeekend = [0, 6].includes(new Date(d).getDay())
-              const pct      = (v / maxVal) * 100
+              const pct       = (v / maxVal) * 100
               return (
                 <div key={d} style={{
-                  background:   isWeekend ? DXC.bgAlt : '#FFFFFF',
-                  borderRadius: 8,
-                  padding:      '8px 6px',
-                  textAlign:    'center',
-                  border:       `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
+                  background: isWeekend ? DXC.bgAlt : '#FFFFFF',
+                  borderRadius: 8, padding: '8px 6px', textAlign: 'center',
+                  border: `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
                 }}>
-                  <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 4, fontWeight: 700, textTransform: 'uppercase' }}>
-                    {dayName}
-                  </div>
+                  <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 4, fontWeight: 700, textTransform: 'uppercase' }}>{dayName}</div>
                   <div style={{ background: DXC.bgAlt, borderRadius: 3, height: 4, marginBottom: 5, overflow: 'hidden' }}>
-                    <div style={{
-                      height:       '100%',
-                      width:        `${pct}%`,
-                      background:   meta.color,
-                      opacity:      isWeekend ? 0.3 : 1,
-                    }} />
+                    <div style={{ height: '100%', width: `${pct}%`, background: meta.color, opacity: isWeekend ? 0.3 : 1 }} />
                   </div>
                   <div style={{ color: isWeekend ? DXC.textMuted : DXC.text, fontWeight: 700, fontSize: 12 }}>
                     {fmtVal(v, kpiData.unit)}
@@ -576,16 +720,51 @@ function ForecastTable({ kpiKey }) {
           </div>
         </div>
       ))}
+
+      {/* Monthly grid for 1 year */}
+      {horizon === 365 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+          {groups.map(m => {
+            const pct = (m.avg / maxVal) * 100
+            return (
+              <div key={m.label} style={{
+                background: '#FFFFFF', borderRadius: 10, padding: '12px 14px',
+                border: `1px solid ${meta.color}33`,
+              }}>
+                <div style={{ color: DXC.text, fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'capitalize' }}>{m.label}</div>
+                <div style={{ background: DXC.bgAlt, borderRadius: 3, height: 5, marginBottom: 10, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: meta.color }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Moy.</div>
+                    <div style={{ color: DXC.text, fontWeight: 800, fontSize: 14 }}>{fmtVal(m.avg, kpiData.unit)}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Min</div>
+                    <div style={{ color: DXC.textMuted, fontWeight: 700, fontSize: 12 }}>{fmtVal(m.min, kpiData.unit)}</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Max</div>
+                    <div style={{ color: DXC.textMuted, fontWeight: 700, fontSize: 12 }}>{fmtVal(m.max, kpiData.unit)}</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
+/* ══ Main Component ══════════════════════════════════════════════════ */
 export default function Forecasting() {
   const [selectedKpi, setSelectedKpi] = useState('offered')
   const [tab, setTab] = useState('forecast')
 
   const kpiData = ML_DATA.kpis[selectedKpi]
-  const meta = KPI_META[selectedKpi]
+  const meta    = KPI_META[selectedKpi]
 
   const tabs = [
     { id: 'forecast', label: '📈 Prévisions' },
@@ -609,7 +788,7 @@ export default function Forecasting() {
             🤖 Forecasting ML
           </h1>
           <div style={{ color: DXC.textMuted, fontSize: 13, marginTop: 4 }}>
-            Prévisions 30 jours · 4 modèles comparés · Données réelles Telephony_Data.csv
+            Prévisions J+7 · J+30 · 1 an · 4 modèles comparés · Données réelles Telephony_Data.csv
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FFFFFF', border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -618,14 +797,14 @@ export default function Forecasting() {
         </div>
       </div>
 
-      {/* KPI cards grid */}
+      {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
         {Object.entries(ML_DATA.kpis).map(([k, v]) => (
           <KpiCard key={k} kpiKey={k} data={v} selected={selectedKpi === k} onClick={() => { setSelectedKpi(k); setTab('forecast') }} />
         ))}
       </div>
 
-      {/* Selected KPI detail panel */}
+      {/* Detail panel */}
       <div style={{
         background: '#FFFFFF',
         borderRadius: 14,
@@ -685,23 +864,23 @@ export default function Forecasting() {
         <div style={{ padding: '20px', background: '#F9FAFB' }}>
           {tab === 'forecast' && <ForecastChart kpiKey={selectedKpi} />}
           {tab === 'backtest' && <BacktestChart kpiKey={selectedKpi} />}
-          {tab === 'compare'  && (
+          {tab === 'compare' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <ModelComparisonBar kpiKey={selectedKpi} />
-              <ModelRadar kpiKey={selectedKpi} />
+              <ModelRadar />
             </div>
           )}
-          {tab === 'table'   && <ForecastTable kpiKey={selectedKpi} />}
+          {tab === 'table' && <ForecastTable kpiKey={selectedKpi} />}
         </div>
       </div>
 
-      {/* Footer note */}
+      {/* Footer */}
       <div style={{ marginTop: 16, padding: '12px 16px', background: DXC.bluePale, borderRadius: 10, border: `1px solid rgba(59,106,200,0.2)`, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <span style={{ fontSize: 16 }}>💡</span>
         <div style={{ fontSize: 12, color: DXC.blue, lineHeight: 1.6 }}>
           <strong style={{ color: DXC.blue }}>Comment lire la MAPE</strong> — &lt;15% = excellent (avg_aht, avg_ttc) · 15–35% = acceptable (avg_hold) · &gt;35% = volatile (offered, asa, abandoned).
-          Les KPIs volatils dépendent de facteurs externes (incidents, campagnes). La combinaison <strong>Prophet + XGBoost</strong> peut réduire l'erreur de 5–10% supplémentaires.
-          Intervalle de confiance ±15% affiché en zone colorée sur le graphique de prévision.
+          Les KPIs volatils dépendent de facteurs externes. La prévision 1 an intègre une saisonnalité annuelle (sin 365j) + tendance long terme.
+          Intervalle de confiance ±15% affiché en zone colorée.
         </div>
       </div>
     </div>
