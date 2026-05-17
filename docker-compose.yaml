@@ -250,6 +250,8 @@ services:
   sonarqube:
     image: sonarqube:community
     container_name: sonarqube
+    sysctls:
+      vm.max_map_count: 262144
     ports:
       - "9000:9000"
     environment:
