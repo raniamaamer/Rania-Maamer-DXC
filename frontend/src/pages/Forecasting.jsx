@@ -201,9 +201,6 @@ function KpiCard({ kpiKey, data, selected, onClick }) {
           <div style={{ color: DXC.text, fontWeight: 700, fontSize: 14, marginTop: 2 }}>{meta.label}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ background: badge.bg, color: badge.text, fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, marginBottom: 5 }}>
-            {data.best_model}
-          </div>
           <div style={{ fontSize: 11, color: mapeColor(data.best_mape), fontWeight: 700 }}>
             MAPE {data.best_mape}%
           </div>
@@ -426,41 +423,149 @@ function ModelComparisonBar({ kpiKey }) {
 }
 
 function ForecastTable({ kpiKey }) {
+  const [horizon, setHorizon] = useState(30) // 7 or 30
+ 
   const kpiData = ML_DATA.kpis[kpiKey]
-  const meta = KPI_META[kpiKey]
-
+  const meta    = KPI_META[kpiKey]
+ 
+  // Slice dates + values to the chosen horizon
+  const dates  = ML_DATA.forecast_dates.slice(0, horizon)
+  const values = kpiData.future_forecast.slice(0, horizon)
+ 
+  // Group into weeks of 7
   const weeks = []
-  for (let i = 0; i < ML_DATA.forecast_dates.length; i += 7) {
+  for (let i = 0; i < dates.length; i += 7) {
     weeks.push({
-      label: `Semaine ${Math.floor(i/7)+1}`,
-      dates: ML_DATA.forecast_dates.slice(i, i+7),
-      values: kpiData.future_forecast.slice(i, i+7),
+      label:  `Semaine ${Math.floor(i / 7) + 1}`,
+      dates:  dates.slice(i, i + 7),
+      values: values.slice(i, i + 7),
     })
   }
-
+ 
+  const maxVal = Math.max(...kpiData.future_forecast) // keep scale consistent
+ 
+  // Stats for the selected horizon
+  const sum = values.reduce((a, b) => a + b, 0)
+  const avg = sum / values.length
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+ 
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-      <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Détail par semaine — {meta.label}
+    <div style={{
+      background: '#FFFFFF',
+      borderRadius: 12,
+      padding: '20px',
+      border: `1px solid ${DXC.border}`,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+    }}>
+ 
+      {/* ── Header with toggle ──────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Détail par semaine — {meta.label}
+        </div>
+ 
+        {/* J+7 / J+30 toggle */}
+        <div style={{
+          display: 'flex',
+          background: DXC.bgAlt,
+          borderRadius: 8,
+          padding: 3,
+          gap: 3,
+          border: `1px solid ${DXC.border}`,
+        }}>
+          {[7, 30].map(h => (
+            <button
+              key={h}
+              onClick={() => setHorizon(h)}
+              style={{
+                background: horizon === h ? meta.color : 'transparent',
+                color:       horizon === h ? '#FFFFFF'   : DXC.textMuted,
+                border:      'none',
+                borderRadius: 6,
+                padding:     '5px 14px',
+                fontSize:    12,
+                fontWeight:  700,
+                cursor:      'pointer',
+                transition:  'all .18s',
+                fontFamily:  "'Syne', system-ui, sans-serif",
+                letterSpacing: '0.03em',
+              }}
+            >
+              J+{h}
+            </button>
+          ))}
+        </div>
       </div>
+ 
+      {/* ── Summary stats bar ───────────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 8,
+        marginBottom: 16,
+      }}>
+        {[
+          { label: 'Période',   value: `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}`, wide: true },
+          { label: 'Moy.',      value: fmtVal(avg, kpiData.unit) },
+          { label: 'Min',       value: fmtVal(min, kpiData.unit) },
+          { label: 'Max',       value: fmtVal(max, kpiData.unit) },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: DXC.bgSurface,
+            borderRadius: 8,
+            padding: '8px 10px',
+            textAlign: 'center',
+            border: `1px solid ${DXC.border}`,
+            gridColumn: s.wide ? 'span 1' : undefined,
+          }}>
+            <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 3, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+              {s.label}
+            </div>
+            <div style={{ color: DXC.text, fontWeight: 800, fontSize: s.wide ? 11 : 14 }}>
+              {s.value}
+            </div>
+          </div>
+        ))}
+      </div>
+ 
+      {/* ── Weekly grid ─────────────────────────────────────────────── */}
       {weeks.map(w => (
         <div key={w.label} style={{ marginBottom: 16 }}>
-          <div style={{ color: DXC.textMuted, fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{w.label}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+          <div style={{
+            color: DXC.textMuted,
+            fontSize: 10,
+            fontWeight: 700,
+            marginBottom: 8,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}>
+            {w.label}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${w.dates.length}, 1fr)`, gap: 4 }}>
             {w.dates.map((d, i) => {
-              const dayName = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
-              const v = w.values[i]
-              const isWeekend = [0,6].includes(new Date(d).getDay())
-              const pct = (v / Math.max(...kpiData.future_forecast)) * 100
+              const dayName  = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
+              const v        = w.values[i]
+              const isWeekend = [0, 6].includes(new Date(d).getDay())
+              const pct      = (v / maxVal) * 100
               return (
                 <div key={d} style={{
-                  background: isWeekend ? DXC.bgAlt : '#FFFFFF',
-                  borderRadius: 8, padding: '8px 6px', textAlign: 'center',
-                  border: `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
+                  background:   isWeekend ? DXC.bgAlt : '#FFFFFF',
+                  borderRadius: 8,
+                  padding:      '8px 6px',
+                  textAlign:    'center',
+                  border:       `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
                 }}>
-                  <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 4, fontWeight: 700, textTransform: 'uppercase' }}>{dayName}</div>
+                  <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 4, fontWeight: 700, textTransform: 'uppercase' }}>
+                    {dayName}
+                  </div>
                   <div style={{ background: DXC.bgAlt, borderRadius: 3, height: 4, marginBottom: 5, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: meta.color, opacity: isWeekend ? 0.3 : 1 }} />
+                    <div style={{
+                      height:       '100%',
+                      width:        `${pct}%`,
+                      background:   meta.color,
+                      opacity:      isWeekend ? 0.3 : 1,
+                    }} />
                   </div>
                   <div style={{ color: isWeekend ? DXC.textMuted : DXC.text, fontWeight: 700, fontSize: 12 }}>
                     {fmtVal(v, kpiData.unit)}
@@ -511,22 +616,6 @@ export default function Forecasting() {
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: DXC.green }} />
           <span style={{ color: DXC.textMuted, fontSize: 12 }}>Généré le {ML_DATA.generated_at}</span>
         </div>
-      </div>
-
-      {/* Model legend */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[
-          { name: 'Prophet',  desc: 'saisonnalité + jours fériés',   badge: MODEL_BADGES.Prophet },
-          { name: 'SARIMA',   desc: 'séries temporelles classiques',  badge: MODEL_BADGES.SARIMA },
-          { name: 'XGBoost',  desc: 'gradient boosting + lags',       badge: MODEL_BADGES.XGBoost },
-          { name: 'LightGBM', desc: 'gradient boosting rapide',       badge: MODEL_BADGES.LightGBM },
-        ].map(m => (
-          <div key={m.name} style={{ background: m.badge.bg, border: `1px solid ${DXC.border}`, borderRadius: 8, padding: '5px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: MODEL_COLORS[m.name] }} />
-            <span style={{ color: m.badge.text, fontWeight: 700, fontSize: 12 }}>{m.name}</span>
-            <span style={{ color: m.badge.text, fontSize: 11, opacity: 0.7 }}>— {m.desc}</span>
-          </div>
-        ))}
       </div>
 
       {/* KPI cards grid */}
