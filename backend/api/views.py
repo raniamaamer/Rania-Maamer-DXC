@@ -1250,7 +1250,9 @@ class DebugMetricsView(APIView):
 class PredictionsView(APIView):
     permission_classes = [AllowAny]
 
-    ML_JSON_PATH = Path("/app/ml_output/ml_data.json")
+    @property
+    def ML_JSON_PATH(self):
+        return Path("/app/ml_output/ml_data.json")
 
     def _load_ml_data(self):
         if self.ML_JSON_PATH.exists():
