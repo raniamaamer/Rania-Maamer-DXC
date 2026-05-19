@@ -1317,3 +1317,122 @@ def claude_proxy(request):
                 yield chunk
 
     return StreamingHttpResponse(stream(), content_type='text/event-stream')
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def forecast_view(request):
+    import json, warnings
+    import numpy as np
+    import pandas as pd
+    import holidays
+    from prophet import Prophet
+    import logging
+
+    warnings.filterwarnings("ignore")
+    logging.getLogger("prophet").setLevel(logging.WARNING)
+    logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+
+    try:
+        # ── 1. Charger les données depuis la DB ──────────────────────────
+        from .models import DailySnapshot  # adapte selon ton modèle réel
+        qs = DailySnapshot.objects.values('date', 'offered_contacts').order_by('date')
+        df_raw = pd.DataFrame(list(qs))
+        df_raw.rename(columns={'date': 'Day', 'offered_contacts': 'Offered contacts'}, inplace=True)
+
+        # ── 2. Agrégation + nettoyage ────────────────────────────────────
+        df_raw['Day'] = pd.to_datetime(df_raw['Day'])
+        df = df_raw.groupby('Day')['Offered contacts'].sum().reset_index()
+        df = df.sort_values('Day').set_index('Day')
+
+        # Réindexation pour combler les trous
+        full_idx = pd.date_range(df.index.min(), df.index.max(), freq='D')
+        df = df.reindex(full_idx)
+        df['Offered contacts'] = df['Offered contacts'].interpolate(method='time').ffill().bfill()
+
+        # Winsorisation douce
+        roll_med = df['Offered contacts'].rolling(7, min_periods=1, center=True).median()
+        Q1, Q3 = df['Offered contacts'].quantile(0.25), df['Offered contacts'].quantile(0.75)
+        IQR = Q3 - Q1
+        mask = (df['Offered contacts'] < Q1 - 1.5*IQR) | (df['Offered contacts'] > Q3 + 1.5*IQR)
+        df.loc[mask, 'Offered contacts'] = roll_med[mask]
+
+        # ── 3. Préparer Prophet ──────────────────────────────────────────
+        prophet_df = pd.DataFrame({
+            'ds': df.index,
+            'y': df['Offered contacts'].values
+        })
+
+        # Jours fériés France + Tunisie
+        fr_hol = holidays.France(years=range(
+            prophet_df['ds'].dt.year.min(),
+            prophet_df['ds'].dt.year.max() + 3
+        ))
+        tn_hol = holidays.Tunisia(years=range(
+            prophet_df['ds'].dt.year.min(),
+            prophet_df['ds'].dt.year.max() + 3
+        ))
+        all_holidays = {**fr_hol, **tn_hol}
+
+        holidays_df = pd.DataFrame({
+            'holiday': 'public_holiday',
+            'ds': pd.to_datetime(list(all_holidays.keys())),
+            'lower_window': -1,
+            'upper_window': 1
+        })
+
+        # ── 4. Entraîner le modèle ───────────────────────────────────────
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.01,
+            seasonality_prior_scale=1.0,
+            seasonality_mode='additive',
+            interval_width=0.80,
+            holidays=holidays_df,
+        )
+        model.fit(prophet_df, show_progress=False)
+
+        # ── 5. Prévisions J+7, J+30, J+365 ──────────────────────────────
+        horizons = {'7d': 7, '30d': 30, '365d': 365}
+        result = {}
+
+        for key, days in horizons.items():
+            future = model.make_future_dataframe(periods=days, freq='D')
+            forecast = model.predict(future)
+            future_only = forecast.tail(days)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+            future_only['yhat'] = future_only['yhat'].clip(lower=0).round(0)
+            future_only['yhat_lower'] = future_only['yhat_lower'].clip(lower=0).round(0)
+            future_only['yhat_upper'] = future_only['yhat_upper'].clip(lower=0).round(0)
+
+            # Marquer weekends + jours fériés
+            future_only['is_weekend'] = future_only['ds'].dt.dayofweek >= 5
+            future_only['is_holiday'] = future_only['ds'].apply(lambda x: x in all_holidays)
+
+            result[key] = future_only.rename(columns={
+                'ds': 'date',
+                'yhat': 'predicted',
+                'yhat_lower': 'lower',
+                'yhat_upper': 'upper',
+            }).assign(date=lambda x: x['date'].dt.strftime('%Y-%m-%d')).to_dict('records')
+
+        # Historique (30 derniers jours pour le graphe)
+        history = prophet_df.tail(60).copy()
+        history['date'] = history['ds'].dt.strftime('%Y-%m-%d')
+        history['actual'] = history['y'].round(0)
+        result['history'] = history[['date', 'actual']].to_dict('records')
+
+        # Métriques rapides (sur les 30 derniers jours vs prévision in-sample)
+        forecast_full = model.predict(prophet_df)
+        y_true = prophet_df['y'].values[-30:]
+        y_pred = forecast_full['yhat'].values[-30:]
+        mae = float(np.mean(np.abs(y_true - y_pred)))
+        mape = float(np.mean(np.abs((y_true - y_pred) / (y_true + 1e-9))) * 100)
+        result['metrics'] = {'mae': round(mae, 1), 'mape': round(mape, 2)}
+
+        return JsonResponse({'status': 'ok', 'data': result})
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)

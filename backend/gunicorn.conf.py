@@ -1,6 +1,7 @@
 bind = "0.0.0.0:8000"
 workers = 3
-worker_class = "sync"
+worker_class = "gthread"
+threads = 4
 
 def post_fork(server, worker):
     import os
