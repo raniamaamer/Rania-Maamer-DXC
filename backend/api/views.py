@@ -1252,7 +1252,7 @@ class PredictionsView(APIView):
 
     @property
     def ML_JSON_PATH(self):
-        return Path("/app/ml_output/ml_data.json")
+        return Path(__file__).parent.parent / "outputs" / "ml_data.json"
 
     def _load_ml_data(self):
         if self.ML_JSON_PATH.exists():
