@@ -276,7 +276,6 @@ Réponds en français, concis.`
           <div style={{ textAlign:'center', padding:'80px 20px', color:DXC.textMuted }}>
             <div style={{ fontSize:72, marginBottom:22 }}>📋</div>
             <div style={{ fontSize:20, fontWeight:700, marginBottom:12, color:DXC.text }}>Chargez votre fichier CSV pour commencer</div>
-            <div style={{ fontSize:14 }}>Format : inc_number, inc_assignment_group, inc_opened_at, inc_cmdb_ci, inc_short_description, taskslatable_has_breached</div>
           </div>
         )}
 
