@@ -102,8 +102,8 @@ pipeline {
                 bat "%COMPOSE% up -d db"
                 bat "ping -n 16 127.0.0.1 > nul"
                 bat "docker exec rania-maamer-db-1 psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
-                bat "%COMPOSE% up -d backend frontend prometheus grafana postgres-exporter ml_worker"
-                bat "ping -n 30 127.0.0.1 > nul"
+                bat "%COMPOSE% up -d backend frontend prometheus grafana postgres-exporter sonarqube"
+                bat "ping -n 60 127.0.0.1 > nul"
             }
         }
 
