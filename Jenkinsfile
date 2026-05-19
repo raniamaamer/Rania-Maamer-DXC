@@ -52,6 +52,14 @@ pipeline {
             }
         }
 
+        // ================= SONARQUBE STARTUP =================
+        stage('Start SonarQube') {
+            steps {
+                bat "%COMPOSE% up -d db sonarqube"
+                bat "ping -n 45 127.0.0.1 > nul"
+            }
+        }
+
         // ================= SONARQUBE =================
         stage('SonarQube Analysis') {
             steps {
@@ -67,12 +75,12 @@ pipeline {
                             -Dsonar.python.version=3.9 ^
                             -Dsonar.python.coverage.reportPaths=backend/coverage.xml ^
                             -Dsonar.coverage.exclusions=backend/manage.py,backend/**/wsgi.py,backend/**/migrations/**,backend/api/management/commands/run_etl.py,backend/api/management/commands/load_today.py,backend/api/management/commands/archive_realtime.py,backend/api/management/commands/archive_to_historical.py,backend/api/management/commands/seed_missing_accounts.py,backend/api/scheduler.py,backend/gunicorn.conf.py,backend/ml_auto_refresh.py,backend/sla_alert_mailer.py,backend/dxc_backend/settings/base.py,backend/metrics_exporter.py ^
-                            -Dsonar.token=%SONAR_TOKEN%
+                            -Dsonar.token=%SONAR_TOKEN% ^
                             -Dsonar.issue.ignore.multicriteria=e1,e2 ^
                             -Dsonar.issue.ignore.multicriteria.e1.ruleKey=python:S3752 ^
                             -Dsonar.issue.ignore.multicriteria.e1.resourceKey=backend/api/views.py ^
                             -Dsonar.issue.ignore.multicriteria.e2.ruleKey=python:S4830 ^
-                            -Dsonar.issue.ignore.multicriteria.e2.resourceKey=backend/api/views.py ^
+                            -Dsonar.issue.ignore.multicriteria.e2.resourceKey=backend/api/views.py
                             """
                         }
                     }
@@ -83,7 +91,7 @@ pipeline {
         stage('SonarQube Quality Gate') {
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: false
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
