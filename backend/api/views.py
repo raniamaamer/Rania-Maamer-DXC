@@ -1397,7 +1397,7 @@ def forecast_view(request):
             interval_width=0.80,
             holidays=holidays_df,
         )
-        model.fit(prophet_df, show_progress=False)
+        model.fit(prophet_df)
 
         # ── 5. Prévisions J+7, J+30, J+365 ──────────────────────────────
         horizons = {'7d': 7, '30d': 30, '365d': 365}
