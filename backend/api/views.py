@@ -1337,8 +1337,13 @@ def forecast_view(request):
     try:
         # ── 1. Charger les données depuis la DB ──────────────────────────
         from .models import DailySnapshot  # adapte selon ton modèle réel
-        df_raw.rename(columns={'date': 'Day', 'total_offered': 'Offered contacts'}, inplace=True)
+        qs = DailySnapshot.objects.values('date', 'total_offered').order_by('date')
         df_raw = pd.DataFrame(list(qs))
+
+        if df_raw.empty:
+            return JsonResponse({'status': 'error', 'message': 'Aucune donnée dans DailySnapshot'}, status=500)
+
+        df_raw.rename(columns={'date': 'Day', 'total_offered': 'Offered contacts'}, inplace=True)
         
         # ── 2. Agrégation + nettoyage ────────────────────────────────────
         df_raw['Day'] = pd.to_datetime(df_raw['Day'])
