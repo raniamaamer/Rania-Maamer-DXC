@@ -40,5 +40,6 @@ Thumbs.db
 
 # Excel temp and lock files
 ~$*.xlsx
-~$*.xls.env
+~$*.xls
+.env
 backend/.env
