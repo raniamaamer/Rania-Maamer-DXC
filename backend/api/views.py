@@ -1283,3 +1283,37 @@ class PredictionsView(APIView):
             "ci_breach_rates":    data.get("ci_breach", []),
             "feature_importance": data.get("feature_imp", []),
         })
+
+import httpx, os
+from django.http import StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def claude_proxy(request):
+    import httpx, os, json
+    
+    body = json.loads(request.body)
+    
+    # Convertir format Anthropic → OpenAI (Groq)
+    groq_body = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": body.get("messages", []),
+        "stream": body.get("stream", False),
+        "max_tokens": body.get("max_tokens", 1000),
+    }
+    
+    def stream():
+        with httpx.stream('POST', 'https://api.groq.com/openai/v1/chat/completions',
+            headers={
+                'Authorization': f"Bearer {os.environ.get('GROQ_API_KEY', '')}",
+                'content-type': 'application/json',
+            },
+            content=json.dumps(groq_body),
+            timeout=60,
+        ) as r:
+            for chunk in r.iter_bytes():
+                yield chunk
+
+    return StreamingHttpResponse(stream(), content_type='text/event-stream')

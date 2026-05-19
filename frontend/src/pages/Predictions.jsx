@@ -136,10 +136,15 @@ export default function SlaBreachAnalyzer() {
   }, [])
 
   const streamClaude = async (prompt, onChunk) => {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/claude/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, stream: true, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 1000,
+        stream: true,
+        messages: [{ role: 'user', content: prompt }]
+      }),
     })
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -153,7 +158,11 @@ export default function SlaBreachAnalyzer() {
         if (!line.startsWith('data: ')) continue
         const data = line.slice(6)
         if (data === '[DONE]') continue
-        try { const j = JSON.parse(data); if (j.type === 'content_block_delta' && j.delta?.text) onChunk(j.delta.text) } catch {}
+        try {
+          const j = JSON.parse(data)
+          const token = j.choices?.[0]?.delta?.content || ''
+          if (token) onChunk(token)
+        } catch {}
       }
     }
   }

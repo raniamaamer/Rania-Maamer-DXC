@@ -352,11 +352,11 @@ export default function Forecasting() {
   const forecastKey = `${selectedQueue}||${selectedKpi}`
 
   const streamClaude = async (prompt, onChunk) => {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/claude/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'llama-3.3-70b-versatile',
         max_tokens: 1000,
         stream: true,
         messages: [{ role: 'user', content: prompt }],
@@ -374,7 +374,11 @@ export default function Forecasting() {
         if (!line.startsWith('data: ')) continue
         const d = line.slice(6)
         if (d === '[DONE]') continue
-        try { const j = JSON.parse(d); if (j.type === 'content_block_delta' && j.delta?.text) onChunk(j.delta.text) } catch {}
+        try {
+          const j = JSON.parse(d)
+          const token = j.choices?.[0]?.delta?.content || ''
+          if (token) onChunk(token)
+        } catch {}
       }
     }
   }
