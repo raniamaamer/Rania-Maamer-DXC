@@ -1365,11 +1365,11 @@ def forecast_view(request):
         })
 
         # Jours fériés France + Tunisie
-        fr_hol = holidays.France(years=range(
+        fr_hol = holidays.country_holidays('FR', years=range(
             prophet_df['ds'].dt.year.min(),
             prophet_df['ds'].dt.year.max() + 3
         ))
-        tn_hol = holidays.Tunisia(years=range(
+        tn_hol = holidays.country_holidays('TN', years=range(
             prophet_df['ds'].dt.year.min(),
             prophet_df['ds'].dt.year.max() + 3
         ))
