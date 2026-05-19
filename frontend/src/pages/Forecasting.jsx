@@ -661,13 +661,6 @@ export default function Forecasting() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: DXC.text, margin: 0 }}>📊 Forecasting Prophet — Servier</h1>
-          <p style={{ fontSize: 13, color: DXC.textMuted, marginTop: 5 }}>Prévisions J+7 · J+30 · 1 an · Jours fériés FR+TN · Weekends · Intervalles 80%</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: DXC.green }} />
-          <span style={{ fontSize: 12, color: DXC.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>
-            Prophet · {queues.length} queues · backend /api/forecast/
-          </span>
         </div>
       </div>
 
