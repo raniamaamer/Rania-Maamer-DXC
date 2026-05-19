@@ -95,7 +95,10 @@ pipeline {
 
         stage('Docker - Run') {
             steps {
-                bat "copy .env backend\\.env 2>nul || exit 0"
+                withCredentials([file(credentialsId: 'dxc-env-file', variable: 'ENV_FILE')]) {
+                    bat "copy %ENV_FILE% .env"
+                    bat "copy .env backend\\.env"
+                }
                 bat "%COMPOSE% up -d db"
                 bat "ping -n 16 127.0.0.1 > nul"
                 bat "docker exec rania-maamer-db-1 psql -U postgres -c \"CREATE DATABASE sonarqube;\" 2>nul || exit 0"
