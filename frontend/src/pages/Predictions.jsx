@@ -238,7 +238,7 @@ Réponds en français, concis.`
           <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:14 }}>
             <div style={{ width:56, height:56, background:`linear-gradient(135deg,${DXC.blue},${DXC.purple})`, borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, flexShrink:0 }}>🤖</div>
             <div>
-              <h1 style={{ fontSize:28, fontWeight:800, color:DXC.text, lineHeight:1.1 }}>SLA Breach Analyser — Powered by Claude AI</h1>
+              <h1 style={{ fontSize:28, fontWeight:800, color:DXC.text, lineHeight:1.1 }}>SLA Breach Analyser</h1>
               <p style={{ fontSize:15, color:DXC.textMuted, marginTop:5 }}>Analyse intelligente des incidents en rupture SLA · Hypothèses · Recommandations · Staffing</p>
             </div>
           </div>
