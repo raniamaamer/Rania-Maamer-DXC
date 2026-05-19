@@ -785,11 +785,8 @@ export default function Forecasting() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
           <h1 style={{ color: DXC.text, fontSize: 22, fontWeight: 800, margin: 0 }}>
-            🤖 Forecasting ML
+            🤖 Forecasting
           </h1>
-          <div style={{ color: DXC.textMuted, fontSize: 13, marginTop: 4 }}>
-            Prévisions J+7 · J+30 · 1 an · 4 modèles comparés · Données réelles Telephony_Data.csv
-          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FFFFFF', border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: DXC.green }} />
