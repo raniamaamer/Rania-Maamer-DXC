@@ -24,7 +24,7 @@ const NAV_LINKS = [
   { to: '/sla-config',  label: '⚙️ Config SLA' },
   { to: '/live-data',   label: '📡 Hist / Temps Réel' },
   { to: '/forecasting', label: '📈 Forecasting' },
-  { to: '/predictions', label: '🤖 Prédictions ML' },
+  { to: '/predictions', label: '🤖 Prédiction' },
 ]
 const INTERVAL_OPTIONS = (() => {
   const opts = []
