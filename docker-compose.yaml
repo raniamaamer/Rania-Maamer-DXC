@@ -2,7 +2,6 @@
 #  docker-compose.yml — React (Vite/Nginx) + Django + PostgreSQL
 #                     + Prometheus + Grafana  (Sprint S3)
 #                     + SonarQube (Sprint S2)
-#                     + ML Worker (Prophet + Random Forest)
 # ─────────────────────────────────────────────────────────────
 
 services:
@@ -51,11 +50,9 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./data:/app/data
-      - ml_output:/app/ml_output
     depends_on:
       db:
         condition: service_healthy
-    # ✅ FIX : gunicorn démarre IMMÉDIATEMENT — ETL tourne dans etl_worker séparé
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
@@ -77,7 +74,7 @@ services:
             - ./backend/__pycache__
             - ./backend/*.pyc
 
-  # ── ETL Worker — séparé du backend pour ne pas bloquer gunicorn ──
+  # ── ETL Worker ───────────────────────────────────────────────
   etl_worker:
     build:
       context: .
@@ -92,7 +89,6 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./data:/app/data
-      - ml_output:/app/ml_output
     depends_on:
       backend:
         condition: service_healthy
@@ -102,7 +98,7 @@ services:
     networks:
       - dxc-network
 
-# ── Frontend Dev (Vite HMR) ── ← AJOUTE ICI
+  # ── Frontend Dev (Vite HMR) ──────────────────────────────────
   frontend-dev:
     build:
       context: ./frontend
@@ -121,40 +117,6 @@ services:
       - backend
     profiles:
       - dev
-
-  # ── ML Worker — Prophet + Random Forest ─────────────────────
-  ml_worker:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile.ml  
-    container_name: ml_worker
-    environment:
-      - TZ=Africa/Tunis
-    env_file:
-      - ./backend/.env
-    volumes:
-      - ./data:/app/data:ro
-      - ml_output:/app/ml_output
-      - ./frontend/public:/app/frontend_public
-    working_dir: /app
-    command: >
-      bash -c "python ml_auto_refresh.py
-               --csv /app/data/incident_sla.csv
-               --out /app/ml_output
-               --once &&
-               cp /app/ml_output/ml_data.json /app/frontend_public/ml_data.json"
-    restart: "no"
-    networks:
-      - dxc-network
-    depends_on:
-      etl_worker:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "test", "-f", "/app/ml_output/ml_data.json"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 180s
 
   # ── Base de données PostgreSQL ───────────────────────────────
   db:
@@ -179,7 +141,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ── Prometheus — collecte les métriques ─────────────────────
+  # ── Prometheus ───────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -205,7 +167,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # ── Grafana — visualise les métriques ───────────────────────
+  # ── Grafana ──────────────────────────────────────────────────
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -231,7 +193,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # ── PostgreSQL Exporter — métriques base de données ─────────
+  # ── PostgreSQL Exporter ──────────────────────────────────────
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:latest
     container_name: postgres-exporter
@@ -246,7 +208,7 @@ services:
     networks:
       - dxc-network
 
-  # ── SonarQube — analyse qualité du code ─────────────────────
+  # ── SonarQube ────────────────────────────────────────────────
   sonarqube:
     image: sonarqube:community
     container_name: sonarqube
@@ -257,9 +219,9 @@ services:
       - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube
       - SONAR_JDBC_USERNAME=postgres
       - SONAR_JDBC_PASSWORD=20010430
-      - SONAR_CE_JAVAOPTS=-Xmx512m -Xms256m        
-      - SONAR_WEB_JAVAOPTS=-Xmx512m -Xms256m       
-      - SONAR_SEARCH_JAVAOPTS=-Xmx512m -Xms256m   
+      - SONAR_CE_JAVAOPTS=-Xmx512m -Xms256m
+      - SONAR_WEB_JAVAOPTS=-Xmx512m -Xms256m
+      - SONAR_SEARCH_JAVAOPTS=-Xmx512m -Xms256m
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_logs:/opt/sonarqube/logs
@@ -270,7 +232,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g                                
+          memory: 2g
     networks:
       - dxc-network
     healthcheck:
@@ -280,7 +242,7 @@ services:
       retries: 15
       start_period: 120s
 
-  # ── SonarQube Init — auto-configure au démarrage ────────────
+  # ── SonarQube Init ───────────────────────────────────────────
   sonarqube-init:
     image: curlimages/curl:latest
     container_name: sonarqube-init
@@ -304,7 +266,6 @@ volumes:
   grafana_data:
   sonarqube_data:
   sonarqube_logs:
-  ml_output:
 
 # ── Réseau fixe ──────────────────────────────────────────────
 networks:
