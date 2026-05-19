@@ -98,6 +98,204 @@ const ForecastTooltip = ({ active, payload, label }) => {
     </div>
   )
 }
+/* ══ ForecastCalendar ════════════════════════════════════════════════ */
+function ForecastCalendar({ forecastData, horizon }) {
+  const allForecast = forecastData?.[horizon] || []
+  const [curMonth, setCurMonth] = useState(() => {
+    if (allForecast.length) {
+      const d = new Date(allForecast[0].date)
+      return { year: d.getFullYear(), month: d.getMonth() }
+    }
+    return { year: 2026, month: 4 }
+  })
+  const [selectedWeek, setSelectedWeek] = useState(0)
+
+  const fcMap = {}
+  allForecast.forEach(f => { fcMap[f.date] = f })
+
+  const workdays = allForecast.filter(f => !f.is_weekend && f.predicted > 100)
+  const maxVal = workdays.length ? Math.max(...workdays.map(f => f.predicted)) : 1500
+  const q1 = maxVal * 0.33
+  const q2 = maxVal * 0.66
+
+  function getColor(p, isWE) {
+    if (isWE || p < 50) return null
+    if (p < q1) return { bg: '#dcfce7', txt: '#166534' }
+    if (p < q2) return { bg: '#fef3c7', txt: '#92400e' }
+    return { bg: '#fee2e2', txt: '#991b1b' }
+  }
+
+  const MONTHS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+  const DAYS_FR = ['Lu','Ma','Me','Je','Ve','Sa','Di']
+
+  const { year, month } = curMonth
+  const first = new Date(year, month, 1)
+  let startDow = first.getDay()
+  startDow = startDow === 0 ? 6 : startDow - 1
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const cells = []
+  for (let i = 0; i < startDow; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+
+  function getDateStr(d) {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  }
+
+  function getWeekDays(weekNum) {
+    const days = []
+    const weekStart = weekNum * 7 - startDow + 1
+    for (let d = weekStart; d < weekStart + 7; d++) {
+      if (d < 1 || d > daysInMonth) continue
+      const dateStr = getDateStr(d)
+      const fc = fcMap[dateStr]
+      const dow = new Date(year, month, d).getDay()
+      const dowIdx = dow === 0 ? 6 : dow - 1
+      days.push({ d, dateStr, fc, dowIdx })
+    }
+    return days
+  }
+
+  const weekDays = getWeekDays(selectedWeek)
+  const total = weekDays.reduce((s, x) => s + (x.fc ? x.fc.predicted : 0), 0)
+  const workD = weekDays.filter(x => x.fc && !x.fc.is_weekend && x.fc.predicted > 50)
+  const avgW = workD.length ? Math.round(workD.reduce((s, x) => s + x.fc.predicted, 0) / workD.length) : 0
+  const peak = workD.length ? Math.max(...workD.map(x => x.fc.predicted)) : 0
+  const maxBar = Math.max(...weekDays.filter(x => x.fc).map(x => x.fc.predicted), 1)
+
+  return (
+    <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+
+      {/* ── Calendrier ── */}
+      <div style={{ background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 12, padding: 14, width: 252, flexShrink: 0 }}>
+
+        {/* Navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <button onClick={() => {
+            setCurMonth(prev => {
+              let m = prev.month - 1, y = prev.year
+              if (m < 0) { m = 11; y-- }
+              return { year: y, month: m }
+            })
+            setSelectedWeek(0)
+          }} style={{ background: 'none', border: `1px solid ${DXC.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: DXC.textMuted, fontSize: 12 }}>‹</button>
+          <span style={{ fontSize: 12, fontWeight: 700, color: DXC.text }}>{MONTHS[month]} {year}</span>
+          <button onClick={() => {
+            setCurMonth(prev => {
+              let m = prev.month + 1, y = prev.year
+              if (m > 11) { m = 0; y++ }
+              return { year: y, month: m }
+            })
+            setSelectedWeek(0)
+          }} style={{ background: 'none', border: `1px solid ${DXC.border}`, borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: DXC.textMuted, fontSize: 12 }}>›</button>
+        </div>
+
+        {/* Grille */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+          {DAYS_FR.map(d => (
+            <div key={d} style={{ fontSize: 9, color: DXC.textMuted, textAlign: 'center', padding: '2px 0', fontWeight: 700 }}>{d}</div>
+          ))}
+          {cells.map((d, i) => {
+            if (!d) return <div key={`e${i}`} />
+            const weekNum = Math.floor((startDow + d - 1) / 7)
+            const dateStr = getDateStr(d)
+            const fc = fcMap[dateStr]
+            const dow = new Date(year, month, d).getDay()
+            const isWE = dow === 0 || dow === 6
+            const c = fc ? getColor(fc.predicted, isWE) : null
+            const isSelected = weekNum === selectedWeek
+
+            return (
+              <div
+                key={d}
+                onClick={() => setSelectedWeek(weekNum)}
+                style={{
+                  borderRadius: 6,
+                  padding: '3px 1px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  minHeight: 36,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1,
+                  background: c ? c.bg : isWE ? DXC.bgAlt : 'transparent',
+                  border: isSelected ? `1.5px solid ${DXC.blue}` : '1.5px solid transparent',
+                  opacity: isWE ? 0.7 : 1,
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 600, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>{d}</div>
+                {fc && fc.predicted > 50 && (
+                  <div style={{ fontSize: 8, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>
+                    {fc.predicted >= 1000 ? (Math.round(fc.predicted / 100) / 10) + 'k' : fc.predicted}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Légende */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {[['#dcfce7','#166534','Calme'],['#fef3c7','#92400e','Moyen'],['#fee2e2','#991b1b','Pic']].map(([bg,txt,label]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: DXC.textMuted }}>
+              <div style={{ width: 9, height: 9, borderRadius: 3, background: bg, border: `1px solid ${txt}33` }} />
+              {label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Panneau détail semaine ── */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        {/* KPIs semaine */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          {[
+            { label: 'Total semaine', value: Math.round(total).toLocaleString('fr-FR'), color: DXC.blue },
+            { label: 'Moy. ouvré', value: avgW.toLocaleString('fr-FR'), color: DXC.text },
+            { label: 'Pic prévu', value: Math.round(peak).toLocaleString('fr-FR'), color: '#ef4444' },
+            { label: 'Jours data', value: `${weekDays.filter(x => x.fc).length} / 7`, color: DXC.textMuted },
+          ].map(s => (
+            <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '8px 10px', border: `1px solid ${DXC.border}`, textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>{s.label}</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Barres par jour */}
+        <div style={{ background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '8px 12px', borderBottom: `1px solid ${DXC.border}`, fontSize: 11, fontWeight: 700, color: DXC.textMuted, textTransform: 'uppercase' }}>
+            Détail journalier — semaine sélectionnée
+          </div>
+          {weekDays.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: DXC.textMuted }}>Aucune donnée pour cette semaine</div>
+          ) : weekDays.map(({ d, fc, dowIdx }) => {
+            const label = DAYS_FR[dowIdx] + ' ' + d
+            const val = fc ? fc.predicted : null
+            const isWE = dowIdx >= 5
+            const c = val !== null ? getColor(val, isWE) : null
+            const barColor = c ? (val < q1 ? '#22c55e' : val < q2 ? '#f59e0b' : '#ef4444') : DXC.border
+            const barW = val !== null ? Math.round(val / maxBar * 100) : 0
+            return (
+              <div key={d} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 56px', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${DXC.border}` }}>
+                <div style={{ fontSize: 11, color: isWE ? DXC.textMuted : DXC.text, fontWeight: isWE ? 400 : 600 }}>{label}</div>
+                <div style={{ height: 8, background: DXC.bgAlt, borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${barW}%`, background: barColor, borderRadius: 4, transition: 'width .3s' }} />
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: c ? c.txt : DXC.textMuted, textAlign: 'right' }}>
+                  {val !== null ? Math.round(val).toLocaleString('fr-FR') : '—'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ══ ForecastChart ═══════════════════════════════════════════════════ */
 function ForecastChart({ history, forecast, color, horizon }) {
@@ -283,6 +481,7 @@ function HorizonTab({ data, horizon, color }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <MetricsBar forecast={forecast} metrics={horizon === '7d' ? metrics : null} />
       <ForecastChart history={history} forecast={forecast} color={color} horizon={horizon} />
+      <ForecastCalendar forecastData={data} horizon={horizon} />
 
       {/* Table */}
       <div style={{ background: DXC.bg, borderRadius: 12, border: `1px solid ${DXC.border}`, overflow: 'hidden' }}>
