@@ -1337,10 +1337,9 @@ def forecast_view(request):
     try:
         # ── 1. Charger les données depuis la DB ──────────────────────────
         from .models import DailySnapshot  # adapte selon ton modèle réel
-        qs = DailySnapshot.objects.values('date', 'offered_contacts').order_by('date')
+        df_raw.rename(columns={'date': 'Day', 'total_offered': 'Offered contacts'}, inplace=True)
         df_raw = pd.DataFrame(list(qs))
-        df_raw.rename(columns={'date': 'Day', 'offered_contacts': 'Offered contacts'}, inplace=True)
-
+        
         # ── 2. Agrégation + nettoyage ────────────────────────────────────
         df_raw['Day'] = pd.to_datetime(df_raw['Day'])
         df = df_raw.groupby('Day')['Offered contacts'].sum().reset_index()
