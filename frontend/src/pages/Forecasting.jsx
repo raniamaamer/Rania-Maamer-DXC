@@ -1,260 +1,115 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, ReferenceLine, RadarChart,
-  PolarGrid, PolarAngleAxis, Radar,
+  ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-
-/* ══ Generate dates ══════════════════════════════════════════════════ */
-function genDates(start, count) {
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(start)
-    d.setDate(d.getDate() + i)
-    return d.toISOString().slice(0, 10)
-  })
-}
-
-function genHistDates(count) {
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date('2026-03-03')
-    d.setDate(d.getDate() + i)
-    return d.toISOString().slice(0, 10)
-  })
-}
-
-/* ══ Generate 365-day forecasts ══════════════════════════════════════ */
-function genOffered(len) {
-  const weekly = [1180, 980, 620, 1310, 1290, 1250, 1230]
-  return Array.from({ length: len }, (_, i) => {
-    const w = weekly[i % 7]
-    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 80)
-    const trend = Math.round(-i * 0.12)
-    return Math.max(w + seasonal + trend, 400)
-  })
-}
-
-function genAbandoned(len) {
-  const weekly = [42, 38, 18, 45, 44, 43, 40]
-  return Array.from({ length: len }, (_, i) => {
-    const w = weekly[i % 7]
-    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 5)
-    return Math.max(w + seasonal, 8)
-  })
-}
-
-function genAht(len) {
-  return Array.from({ length: len }, (_, i) =>
-    Math.round(394 + Math.sin((i / 7) * Math.PI) * 15 + Math.sin((i / 365) * 2 * Math.PI) * 20)
-  )
-}
-
-function genAsa(len) {
-  return Array.from({ length: len }, (_, i) =>
-    Math.round(18 + Math.sin(i / 5) * 4 + Math.sin((i / 365) * 2 * Math.PI) * 3)
-  )
-}
-
-function genHold(len) {
-  const weekly = [108, 115, 95, 112, 110, 108, 106]
-  return Array.from({ length: len }, (_, i) => {
-    const w = weekly[i % 7]
-    const seasonal = Math.round(Math.sin((i / 365) * 2 * Math.PI) * 15)
-    return Math.max(w + seasonal, 60)
-  })
-}
-
-function genTtc(len) {
-  return Array.from({ length: len }, (_, i) =>
-    Math.round(367 + Math.sin((i / 7) * Math.PI) * 20 + Math.sin((i / 365) * 2 * Math.PI) * 25)
-  )
-}
-
-const FORECAST_LEN = 365
-
-const ML_DATA = {
-  generated_at: '2026-05-12',
-  forecast_dates: genDates('2026-05-03', FORECAST_LEN),
-  kpis: {
-    offered: {
-      best_model: 'XGBoost', best_mape: 35.6, unit: 'appels', avg_value: 1247,
-      backtest: { Prophet: { mae: 194.2, mape: 38.1 }, SARIMA: { mae: 210.5, mape: 42.3 }, XGBoost: { mae: 167.8, mape: 35.6 }, LightGBM: { mae: 174.1, mape: 36.9 } },
-      future_forecast: genOffered(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: [1210,1180,820,550,1290,1270,1230,1200,1170,810,530,1280,1260,1220,1190,1160,800,520,1270,1250,1210,1180,1150,790,510,1260,1240,1200,1170,1140,780,500,1250,1230,1190,1160,1130,770,490,1240,1220,1180,1150,1120,760,480,1230,1210,1170,1140,1110,750,470,1220,1200,1160,1130,1100,740,460] },
-      backtest_actual: [1180,990,630,1290,1270,1240,1210,1070,740,1320,1300,1270,1240,1090,760,1280,1260,1230,1200,1050,720,1290,1270,1240,1210,1060,730,1300,1280,1250],
-      backtest_forecasts: {
-        XGBoost: [1160,960,600,1280,1260,1230,1200,1060,730,1310,1290,1260,1230,1080,750,1270,1250,1220,1190,1040,710,1280,1260,1230,1200,1050,720,1290,1270,1240],
-        Prophet: [1190,1010,650,1300,1280,1250,1220,1090,760,1330,1310,1280,1250,1110,780,1290,1270,1240,1210,1070,740,1300,1280,1250,1220,1080,750,1310,1290,1260],
-      },
-    },
-    abandoned: {
-      best_model: 'LightGBM', best_mape: 67.2, unit: 'appels', avg_value: 48,
-      backtest: { Prophet: { mae: 28.4, mape: 71.8 }, SARIMA: { mae: 31.2, mape: 78.5 }, XGBoost: { mae: 27.1, mape: 68.4 }, LightGBM: { mae: 26.5, mape: 67.2 } },
-      future_forecast: genAbandoned(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: [52,48,22,15,55,53,51,49,45,20,13,54,52,50,48,44,19,12,53,51,49,47,43,18,11,52,50,48,46,42,17,10,51,49,47,45,41,16,9,50,48,46,44,40,15,8,49,47,45,43,39,14,7,48,46,44,42,38,13,6] },
-      backtest_actual: [45,40,19,48,46,45,42,39,17,49,47,46,43,40,18,47,46,45,42,39,16,48,47,46,43,40,17,48,47,46],
-      backtest_forecasts: {
-        LightGBM: [43,37,17,46,44,43,40,37,15,47,45,44,41,38,16,45,44,43,40,37,14,46,45,44,41,38,15,46,45,44],
-        Prophet:  [46,42,20,49,47,46,43,40,18,50,48,47,44,41,19,48,47,46,43,40,17,49,48,47,44,41,18,49,48,47],
-      },
-    },
-    avg_aht: {
-      best_model: 'SARIMA', best_mape: 7.7, unit: 'sec', avg_value: 394,
-      backtest: { Prophet: { mae: 28.1, mape: 12.4 }, SARIMA: { mae: 17.5, mape: 7.7 }, XGBoost: { mae: 24.3, mape: 10.8 }, LightGBM: { mae: 22.8, mape: 10.1 } },
-      future_forecast: genAht(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*15+Math.random()*10-5)) },
-      backtest_actual: Array.from({length:30},(_,i)=>Math.round(394+Math.sin(i/7*Math.PI)*12)),
-      backtest_forecasts: {
-        SARIMA:  Array.from({length:30},(_,i)=>Math.round(391+Math.sin(i/7*Math.PI)*11)),
-        Prophet: Array.from({length:30},(_,i)=>Math.round(396+Math.sin(i/7*Math.PI)*14)),
-      },
-    },
-    asa: {
-      best_model: 'XGBoost', best_mape: 45.7, unit: 'sec', avg_value: 18,
-      backtest: { Prophet: { mae: 7.8, mape: 47.2 }, SARIMA: { mae: 8.1, mape: 49.5 }, XGBoost: { mae: 7.4, mape: 45.7 }, LightGBM: { mae: 7.6, mape: 46.9 } },
-      future_forecast: genAsa(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(18+Math.random()*8-4)) },
-      backtest_actual: Array.from({length:30},(_,i)=>Math.round(18+Math.sin(i/5)*4)),
-      backtest_forecasts: {
-        XGBoost: Array.from({length:30},(_,i)=>Math.round(17+Math.sin(i/5)*3.5)),
-        Prophet: Array.from({length:30},(_,i)=>Math.round(19+Math.sin(i/5)*4.5)),
-      },
-    },
-    avg_hold: {
-      best_model: 'Prophet', best_mape: 15.2, unit: 'sec', avg_value: 112,
-      backtest: { Prophet: { mae: 14.2, mape: 15.2 }, SARIMA: { mae: 16.8, mape: 18.1 }, XGBoost: { mae: 15.9, mape: 17.0 }, LightGBM: { mae: 15.4, mape: 16.5 } },
-      future_forecast: genHold(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*18+Math.random()*10-5)) },
-      backtest_actual: Array.from({length:30},(_,i)=>Math.round(112+Math.sin(i/7*Math.PI)*16)),
-      backtest_forecasts: {
-        Prophet: Array.from({length:30},(_,i)=>Math.round(110+Math.sin(i/7*Math.PI)*15)),
-        SARIMA:  Array.from({length:30},(_,i)=>Math.round(113+Math.sin(i/7*Math.PI)*17)),
-      },
-    },
-    avg_ttc: {
-      best_model: 'SARIMA', best_mape: 9.2, unit: 'sec', avg_value: 367,
-      backtest: { Prophet: { mae: 31.4, mape: 12.8 }, SARIMA: { mae: 22.5, mape: 9.2 }, XGBoost: { mae: 28.7, mape: 11.7 }, LightGBM: { mae: 26.9, mape: 11.0 } },
-      future_forecast: genTtc(FORECAST_LEN),
-      historical: { dates: genHistDates(60), values: Array.from({length:60},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*20+Math.random()*12-6)) },
-      backtest_actual: Array.from({length:30},(_,i)=>Math.round(367+Math.sin(i/7*Math.PI)*18)),
-      backtest_forecasts: {
-        SARIMA:  Array.from({length:30},(_,i)=>Math.round(364+Math.sin(i/7*Math.PI)*17)),
-        Prophet: Array.from({length:30},(_,i)=>Math.round(370+Math.sin(i/7*Math.PI)*19)),
-      },
-    },
-  },
-}
 
 /* ══ Design Tokens ═══════════════════════════════════════════════════ */
 const DXC = {
-  blue:        '#3B6AC8',
-  blueLight:   '#6B8FD4',
-  bluePale:    '#EAF0FA',
-  orange:      '#E8845A',
-  orangeLight: '#F0A070',
-  orangePale:  '#FDF1EB',
-  green:       '#1A9E6E',
-  greenPale:   '#E6F5F0',
-  red:         '#D94040',
-  redPale:     '#FDEAEA',
-  amber:       '#C97D10',
-  amberPale:   '#FDF4E3',
-  purple:      '#7B6FC8',
-  purplePale:  '#F0EEF9',
-  text:        '#111827',
-  textMuted:   '#6B7280',
-  border:      '#E5E7EB',
-  bg:          '#FFFFFF',
-  bgSurface:   '#F9FAFB',
-  bgAlt:       '#F3F4F6',
+  blue:       '#3B6AC8', blueLight: '#6B8FD4', bluePale: '#EAF0FA',
+  orange:     '#E8845A', orangeLight: '#F0A070', orangePale: '#FDF1EB',
+  green:      '#1A9E6E', greenPale: '#E6F5F0',
+  red:        '#D94040', redPale: '#FDEAEA',
+  amber:      '#C97D10', amberPale: '#FDF4E3',
+  purple:     '#7B6FC8', purplePale: '#F0EEF9',
+  text:       '#111827', textMuted: '#6B7280',
+  border:     '#E5E7EB', bg: '#FFFFFF',
+  bgSurface:  '#F9FAFB', bgAlt: '#F3F4F6',
 }
 
-const MODEL_COLORS = {
-  Prophet:  '#7B6FC8',
-  SARIMA:   '#E8845A',
-  XGBoost:  '#3B6AC8',
-  LightGBM: '#1A9E6E',
-}
-const MODEL_BADGES = {
-  Prophet:  { bg: '#F0EEF9', text: '#5B21B6' },
-  SARIMA:   { bg: '#FDF1EB', text: '#9A3412' },
-  XGBoost:  { bg: '#EAF0FA', text: '#1D4ED8' },
-  LightGBM: { bg: '#E6F5F0', text: '#065F46' },
+const QUEUE_COLORS = {
+  'Servier English':          DXC.blue,
+  'Servier French':           DXC.orange,
+  'Servier French Password':  DXC.purple,
+  'Servier Spanish':          DXC.green,
 }
 
+const QUEUE_ICONS = {
+  'Servier English':          '🇬🇧',
+  'Servier French':           '🇫🇷',
+  'Servier French Password':  '🔐',
+  'Servier Spanish':          '🇪🇸',
+}
+
+/* ══ KPI metadata ════════════════════════════════════════════════════ */
 const KPI_META = {
-  offered:   { label: 'Offered',   icon: '📞', color: DXC.blue,   desc: 'Appels reçus' },
-  abandoned: { label: 'Abandoned', icon: '📵', color: DXC.red,    desc: 'Abandons' },
-  avg_aht:   { label: 'Avg AHT',   icon: '⏱',  color: DXC.purple, desc: 'Durée moyenne' },
-  asa:       { label: 'ASA',       icon: '⚡',  color: DXC.amber,  desc: 'Temps de réponse' },
-  avg_hold:  { label: 'Avg Hold',  icon: '⏸',  color: DXC.green,  desc: 'Temps en attente' },
-  avg_ttc:   { label: 'Avg TTC',   icon: '🔄',  color: DXC.orange, desc: 'Temps agent' },
+  offered:   { label: 'Offered',    icon: '📞', unit: 'appels', desc: 'Appels reçus',     color: DXC.blue   },
+  abandoned: { label: 'Abandoned',  icon: '📵', unit: 'appels', desc: 'Abandons',         color: DXC.red    },
+  aht:       { label: 'Avg AHT',    icon: '⏱',  unit: 'sec',   desc: 'Durée moy. traitement', color: DXC.purple },
+  asa:       { label: 'ASA',        icon: '⚡',  unit: 'sec',   desc: 'Temps de réponse', color: DXC.amber  },
+  hold:      { label: 'Avg Hold',   icon: '⏸',  unit: 'sec',   desc: 'Temps en attente', color: DXC.green  },
+  ttc:       { label: 'Avg TTC',    icon: '🔄',  unit: 'sec',   desc: 'Temps agent',      color: DXC.orange },
 }
 
-const HORIZONS = [
-  { value: 7,   label: 'J+7' },
-  { value: 30,  label: 'J+30' },
-  { value: 365, label: '1 an' },
-]
+/* ══ Real historical data from Servier_KPIs.csv ══════════════════════ */
+const REAL_DATA = {
+  'Servier English': {
+    dates:     ["2026-01-16","2026-01-19","2026-01-22","2026-01-23","2026-01-26","2026-01-28","2026-01-29","2026-01-31","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-08","2026-02-09","2026-02-10","2026-02-11","2026-02-12","2026-02-13","2026-02-15","2026-02-16","2026-02-18","2026-02-21","2026-02-23","2026-02-25","2026-02-26","2026-03-03","2026-03-04","2026-03-05","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-16","2026-03-17","2026-03-23","2026-03-24","2026-03-26","2026-03-27","2026-03-31","2026-04-02","2026-04-03","2026-04-05","2026-04-06","2026-04-07","2026-04-08","2026-04-09","2026-04-10","2026-04-12","2026-04-13","2026-04-16","2026-04-21","2026-04-22","2026-04-23","2026-04-25","2026-04-27","2026-04-28","2026-04-29","2026-05-01","2026-05-02"],
+    offered:   [3,1,2,2,1,3,3,2,2,2,1,2,3,1,1,1,6,5,4,1,3,1,1,2,3,4,2,5,1,1,2,5,2,2,4,3,1,2,1,3,1,4,1,1,4,2,4,3,1,2,4,9,4,1,1,1,1,2,3,1],
+    abandoned: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    asa:       [2,2,2,2,16,2,106,2,2,4,2,2,2,2,262,6,2,2,2,3,2,7,2,3,2,2,39,2,3,3,2,2,6,2,2,2,1,2,3,9,2,2,2,2,7,2,2,2,2,2,3,2,5,3,2,2,22,2,4,2],
+    aht:       [514,1712,724,472,166,284,278,86,530,190,516,346,233,129,11,1193,232,387,121,76,248,563,9,225,187,352,842,225,575,801,1136,167,217,509,973,969,632,132,551,185,1072,398,782,284,304,683,407,150,23,245,350,290,376,758,2,15,515,124,446,111],
+    ttc:       [475,1692,694,467,135,271,266,81,513,182,503,330,221,125,10,1190,225,380,116,72,237,553,9,212,181,337,836,211,565,793,1128,161,207,500,965,961,622,123,543,178,1063,385,773,280,290,679,401,144,22,239,341,286,364,752,2,14,311,71,336,110],
+    hold:      [44,165,135,16,84,22,26,12,48,30,44,32,42,12,0,170,26,50,17,8,26,56,0,32,30,43,201,30,88,115,200,22,22,71,135,166,94,23,68,26,195,33,105,35,52,83,36,17,0,30,47,45,29,66,0,0,203,87,160,0],
+    totals: { total_offered: 1616, total_abandoned: 63, avg_asa: 6.8, avg_aht: 374.9, avg_ttc: 328.5, avg_hold: 71.2 },
+  },
+  'Servier French': {
+    dates:     ["2026-01-01","2026-01-02","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-12","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-09","2026-02-10","2026-02-11","2026-02-12","2026-02-13","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-23","2026-02-24","2026-02-25","2026-02-26","2026-02-27","2026-03-02","2026-03-03","2026-03-04","2026-03-05","2026-03-06","2026-03-09","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-20","2026-03-23","2026-03-24","2026-03-25"],
+    offered:   [17,31,35,41,40,36,38,44,37,38,35,27,37,33,38,32,33,39,39,35,31,38,30,34,38,34,34,30,29,25,32,27,26,36,29,32,33,31,33,30,36,33,35,31,33,33,34,35,30,33,28,32,30,34,25,26,31,28,29,28],
+    abandoned: [0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    asa:       [3,3,3,4,3,3,3,3,3,4,3,3,3,3,3,4,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3,3,3,3,2,3,3,3,3,3,3,3,3,3],
+    aht:       [462,512,498,540,521,472,495,543,520,519,481,467,503,488,527,476,483,538,521,482,468,530,443,489,532,475,484,432,427,378,462,412,383,519,432,477,492,460,489,445,527,490,519,461,498,492,521,512,436,498,418,476,441,511,379,385,468,421,441,427],
+    ttc:       [413,460,445,487,468,420,443,492,469,467,430,415,451,436,476,424,431,487,470,430,416,479,392,437,481,423,432,380,376,327,410,360,332,467,380,425,440,408,437,393,476,439,468,409,447,440,469,461,384,447,366,424,389,460,327,333,416,369,389,375],
+    hold:      [79,84,81,91,86,74,81,92,86,87,77,73,85,80,91,76,79,92,87,77,74,92,70,79,87,76,79,67,67,57,74,63,57,86,68,78,82,71,81,68,92,80,88,71,82,80,90,88,65,81,62,77,67,88,56,57,76,63,67,64],
+    totals: { total_offered: 20446, total_abandoned: 315, avg_asa: 8.0, avg_aht: 485.7, avg_ttc: 430.5, avg_hold: 140.6 },
+  },
+  'Servier French Password': {
+    dates:     ["2026-01-02","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-12","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-09","2026-02-10","2026-02-11","2026-02-12","2026-02-13","2026-02-16","2026-02-17","2026-02-18","2026-02-19","2026-02-20","2026-02-23","2026-02-24","2026-02-25","2026-02-26","2026-02-27","2026-03-02","2026-03-03","2026-03-04","2026-03-05","2026-03-06","2026-03-09","2026-03-10","2026-03-11","2026-03-12","2026-03-13","2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-23","2026-04-25","2026-04-27","2026-04-28","2026-04-30"],
+    offered:   [8,10,12,11,9,10,13,11,10,9,8,10,9,11,10,9,11,10,9,8,10,9,10,11,9,10,8,9,7,8,9,7,8,11,9,10,9,10,9,8,10,9,10,9,10,9,10,9,8,9,8,10,9,8,9,8,2,5,2,6],
+    abandoned: [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    asa:       [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,3],
+    aht:       [503,545,582,558,492,521,600,557,521,490,461,521,481,565,519,474,574,529,480,434,521,470,521,565,471,521,430,474,381,435,474,378,414,574,465,521,465,521,465,414,521,465,521,474,521,474,521,465,414,465,414,521,465,414,465,414,184,576,712,1065],
+    ttc:       [449,492,526,502,440,468,546,502,467,437,408,467,428,511,465,420,521,475,426,380,468,417,468,511,417,468,376,420,328,381,420,324,360,521,411,468,411,468,411,360,468,411,468,420,468,420,468,411,360,411,360,468,411,360,411,360,73,542,484,1014],
+    hold:      [87,95,103,100,82,92,112,101,93,84,74,93,84,105,93,82,106,95,83,68,93,80,93,105,81,93,66,82,57,69,82,56,67,106,80,93,80,93,80,67,93,80,93,82,93,82,93,80,67,80,67,93,80,67,80,67,221,134,451,100],
+    totals: { total_offered: 4265, total_abandoned: 86, avg_asa: 7.8, avg_aht: 514.6, avg_ttc: 417.8, avg_hold: 140.9 },
+  },
+  'Servier Spanish': {
+    dates:     ["2025-06-02","2025-07-07","2025-07-14","2025-08-04","2025-08-18","2025-09-01","2025-09-15","2025-10-06","2025-10-20","2025-11-03","2025-11-17","2025-12-01","2025-12-15","2026-01-05","2026-01-19","2026-02-02","2026-02-16","2026-03-02","2026-03-13","2026-03-26","2026-04-01","2026-04-03","2026-04-28"],
+    offered:   [2,1,1,1,1,2,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1],
+    abandoned: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    asa:       [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,6,2,3,1,3],
+    aht:       [200,180,220,190,175,210,165,230,185,195,215,170,205,180,190,175,185,195,338,14,229,510,447],
+    ttc:       [180,162,198,171,157,189,148,207,166,175,193,153,184,162,171,157,166,175,229,13,228,509,263],
+    hold:      [38,34,42,36,33,40,31,44,35,37,41,32,39,34,36,33,35,37,107,0,0,0,182],
+    totals: { total_offered: 271, total_abandoned: 5, avg_asa: 3.8, avg_aht: 131.5, avg_ttc: 110.7, avg_hold: 20.0 },
+  },
+}
 
-function mapeColor(v) {
-  if (v <= 15) return DXC.green
-  if (v <= 35) return DXC.amber
-  return DXC.red
-}
-function mapeLabel(v) {
-  if (v <= 15) return 'Excellent'
-  if (v <= 35) return 'Acceptable'
-  return 'Volatile'
-}
-function mapeBg(v) {
-  if (v <= 15) return DXC.greenPale
-  if (v <= 35) return DXC.amberPale
-  return DXC.redPale
-}
-
+/* ══ Helpers ═════════════════════════════════════════════════════════ */
 function fmtDate(d) {
+  if (!d) return ''
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 function fmtVal(v, unit) {
-  if (unit === 'sec') return `${Math.round(v)}s`
+  if (v == null || isNaN(v)) return '–'
+  if (unit === 'sec') {
+    const m = Math.floor(v / 60), s = Math.round(v % 60)
+    return m > 0 ? `${m}m${s.toString().padStart(2,'0')}s` : `${s}s`
+  }
   return Math.round(v).toLocaleString('fr-FR')
 }
-
-/* ══ Horizon Toggle ══════════════════════════════════════════════════ */
-function HorizonToggle({ horizon, setHorizon, color, onReset }) {
-  return (
-    <div style={{ display: 'flex', background: DXC.bgAlt, borderRadius: 8, padding: 3, gap: 3, border: `1px solid ${DXC.border}` }}>
-      {HORIZONS.map(h => (
-        <button
-          key={h.value}
-          onClick={() => { setHorizon(h.value); onReset && onReset() }}
-          style={{
-            background:   horizon === h.value ? color : 'transparent',
-            color:        horizon === h.value ? '#FFFFFF' : DXC.textMuted,
-            border:       'none',
-            borderRadius: 6,
-            padding:      '5px 14px',
-            fontSize:     12,
-            fontWeight:   700,
-            cursor:       'pointer',
-            transition:   'all .18s',
-            fontFamily:   "'Syne', system-ui, sans-serif",
-          }}
-        >
-          {h.label}
-        </button>
-      ))}
-    </div>
-  )
+function avg(arr) {
+  const clean = arr.filter(x => x != null && !isNaN(x))
+  return clean.length ? clean.reduce((a, b) => a + b, 0) / clean.length : 0
 }
 
-/* ══ Tooltip ════════════════════════════════════════════════════════ */
+/* ══ Custom Tooltip ══════════════════════════════════════════════════ */
 const CustomTooltip = ({ active, payload, label, unit }) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 8, padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.10)' }}>
-      <div style={{ color: DXC.textMuted, marginBottom: 6, fontWeight: 600 }}>{fmtDate(label)}</div>
+    <div style={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+      <div style={{ color: DXC.textMuted, marginBottom: 6, fontWeight: 700 }}>{fmtDate(label)}</div>
       {payload.map(p => (
         <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: p.color }} />
@@ -266,132 +121,115 @@ const CustomTooltip = ({ active, payload, label, unit }) => {
   )
 }
 
-/* ══ KpiCard ════════════════════════════════════════════════════════ */
-function KpiCard({ kpiKey, data, selected, onClick }) {
-  const meta = KPI_META[kpiKey]
-  const trend = data.future_forecast.slice(-7).reduce((a,b)=>a+b,0) / 7
-  const trendDir = trend > data.avg_value ? '↑' : trend < data.avg_value ? '↓' : '→'
-  const trendColor = kpiKey === 'offered'
-    ? (trend > data.avg_value ? DXC.green : DXC.red)
-    : (trend < data.avg_value ? DXC.green : DXC.red)
-
+/* ══ StreamText ══════════════════════════════════════════════════════ */
+function StreamText({ text }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
-        background: '#FFFFFF',
-        border: `1px solid ${selected ? meta.color : DXC.border}`,
-        borderTop: `3px solid ${meta.color}`,
-        borderRadius: 12,
-        padding: '16px 18px',
-        cursor: 'pointer',
-        transition: 'all .2s',
-        boxShadow: selected
-          ? `0 0 0 3px ${meta.color}22, 0 2px 8px rgba(0,0,0,0.08)`
-          : '0 1px 4px rgba(0,0,0,0.05)',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 18 }}>{meta.icon}</div>
-          <div style={{ color: DXC.textMuted, fontSize: 10, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{meta.desc}</div>
-          <div style={{ color: DXC.text, fontWeight: 700, fontSize: 14, marginTop: 2 }}>{meta.label}</div>
-        </div>
-      </div>
-
-      <div style={{ height: 40 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data.future_forecast.slice(0, 30).map((v,i)=>({i,v}))}>
-            <Line type="monotone" dataKey="v" stroke={meta.color} strokeWidth={1.5} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, borderTop: `1px solid ${DXC.border}`, paddingTop: 8 }}>
-        <span style={{ color: DXC.textMuted }}>Moy. prévue</span>
-        <span style={{ color: trendColor, fontWeight: 700 }}>
-          {fmtVal(data.future_forecast.slice(0,30).reduce((a,b)=>a+b,0)/30, data.unit)} {trendDir}
-        </span>
-      </div>
+    <div style={{ fontSize: 14, lineHeight: 1.8, color: DXC.text }}>
+      {text.split('\n').map((line, i) => {
+        if (line.startsWith('## ')) return <div key={i} style={{ fontWeight: 800, fontSize: 16, color: DXC.orange, marginTop: 20, marginBottom: 8 }}>{line.slice(3)}</div>
+        if (line.startsWith('### ')) return <div key={i} style={{ fontWeight: 700, fontSize: 14, color: DXC.blue, marginTop: 14, marginBottom: 6 }}>{line.slice(4)}</div>
+        if (line.startsWith('- ') || line.startsWith('• ')) return (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5, paddingLeft: 8 }}>
+            <span style={{ color: DXC.orange, fontWeight: 700, flexShrink: 0 }}>›</span>
+            <span>{line.slice(2)}</span>
+          </div>
+        )
+        if (/^\d+\./.test(line)) return (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5, paddingLeft: 8 }}>
+            <span style={{ color: DXC.blue, fontWeight: 700, flexShrink: 0 }}>{line.match(/^\d+/)[0]}.</span>
+            <span>{line.replace(/^\d+\.\s*/, '')}</span>
+          </div>
+        )
+        if (!line.trim()) return <div key={i} style={{ height: 8 }} />
+        const parts = line.split(/(\*\*.*?\*\*)/)
+        return (
+          <div key={i} style={{ marginBottom: 3 }}>
+            {parts.map((p, j) => p.startsWith('**') && p.endsWith('**') ? <strong key={j}>{p.slice(2, -2)}</strong> : p)}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-/* ══ ModelRadar ══════════════════════════════════════════════════════ */
-function ModelRadar() {
-  const MODELS = ['Prophet','SARIMA','XGBoost','LightGBM']
-  const radarData = Object.keys(KPI_META).map(k => {
-    const d = ML_DATA.kpis[k]
-    const mapes = MODELS.map(m => d.backtest[m]?.mape || 999)
-    const minM = Math.min(...mapes), maxM = Math.max(...mapes)
-    const row = { kpi: KPI_META[k].label }
-    MODELS.forEach(m => {
-      const val = d.backtest[m]?.mape || 999
-      row[m] = maxM > minM ? Math.round((1 - (val-minM)/(maxM-minM)) * 100) : 50
-    })
-    return row
-  })
+/* ══ HistoryChart ════════════════════════════════════════════════════ */
+function HistoryChart({ queue, kpi }) {
+  const data = REAL_DATA[queue]
+  const meta = KPI_META[kpi]
+  const color = QUEUE_COLORS[queue]
+  const chartData = data.dates.map((d, i) => ({ date: d, value: data[kpi][i] }))
 
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-      <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Score relatif des modèles (100 = meilleur)
+    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}` }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: DXC.text, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {meta.icon} {meta.label} — Historique réel
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <RadarChart data={radarData}>
-          <PolarGrid stroke={DXC.border} />
-          <PolarAngleAxis dataKey="kpi" tick={{ fill: DXC.textMuted, fontSize: 11 }} />
-          {MODELS.map(m => (
-            <Radar key={m} name={m} dataKey={m} stroke={MODEL_COLORS[m]}
-              fill={MODEL_COLORS[m]} fillOpacity={0.1} strokeWidth={1.5} />
-          ))}
-          <Legend wrapperStyle={{ fontSize: 11, color: DXC.textMuted }} />
-          <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 8, fontSize: 11 }} />
-        </RadarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-/* ══ BacktestChart ═══════════════════════════════════════════════════ */
-function BacktestChart({ kpiKey }) {
-  const kpiData = ML_DATA.kpis[kpiKey]
-  const dates = ML_DATA.forecast_dates.slice(0, 30)
-
-  const chartData = dates.map((d, i) => {
-    const row = { date: d, Réel: kpiData.backtest_actual[i] }
-    Object.entries(kpiData.backtest_forecasts || {}).forEach(([model, vals]) => {
-      row[model] = vals[i]
-    })
-    return row
-  })
-
-  const models = Object.keys(kpiData.backtest_forecasts || {})
-
-  return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Backtest 30 jours — Prédit vs Réel
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {Object.entries(kpiData.backtest).map(([m, v]) => (
-            <div key={m} style={{ background: MODEL_BADGES[m]?.bg, color: MODEL_BADGES[m]?.text, fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 700 }}>
-              {m} {v.mape}%
-            </div>
-          ))}
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={chartData}>
+      <div style={{ fontSize: 12, color: DXC.textMuted, marginBottom: 16 }}>{queue} · {data.dates[0]} → {data.dates[data.dates.length - 1]}</div>
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id={`g_${queue}_${kpi}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid stroke={DXC.border} strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={fmtDate} interval={4} />
-          <YAxis tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={v => fmtVal(v, kpiData.unit)} width={55} />
-          <Tooltip content={<CustomTooltip unit={kpiData.unit} />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: DXC.textMuted }} />
-          <Line type="monotone" dataKey="Réel" stroke={DXC.text} strokeWidth={2.5} dot={false} />
-          {models.map(m => (
-            <Line key={m} type="monotone" dataKey={m} stroke={MODEL_COLORS[m]} strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+          <XAxis dataKey="date" tick={{ fill: DXC.textMuted, fontSize: 9 }} tickFormatter={fmtDate} interval={Math.floor(chartData.length / 6)} />
+          <YAxis tick={{ fill: DXC.textMuted, fontSize: 9 }} tickFormatter={v => fmtVal(v, meta.unit)} width={45} />
+          <Tooltip content={<CustomTooltip unit={meta.unit} />} />
+          <Area type="monotone" dataKey="value" name={meta.label} stroke={color} strokeWidth={2} fill={`url(#g_${queue}_${kpi})`} dot={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 14 }}>
+        {[
+          { label: 'Moy.', value: fmtVal(avg(data[kpi]), meta.unit) },
+          { label: 'Min',  value: fmtVal(Math.min(...data[kpi].filter(x => x != null)), meta.unit) },
+          { label: 'Max',  value: fmtVal(Math.max(...data[kpi].filter(x => x != null)), meta.unit) },
+        ].map(s => (
+          <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '8px 10px', textAlign: 'center', border: `1px solid ${DXC.border}` }}>
+            <div style={{ fontSize: 9, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>{s.label}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: DXC.text }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ══ AllQueuesCompare ════════════════════════════════════════════════ */
+function AllQueuesCompare({ kpi }) {
+  const meta = KPI_META[kpi]
+  const queues = Object.keys(REAL_DATA)
+
+  // Build combined chart: last 30 points of each queue mapped to common index
+  const maxLen = Math.max(...queues.map(q => REAL_DATA[q].dates.length))
+  const combined = Array.from({ length: Math.min(30, maxLen) }, (_, i) => {
+    const row = { idx: i }
+    queues.forEach(q => {
+      const d = REAL_DATA[q]
+      const offset = Math.max(0, d.dates.length - 30)
+      row[q] = d[kpi][offset + i] ?? null
+      row[`date_${q}`] = d.dates[offset + i] ?? null
+    })
+    return row
+  })
+
+  return (
+    <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}` }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: DXC.text, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {meta.icon} {meta.label} — Comparaison toutes les queues
+      </div>
+      <div style={{ fontSize: 12, color: DXC.textMuted, marginBottom: 16 }}>30 derniers points par queue</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={combined}>
+          <CartesianGrid stroke={DXC.border} strokeDasharray="3 3" />
+          <XAxis dataKey="idx" tick={{ fill: DXC.textMuted, fontSize: 9 }} tickFormatter={v => `J${v + 1}`} />
+          <YAxis tick={{ fill: DXC.textMuted, fontSize: 9 }} tickFormatter={v => fmtVal(v, meta.unit)} width={45} />
+          <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${DXC.border}`, borderRadius: 8, fontSize: 11 }} formatter={(v, n) => [fmtVal(v, meta.unit), n]} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {queues.map(q => (
+            <Line key={q} type="monotone" dataKey={q} name={`${QUEUE_ICONS[q]} ${q}`}
+              stroke={QUEUE_COLORS[q]} strokeWidth={2} dot={false} connectNulls />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -399,485 +237,360 @@ function BacktestChart({ kpiKey }) {
   )
 }
 
-/* ══ ForecastChart ═══════════════════════════════════════════════════ */
-function ForecastChart({ kpiKey }) {
-  const [horizon, setHorizon] = useState(30)
-  const [pickedDate, setPickedDate] = useState('')
-
-  const kpiData = ML_DATA.kpis[kpiKey]
-  const meta    = KPI_META[kpiKey]
-
-  const slicedDates    = ML_DATA.forecast_dates.slice(0, horizon)
-  const slicedForecast = kpiData.future_forecast.slice(0, horizon)
-
-  // For 1-year view, sample every 7 days to keep chart readable
-  const sampleStep = horizon === 365 ? 7 : 1
-  const sampledFuture = slicedDates
-    .filter((_, i) => i % sampleStep === 0)
-    .map((d, i) => {
-      const idx = i * sampleStep
-      return {
-        date: d,
-        prévision: slicedForecast[idx],
-        upper: Math.round(slicedForecast[idx] * 1.15),
-        lower: Math.round(slicedForecast[idx] * 0.85),
-        type: 'future',
-      }
-    })
-
-  const histData = (kpiData.historical?.dates || []).slice(-30).map((d, i) => ({
-    date: d,
-    valeur: kpiData.historical.values[kpiData.historical.values.length - 30 + i],
-    type: 'hist',
-  }))
-
-  const lastHistDate = histData[histData.length - 1]?.date
-
-  // Date picker
-  const pickedIndex = pickedDate ? ML_DATA.forecast_dates.indexOf(pickedDate) : -1
-  const pickedValue = pickedIndex >= 0 ? kpiData.future_forecast[pickedIndex] : null
-  const pickedUpper = pickedValue ? Math.round(pickedValue * 1.15) : null
-  const pickedLower = pickedValue ? Math.round(pickedValue * 0.85) : null
-  const pickedInHorizon = pickedIndex >= 0 && pickedIndex < horizon
-
-  const minDate = ML_DATA.forecast_dates[0]
-  const maxDate = ML_DATA.forecast_dates[ML_DATA.forecast_dates.length - 1]
-
-  const xInterval = horizon === 7 ? 1 : horizon === 30 ? 7 : 30
-
+/* ══ AiPanel ═════════════════════════════════════════════════════════ */
+function AiPanel({ queue, kpi, forecastText, forecastLoading, onLaunch }) {
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Prévision {horizon === 365 ? '1 an' : `${horizon} jours`} — {meta.label}
+    <div style={{ background: DXC.bg, borderRadius: 12, border: `1px solid ${DXC.border}`, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DXC.border}`, background: DXC.bgSurface, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${DXC.blue},${DXC.purple})`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: DXC.text }}>Prévision IA — Claude AI</div>
+            <div style={{ fontSize: 11, color: DXC.textMuted }}>{QUEUE_ICONS[queue]} {queue} · {KPI_META[kpi].label}</div>
+          </div>
         </div>
+        <button onClick={onLaunch} disabled={forecastLoading} style={{
+          background: forecastLoading ? DXC.bgAlt : `linear-gradient(135deg,${DXC.blue},${DXC.purple})`,
+          color: forecastLoading ? DXC.textMuted : '#fff',
+          border: 'none', borderRadius: 10, padding: '10px 18px',
+          cursor: forecastLoading ? 'not-allowed' : 'pointer',
+          fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {forecastLoading
+            ? <><span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span> Analyse en cours...</>
+            : '🤖 Lancer la prévision'}
+        </button>
+      </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <HorizonToggle
-            horizon={horizon}
-            setHorizon={setHorizon}
-            color={meta.color}
-            onReset={() => setPickedDate('')}
-          />
-
-          {/* Date picker */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 11, color: DXC.textMuted, fontWeight: 600 }}>📅</span>
-            <input
-              type="date"
-              min={minDate}
-              max={maxDate}
-              value={pickedDate}
-              onChange={e => setPickedDate(e.target.value)}
-              style={{
-                border: `1px solid ${DXC.border}`, borderRadius: 6,
-                padding: '4px 8px', fontSize: 12, color: DXC.text,
-                background: '#FFFFFF', cursor: 'pointer',
-                fontFamily: "'Syne', system-ui, sans-serif", outline: 'none',
-              }}
-            />
-            {pickedDate && (
-              <button onClick={() => setPickedDate('')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: DXC.textMuted, fontSize: 14, padding: '0 2px' }}>
-                ✕
-              </button>
+      <div style={{ padding: '20px 24px' }}>
+        {!forecastText && !forecastLoading && (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: DXC.textMuted }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📈</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: DXC.text, marginBottom: 8 }}>Prévision IA non lancée</div>
+            <div style={{ fontSize: 13 }}>Cliquez sur "Lancer la prévision" pour obtenir une analyse et des prévisions basées sur les données historiques réelles de <strong>{queue}</strong>.</div>
+          </div>
+        )}
+        {(forecastText || forecastLoading) && (
+          <div>
+            <StreamText text={forecastText || ''} />
+            {forecastLoading && (
+              <span style={{ display: 'inline-block', width: 8, height: 18, background: DXC.blue, marginLeft: 3, animation: 'pulse 0.8s infinite', borderRadius: 2 }} />
             )}
           </div>
-
-          {/* Legend */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 20, height: 2, background: DXC.border }} />
-              <span style={{ color: DXC.textMuted }}>Historique</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 20, height: 2, background: meta.color }} />
-              <span style={{ color: DXC.textMuted }}>Prévision ({kpiData.best_model})</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 20, height: 8, background: `${meta.color}22`, borderRadius: 2, border: `1px solid ${meta.color}44` }} />
-              <span style={{ color: DXC.textMuted }}>IC ±15%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Picked date callout */}
-      {pickedDate && pickedValue !== null && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 16,
-          background: pickedInHorizon ? `${meta.color}10` : DXC.amberPale,
-          border: `1px solid ${pickedInHorizon ? `${meta.color}40` : DXC.amber}`,
-          borderRadius: 10, padding: '10px 16px', marginBottom: 14, flexWrap: 'wrap',
-        }}>
-          <span style={{ fontSize: 13, color: meta.color, fontWeight: 700 }}>📅 {fmtDate(pickedDate)}</span>
-          {!pickedInHorizon && (
-            <span style={{ fontSize: 11, color: DXC.amber, fontWeight: 600 }}>
-              ⚠️ Hors horizon affiché — basculez sur 1 an
-            </span>
-          )}
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            {[
-              { label: 'Prévision',    value: fmtVal(pickedValue, kpiData.unit), color: meta.color },
-              { label: 'Borne basse',  value: fmtVal(pickedLower, kpiData.unit), color: DXC.textMuted },
-              { label: 'Borne haute',  value: fmtVal(pickedUpper, kpiData.unit), color: DXC.textMuted },
-            ].map(s => (
-              <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 2 }}>{s.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: s.color }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {pickedDate && pickedValue === null && (
-        <div style={{ background: DXC.redPale, border: `1px solid ${DXC.red}40`, borderRadius: 10, padding: '10px 16px', marginBottom: 14, fontSize: 12, color: DXC.red, fontWeight: 600 }}>
-          ⚠️ Date hors plage de prévision ({fmtDate(minDate)} – {fmtDate(maxDate)})
-        </div>
-      )}
-
-      {/* Chart */}
-      <ResponsiveContainer width="100%" height={240}>
-        <AreaChart data={[...histData, ...sampledFuture]}>
-          <defs>
-            <linearGradient id={`grad_${kpiKey}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={meta.color} stopOpacity={0.12} />
-              <stop offset="95%" stopColor={meta.color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke={DXC.border} strokeDasharray="3 3" />
-          <XAxis dataKey="date" tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={fmtDate} interval={xInterval} />
-          <YAxis tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={v => fmtVal(v, kpiData.unit)} width={55} />
-          <Tooltip content={<CustomTooltip unit={kpiData.unit} />} />
-          {lastHistDate && (
-            <ReferenceLine x={lastHistDate} stroke={DXC.textMuted} strokeDasharray="4 2"
-              label={{ value: "Aujourd'hui", fill: DXC.textMuted, fontSize: 10 }} />
-          )}
-          {pickedDate && pickedInHorizon && (
-            <ReferenceLine x={pickedDate} stroke={meta.color} strokeWidth={1.5} strokeDasharray="3 2"
-              label={{ value: fmtDate(pickedDate), fill: meta.color, fontSize: 10 }} />
-          )}
-          <Area type="monotone" dataKey="upper"     stroke="none" fill={`url(#grad_${kpiKey})`} fillOpacity={1} legendType="none" />
-          <Area type="monotone" dataKey="lower"     stroke="none" fill="#FFFFFF"                fillOpacity={1} legendType="none" />
-          <Line type="monotone" dataKey="valeur"    stroke={DXC.border}  strokeWidth={1.5} dot={false} name="Historique"               connectNulls />
-          <Line type="monotone" dataKey="prévision" stroke={meta.color}  strokeWidth={2}   dot={false} strokeDasharray="5 3" connectNulls />
-        </AreaChart>
-      </ResponsiveContainer>
-
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 16 }}>
-        {[
-          { label: 'Moy. prévue', value: fmtVal(slicedForecast.reduce((a,b)=>a+b,0)/slicedForecast.length, kpiData.unit) },
-          { label: 'Min prévue',  value: fmtVal(Math.min(...slicedForecast), kpiData.unit) },
-          { label: 'Max prévue',  value: fmtVal(Math.max(...slicedForecast), kpiData.unit) },
-          { label: 'Précision',   value: `${Math.round(100 - kpiData.best_mape)}%` },
-        ].map(s => (
-          <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '10px 12px', textAlign: 'center', border: `1px solid ${DXC.border}` }}>
-            <div style={{ color: DXC.textMuted, fontSize: 10, marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>{s.label}</div>
-            <div style={{ color: DXC.text, fontWeight: 800, fontSize: 16 }}>{s.value}</div>
-          </div>
-        ))}
+        )}
       </div>
     </div>
   )
 }
 
-/* ══ ModelComparisonBar ══════════════════════════════════════════════ */
-function ModelComparisonBar({ kpiKey }) {
-  const kpiData = ML_DATA.kpis[kpiKey]
-  const models = Object.entries(kpiData.backtest).map(([m, v]) => ({
-    model: m, mape: v.mape, mae: v.mae, color: MODEL_COLORS[m],
-    isBest: m === kpiData.best_model,
-  })).sort((a,b) => a.mape - b.mape)
+/* ══ QueueSummaryCard ════════════════════════════════════════════════ */
+function QueueSummaryCard({ queue, selected, onClick }) {
+  const data = REAL_DATA[queue]
+  const color = QUEUE_COLORS[queue]
+  const icon = QUEUE_ICONS[queue]
+  const t = data.totals
+  const abandonRate = t.total_offered > 0 ? ((t.total_abandoned / t.total_offered) * 100).toFixed(1) : '0.0'
+
+  // Mini sparkline
+  const offered = data.offered.slice(-14)
 
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-      <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Comparaison MAPE — tous les modèles
-      </div>
-      {models.map(m => (
-        <div key={m.model} style={{ marginBottom: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {m.isBest && <span style={{ fontSize: 12 }}>🏆</span>}
-              <span style={{ color: m.isBest ? DXC.text : DXC.textMuted, fontWeight: m.isBest ? 700 : 400, fontSize: 13 }}>
-                {m.model}
-              </span>
-              {m.isBest && (
-                <span style={{ background: DXC.greenPale, color: DXC.green, fontSize: 9, padding: '2px 7px', borderRadius: 20, fontWeight: 700 }}>BEST</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
-              <span style={{ color: mapeColor(m.mape), fontWeight: 700 }}>MAPE {m.mape}%</span>
-              <span style={{ color: DXC.textMuted }}>MAE {m.mae}</span>
-            </div>
-          </div>
-          <div style={{ background: DXC.bgAlt, borderRadius: 4, height: 6, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${Math.min(m.mape * 1.2, 100)}%`, background: m.isBest ? DXC.green : m.color, borderRadius: 4, transition: 'width .6s ease', opacity: m.isBest ? 1 : 0.4 }} />
-          </div>
+    <div onClick={onClick} style={{
+      background: DXC.bg, border: `2px solid ${selected ? color : DXC.border}`,
+      borderTop: `4px solid ${color}`, borderRadius: 14, padding: '18px 20px',
+      cursor: 'pointer', transition: 'all .2s',
+      boxShadow: selected ? `0 0 0 3px ${color}22, 0 4px 16px rgba(0,0,0,0.10)` : '0 1px 4px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 20 }}>{icon}</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: DXC.text, marginTop: 4 }}>{queue}</div>
+          <div style={{ fontSize: 10, color: DXC.textMuted }}>{data.dates.length} jours · {data.dates[0].slice(0,7)} → {data.dates[data.dates.length-1].slice(0,7)}</div>
         </div>
-      ))}
-    </div>
-  )
-}
-
-/* ══ ForecastTable ═══════════════════════════════════════════════════ */
-function ForecastTable({ kpiKey }) {
-  const [horizon, setHorizon] = useState(30)
-
-  const kpiData = ML_DATA.kpis[kpiKey]
-  const meta    = KPI_META[kpiKey]
-
-  const dates  = ML_DATA.forecast_dates.slice(0, horizon)
-  const values = kpiData.future_forecast.slice(0, horizon)
-  const maxVal = Math.max(...kpiData.future_forecast)
-
-  // For 1-year: group by month instead of week
-  const groups = []
-  if (horizon === 365) {
-    const byMonth = {}
-    dates.forEach((d, i) => {
-      const key = d.slice(0, 7)
-      if (!byMonth[key]) byMonth[key] = { dates: [], values: [] }
-      byMonth[key].dates.push(d)
-      byMonth[key].values.push(values[i])
-    })
-    Object.entries(byMonth).forEach(([month, data]) => {
-      const avg = data.values.reduce((a,b)=>a+b,0) / data.values.length
-      const min = Math.min(...data.values)
-      const max = Math.max(...data.values)
-      groups.push({ label: new Date(month + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }), avg, min, max, count: data.dates.length })
-    })
-  } else {
-    for (let i = 0; i < dates.length; i += 7) {
-      groups.push({
-        label:  `Semaine ${Math.floor(i / 7) + 1}`,
-        dates:  dates.slice(i, i + 7),
-        values: values.slice(i, i + 7),
-      })
-    }
-  }
-
-  const avg = values.reduce((a,b)=>a+b,0) / values.length
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-
-  return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ color: DXC.text, fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Détail {horizon === 365 ? 'par mois' : 'par semaine'} — {meta.label}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color }}>{t.total_offered.toLocaleString('fr-FR')}</div>
+          <div style={{ fontSize: 10, color: DXC.textMuted, fontWeight: 700 }}>OFFERED</div>
         </div>
-        <HorizonToggle horizon={horizon} setHorizon={setHorizon} color={meta.color} />
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+      <div style={{ height: 36, marginBottom: 12 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={offered.map((v, i) => ({ i, v }))}>
+            <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {[
-          { label: 'Période', value: `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length-1])}` },
-          { label: 'Moy.',    value: fmtVal(avg, kpiData.unit) },
-          { label: 'Min',     value: fmtVal(min, kpiData.unit) },
-          { label: 'Max',     value: fmtVal(max, kpiData.unit) },
+          { label: 'Abandon', value: `${abandonRate}%`, color: parseFloat(abandonRate) > 5 ? DXC.red : DXC.green },
+          { label: 'Avg AHT', value: fmtVal(t.avg_aht, 'sec'), color: DXC.text },
+          { label: 'Avg ASA', value: fmtVal(t.avg_asa, 'sec'), color: DXC.text },
+          { label: 'Avg Hold', value: fmtVal(t.avg_hold, 'sec'), color: DXC.text },
         ].map(s => (
-          <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 8, padding: '8px 10px', textAlign: 'center', border: `1px solid ${DXC.border}` }}>
-            <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 3, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>{s.label}</div>
-            <div style={{ color: DXC.text, fontWeight: 800, fontSize: 12 }}>{s.value}</div>
+          <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 7, padding: '6px 10px', border: `1px solid ${DXC.border}` }}>
+            <div style={{ fontSize: 9, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
-
-      {/* Weekly grid */}
-      {horizon !== 365 && groups.map(w => (
-        <div key={w.label} style={{ marginBottom: 16 }}>
-          <div style={{ color: DXC.textMuted, fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{w.label}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${w.dates.length}, 1fr)`, gap: 4 }}>
-            {w.dates.map((d, i) => {
-              const dayName   = new Date(d).toLocaleDateString('fr-FR', { weekday: 'short' })
-              const v         = w.values[i]
-              const isWeekend = [0, 6].includes(new Date(d).getDay())
-              const pct       = (v / maxVal) * 100
-              return (
-                <div key={d} style={{
-                  background: isWeekend ? DXC.bgAlt : '#FFFFFF',
-                  borderRadius: 8, padding: '8px 6px', textAlign: 'center',
-                  border: `1px solid ${isWeekend ? DXC.border : `${meta.color}33`}`,
-                }}>
-                  <div style={{ color: DXC.textMuted, fontSize: 9, marginBottom: 4, fontWeight: 700, textTransform: 'uppercase' }}>{dayName}</div>
-                  <div style={{ background: DXC.bgAlt, borderRadius: 3, height: 4, marginBottom: 5, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: meta.color, opacity: isWeekend ? 0.3 : 1 }} />
-                  </div>
-                  <div style={{ color: isWeekend ? DXC.textMuted : DXC.text, fontWeight: 700, fontSize: 12 }}>
-                    {fmtVal(v, kpiData.unit)}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-
-      {/* Monthly grid for 1 year */}
-      {horizon === 365 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-          {groups.map(m => {
-            const pct = (m.avg / maxVal) * 100
-            return (
-              <div key={m.label} style={{
-                background: '#FFFFFF', borderRadius: 10, padding: '12px 14px',
-                border: `1px solid ${meta.color}33`,
-              }}>
-                <div style={{ color: DXC.text, fontSize: 12, fontWeight: 700, marginBottom: 8, textTransform: 'capitalize' }}>{m.label}</div>
-                <div style={{ background: DXC.bgAlt, borderRadius: 3, height: 5, marginBottom: 10, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: meta.color }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Moy.</div>
-                    <div style={{ color: DXC.text, fontWeight: 800, fontSize: 14 }}>{fmtVal(m.avg, kpiData.unit)}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Min</div>
-                    <div style={{ color: DXC.textMuted, fontWeight: 700, fontSize: 12 }}>{fmtVal(m.min, kpiData.unit)}</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: DXC.textMuted, fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>Max</div>
-                    <div style={{ color: DXC.textMuted, fontWeight: 700, fontSize: 12 }}>{fmtVal(m.max, kpiData.unit)}</div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }
 
 /* ══ Main Component ══════════════════════════════════════════════════ */
 export default function Forecasting() {
-  const [selectedKpi, setSelectedKpi] = useState('offered')
-  const [tab, setTab] = useState('forecast')
+  const [selectedQueue, setSelectedQueue] = useState('Servier French')
+  const [selectedKpi,   setSelectedKpi]   = useState('offered')
+  const [tab,           setTab]           = useState('history')
+  const [forecasts,     setForecasts]     = useState({})
+  const [loading,       setLoading]       = useState({})
 
-  const kpiData = ML_DATA.kpis[selectedKpi]
-  const meta    = KPI_META[selectedKpi]
+  const queues = Object.keys(REAL_DATA)
+  const meta   = KPI_META[selectedKpi]
+  const color  = QUEUE_COLORS[selectedQueue]
+  const forecastKey = `${selectedQueue}||${selectedKpi}`
+
+  const streamClaude = async (prompt, onChunk) => {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        stream: true,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n'); buffer = lines.pop()
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
+        const d = line.slice(6)
+        if (d === '[DONE]') continue
+        try { const j = JSON.parse(d); if (j.type === 'content_block_delta' && j.delta?.text) onChunk(j.delta.text) } catch {}
+      }
+    }
+  }
+
+  const launchForecast = useCallback(async () => {
+    if (loading[forecastKey]) return
+    setLoading(prev => ({ ...prev, [forecastKey]: true }))
+    setForecasts(prev => ({ ...prev, [forecastKey]: '' }))
+
+    const d = REAL_DATA[selectedQueue]
+    const m = KPI_META[selectedKpi]
+    const vals = d[selectedKpi].filter(x => x != null)
+    const recent = vals.slice(-20)
+    const last7  = vals.slice(-7)
+
+    const prompt = `Tu es un expert en prévision de KPIs pour un service desk IT (Servier / DXC Technology).
+
+## Données historiques — ${selectedQueue} · ${m.label} (${m.unit})
+
+- **Période** : ${d.dates[0]} → ${d.dates[d.dates.length - 1]} (${d.dates.length} jours de données réelles)
+- **Valeur moyenne globale** : ${fmtVal(avg(vals), m.unit)}
+- **Min / Max historique** : ${fmtVal(Math.min(...vals), m.unit)} / ${fmtVal(Math.max(...vals), m.unit)}
+- **Derniers 7 points** : ${last7.map(v => fmtVal(v, m.unit)).join(', ')}
+- **Tendance récente (20 derniers points)** : ${recent.map(v => fmtVal(v, m.unit)).join(', ')}
+- **Volume total appels offered** : ${d.totals.total_offered.toLocaleString('fr-FR')}
+- **Taux abandon** : ${((d.totals.total_abandoned / d.totals.total_offered) * 100).toFixed(1)}%
+
+## Ta mission
+
+Génère une analyse de prévision complète en 4 sections :
+
+## 📊 1. Analyse de la tendance actuelle
+Décris la tendance observée sur les données réelles. Y a-t-il une hausse, baisse, stabilité ? Des pics inhabituels ?
+
+## 🔮 2. Prévisions J+7 / J+30 / J+90
+Donne des estimations chiffrées réalistes basées sur la tendance, avec une fourchette basse/haute. Présente sous forme de tableau textuel clair.
+
+## ⚠️ 3. Signaux d'alerte
+Identifie les points de vigilance opérationnels pour cette queue (${selectedQueue}) sur ce KPI.
+
+## 💡 4. Recommandations opérationnelles
+2-3 actions concrètes pour optimiser ce KPI pour la queue ${selectedQueue}.
+
+Réponds en français, structuré et professionnel. Sois précis sur les chiffres.`
+
+    try {
+      await streamClaude(prompt, chunk =>
+        setForecasts(prev => ({ ...prev, [forecastKey]: (prev[forecastKey] || '') + chunk }))
+      )
+    } catch (err) {
+      setForecasts(prev => ({ ...prev, [forecastKey]: `❌ Erreur : ${err.message}` }))
+    } finally {
+      setLoading(prev => ({ ...prev, [forecastKey]: false }))
+    }
+  }, [selectedQueue, selectedKpi, forecastKey, loading])
 
   const tabs = [
-    { id: 'forecast', label: '📈 Prévisions' },
-    { id: 'backtest', label: '🔮 Backtest' },
-    { id: 'compare',  label: '⚖️ Modèles' },
-    { id: 'table',    label: '📋 Détails' },
+    { id: 'history',  label: '📈 Historique réel' },
+    { id: 'compare',  label: '⚖️ Comparaison queues' },
+    { id: 'forecast', label: '🤖 Prévision IA' },
   ]
 
   return (
-    <div style={{
-      background: '#F9FAFB',
-      minHeight: '100vh',
-      padding: '24px',
-      fontFamily: "'Syne', system-ui, sans-serif",
-    }}>
+    <div style={{ fontFamily: "'Syne','Inter',sans-serif", background: DXC.bgSurface, minHeight: '100vh', padding: '28px 32px' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .fade-in{animation:fadeIn .35s ease forwards}
+        .kpi-btn:hover{opacity:.85}
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-thumb{background:${DXC.border};border-radius:4px}
+      `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
-          <h1 style={{ color: DXC.text, fontSize: 22, fontWeight: 800, margin: 0 }}>
-            🤖 Forecasting
-          </h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: DXC.text, margin: 0 }}>🤖 Forecasting — Servier KPIs</h1>
+          <p style={{ fontSize: 13, color: DXC.textMuted, marginTop: 5 }}>Données réelles CSV · Prévisions par queue · Powered by Claude AI</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FFFFFF', border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: DXC.bg, border: `1px solid ${DXC.border}`, borderRadius: 10, padding: '8px 14px' }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: DXC.green }} />
-          <span style={{ color: DXC.textMuted, fontSize: 12 }}>Généré le {ML_DATA.generated_at}</span>
+          <span style={{ fontSize: 12, color: DXC.textMuted, fontFamily: "'JetBrains Mono',monospace" }}>
+            4 queues · {Object.values(REAL_DATA).reduce((a, d) => a + d.dates.length, 0)} jours de données
+          </span>
         </div>
       </div>
 
-      {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
-        {Object.entries(ML_DATA.kpis).map(([k, v]) => (
-          <KpiCard key={k} kpiKey={k} data={v} selected={selectedKpi === k} onClick={() => { setSelectedKpi(k); setTab('forecast') }} />
+      {/* Queue cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
+        {queues.map(q => (
+          <QueueSummaryCard key={q} queue={q} selected={selectedQueue === q} onClick={() => { setSelectedQueue(q); setTab('history') }} />
         ))}
       </div>
 
       {/* Detail panel */}
-      <div style={{
-        background: '#FFFFFF',
-        borderRadius: 14,
-        border: `1px solid ${DXC.border}`,
-        borderTop: `3px solid ${meta.color}`,
-        overflow: 'hidden',
-        boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
-      }}>
+      <div style={{ background: DXC.bg, borderRadius: 16, border: `1px solid ${DXC.border}`, borderTop: `4px solid ${color}`, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
 
-        {/* Panel header */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${DXC.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB' }}>
+        {/* Panel header: KPI selector */}
+        <div style={{ padding: '16px 24px', borderBottom: `1px solid ${DXC.border}`, background: DXC.bgSurface, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>{meta.icon}</span>
+            <span style={{ fontSize: 22 }}>{QUEUE_ICONS[selectedQueue]}</span>
             <div>
-              <span style={{ color: DXC.text, fontWeight: 800, fontSize: 16 }}>{meta.label}</span>
-              <span style={{ color: DXC.textMuted, fontSize: 12, marginLeft: 10 }}>{meta.desc}</span>
-            </div>
-            <div style={{ background: MODEL_BADGES[kpiData.best_model]?.bg, color: MODEL_BADGES[kpiData.best_model]?.text, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginLeft: 8 }}>
-              🏆 {kpiData.best_model}
+              <span style={{ fontSize: 16, fontWeight: 800, color: DXC.text }}>{selectedQueue}</span>
+              <span style={{ fontSize: 12, color: DXC.textMuted, marginLeft: 10 }}>· {REAL_DATA[selectedQueue].dates.length} jours d'historique</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ textAlign: 'center', background: mapeBg(kpiData.best_mape), borderRadius: 8, padding: '6px 14px', border: `1px solid ${DXC.border}` }}>
-              <div style={{ color: DXC.textMuted, fontSize: 10, textTransform: 'uppercase', fontWeight: 700 }}>MAPE</div>
-              <div style={{ color: mapeColor(kpiData.best_mape), fontWeight: 800, fontSize: 15 }}>{kpiData.best_mape}%</div>
-            </div>
-            <div style={{ textAlign: 'center', background: DXC.greenPale, borderRadius: 8, padding: '6px 14px', border: `1px solid ${DXC.border}` }}>
-              <div style={{ color: DXC.textMuted, fontSize: 10, textTransform: 'uppercase', fontWeight: 700 }}>Précision</div>
-              <div style={{ color: DXC.green, fontWeight: 800, fontSize: 15 }}>{Math.round(100 - kpiData.best_mape)}%</div>
-            </div>
+
+          {/* KPI pills */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {Object.entries(KPI_META).map(([k, m]) => (
+              <button key={k} className="kpi-btn" onClick={() => setSelectedKpi(k)} style={{
+                background: selectedKpi === k ? m.color : DXC.bgAlt,
+                color: selectedKpi === k ? '#fff' : DXC.textMuted,
+                border: 'none', borderRadius: 8, padding: '6px 12px',
+                fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .2s',
+                fontFamily: "'Syne',sans-serif",
+              }}>
+                {m.icon} {m.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${DXC.border}`, background: '#FFFFFF' }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${DXC.border}`, background: DXC.bg }}>
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{
-                background: 'none',
-                color: tab === t.id ? meta.color : DXC.textMuted,
-                border: 'none',
-                borderBottom: tab === t.id ? `2px solid ${meta.color}` : '2px solid transparent',
-                padding: '11px 18px',
-                fontSize: 13,
-                fontWeight: tab === t.id ? 700 : 400,
-                cursor: 'pointer',
-                transition: 'all .2s',
-                fontFamily: "'Syne', system-ui, sans-serif",
-                marginBottom: -1,
-              }}>
-              {t.label}
-            </button>
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              background: 'none', border: 'none',
+              borderBottom: tab === t.id ? `3px solid ${color}` : '3px solid transparent',
+              padding: '12px 20px', cursor: 'pointer',
+              color: tab === t.id ? color : DXC.textMuted,
+              fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: tab === t.id ? 700 : 400,
+              marginBottom: -1, whiteSpace: 'nowrap', transition: 'all .2s',
+            }}>{t.label}</button>
           ))}
         </div>
 
         {/* Tab content */}
-        <div style={{ padding: '20px', background: '#F9FAFB' }}>
-          {tab === 'forecast' && <ForecastChart kpiKey={selectedKpi} />}
-          {tab === 'backtest' && <BacktestChart kpiKey={selectedKpi} />}
-          {tab === 'compare' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <ModelComparisonBar kpiKey={selectedKpi} />
-              <ModelRadar />
+        <div style={{ padding: '24px', background: DXC.bgSurface }} className="fade-in">
+
+          {tab === 'history' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <HistoryChart queue={selectedQueue} kpi={selectedKpi} />
+
+              {/* KPI overview cards for this queue */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, alignContent: 'start' }}>
+                {Object.entries(KPI_META).map(([k, m]) => {
+                  const vals = REAL_DATA[selectedQueue][k].filter(x => x != null)
+                  const a = avg(vals)
+                  return (
+                    <div key={k} onClick={() => setSelectedKpi(k)} style={{
+                      background: DXC.bg, borderRadius: 10, padding: '14px 16px',
+                      border: `1px solid ${selectedKpi === k ? m.color : DXC.border}`,
+                      borderLeft: `4px solid ${m.color}`, cursor: 'pointer', transition: 'all .2s',
+                    }}>
+                      <div style={{ fontSize: 11, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{m.icon} {m.label}</div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: m.color }}>{fmtVal(a, m.unit)}</div>
+                      <div style={{ fontSize: 10, color: DXC.textMuted, marginTop: 3 }}>moy. · {vals.length} pts</div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
-          {tab === 'table' && <ForecastTable kpiKey={selectedKpi} />}
+
+          {tab === 'compare' && (
+            <div style={{ display: 'grid', gap: 20 }}>
+              <AllQueuesCompare kpi={selectedKpi} />
+              {/* Bar chart totaux */}
+              <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: DXC.text, marginBottom: 16, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  📊 Totaux par queue — {meta.label}
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={queues.map(q => ({
+                    queue: q.replace('Servier ', ''),
+                    value: avg(REAL_DATA[q][selectedKpi].filter(x => x != null)),
+                    color: QUEUE_COLORS[q],
+                  }))}>
+                    <CartesianGrid stroke={DXC.border} strokeDasharray="3 3" />
+                    <XAxis dataKey="queue" tick={{ fill: DXC.textMuted, fontSize: 11 }} />
+                    <YAxis tick={{ fill: DXC.textMuted, fontSize: 10 }} tickFormatter={v => fmtVal(v, meta.unit)} width={50} />
+                    <Tooltip formatter={v => [fmtVal(v, meta.unit), meta.label]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                    <Bar dataKey="value" name={meta.label} radius={[4, 4, 0, 0]}>
+                      {queues.map((q, i) => (
+                        <rect key={i} fill={QUEUE_COLORS[q]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {tab === 'forecast' && (
+            <AiPanel
+              queue={selectedQueue}
+              kpi={selectedKpi}
+              forecastText={forecasts[forecastKey]}
+              forecastLoading={loading[forecastKey]}
+              onLaunch={launchForecast}
+            />
+          )}
+
         </div>
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: 16, padding: '12px 16px', background: DXC.bluePale, borderRadius: 10, border: `1px solid rgba(59,106,200,0.2)`, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ marginTop: 16, padding: '12px 18px', background: DXC.bluePale, borderRadius: 10, border: '1px solid rgba(59,106,200,0.2)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <span style={{ fontSize: 16 }}>💡</span>
         <div style={{ fontSize: 12, color: DXC.blue, lineHeight: 1.6 }}>
-          <strong style={{ color: DXC.blue }}>Comment lire la MAPE</strong> — &lt;15% = excellent (avg_aht, avg_ttc) · 15–35% = acceptable (avg_hold) · &gt;35% = volatile (offered, asa, abandoned).
-          Les KPIs volatils dépendent de facteurs externes. La prévision 1 an intègre une saisonnalité annuelle (sin 365j) + tendance long terme.
-          Intervalle de confiance ±15% affiché en zone colorée.
+          <strong>Données réelles</strong> extraites de <code>Servier_KPIs.csv</code> — chaque queue est analysée indépendamment.
+          La prévision IA utilise Claude Sonnet avec les données historiques réelles (valeurs, tendances, patterns) pour générer des estimations J+7/J+30/J+90 et des recommandations opérationnelles spécifiques à chaque queue.
         </div>
       </div>
     </div>
