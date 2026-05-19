@@ -808,14 +808,6 @@ export default function Forecasting() {
 
         </div>
       </div>
-
-      {/* Footer */}
-      <div style={{ marginTop: 16, padding: '12px 18px', background: DXC.bluePale, borderRadius: 10, border: '1px solid rgba(59,106,200,0.2)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <span style={{ fontSize: 16 }}>ℹ️</span>
-        <div style={{ fontSize: 12, color: DXC.blue, lineHeight: 1.6 }}>
-          <strong>Backend requis :</strong> endpoint <code>GET /api/forecast/</code> qui lit <code>QueueMetric</code> ou <code>DailySnapshot</code>, entraîne Prophet avec jours fériés France + Tunisie, et retourne <code>{'{7d, 30d, 365d, history, metrics}'}</code>. Voir le code backend fourni précédemment.
-        </div>
-      </div>
     </div>
   )
 }
