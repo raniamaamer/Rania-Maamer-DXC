@@ -23,6 +23,6 @@ urlpatterns = [
     path('desk-langue/',         views.DeskLangueView.as_view(),        name='desk-langue'),
     path('debug-metrics/',       DebugMetricsView.as_view(),            name='debug-metrics'),
     path('predictions/',         views.PredictionsView.as_view(),       name='predictions'),
-    path('claude/', claude_proxy),
-    path('forecast/', forecast_view, name='forecast'),
+    path('claude/',              claude_proxy),
+    path('forecast/',            forecast_view,                         name='forecast'),
 ]

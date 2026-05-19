@@ -1,6 +1,7 @@
 import logging
 import json
 from pathlib import Path
+from django.http import JsonResponse
 from django.db.models import Avg, Sum, Q, F, Max
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
