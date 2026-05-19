@@ -57,7 +57,7 @@ pipeline {
         stage('Start SonarQube') {
             steps {
                 bat "%COMPOSE% up -d db sonarqube"
-                bat "ping -n 45 127.0.0.1 > nul"
+                bat "ping -n 90 127.0.0.1 > nul"
             }
         }
 
