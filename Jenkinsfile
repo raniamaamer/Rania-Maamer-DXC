@@ -47,6 +47,8 @@ pipeline {
         stage('Frontend - Build React') {
             steps {
                 dir('frontend') {
+                    bat "if exist node_modules\\clsx rmdir /s /q node_modules\\clsx"
+                    bat "npm install clsx"
                     bat "npm run build"
                 }
             }
