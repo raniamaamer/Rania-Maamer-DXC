@@ -28,7 +28,7 @@ const QUEUE_COLORS = {
 const QUEUE_ICONS = {
   'Servier English':          '🇬🇧',
   'Servier French':           '🇫🇷',
-  'Servier French Password':  '🔐',
+  'Servier French Password':  '🇫🇷🔒',
   'Servier Spanish':          '🇪🇸',
 }
 
