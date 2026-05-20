@@ -475,7 +475,7 @@ function HorizonTab({ data, horizon, color }) {
   // Table preview: first 14 rows for 7d/30d, weekly for 365d
   const tableRows = horizon === '365d'
     ? forecast.filter((_, i) => i % 7 === 0)
-    : forecast.slice(0, horizon === '7d' ? 7 : 14)
+    : forecast.slice(0, horizon === '7d' ? 7 : 30)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -522,7 +522,7 @@ function HorizonTab({ data, horizon, color }) {
         </table>
         {(horizon === '30d' || horizon === '365d') && (
           <div style={{ padding: '10px 14px', fontSize: 11, color: DXC.textMuted, background: DXC.bgSurface, borderTop: `1px solid ${DXC.border}` }}>
-            {horizon === '30d' ? `14 premiers jours affichés sur ${forecast.length}` : `${tableRows.length} semaines affichées`}
+            {horizon === '30d' ? `30 premiers jours affichés sur ${forecast.length}` : `${tableRows.length} semaines affichées`}
           </div>
         )}
       </div>
