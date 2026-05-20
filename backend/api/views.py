@@ -1297,7 +1297,10 @@ from django.views.decorators.csrf import csrf_exempt
 def claude_proxy(request):
     import httpx, os, json
     
-    body = json.loads(request.body)
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
     
     # Convertir format Anthropic → OpenAI (Groq)
     groq_body = {
