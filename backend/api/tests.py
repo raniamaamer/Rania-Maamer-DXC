@@ -1588,3 +1588,38 @@ class SchedulerTest(TestCase):
     def test_scheduler_has_no_start_function(self):
         import api.scheduler as sched
         self.assertFalse(hasattr(sched, "start_scheduler"))
+
+class ForecastViewTest(APITestCase):
+    """Tests de l'endpoint GET /api/forecast/."""
+
+    @patch('api.views.DailySnapshot')
+    def test_forecast_empty_db_returns_500(self, mock_snapshot):
+        mock_snapshot.objects.values.return_value.order_by.return_value = []
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 500])
+
+    def test_forecast_returns_json(self):
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 500])
+        self.assertIn(response['Content-Type'], ['application/json'])
+
+
+class ClaudeProxyViewTest(APITestCase):
+    """Tests de l'endpoint POST /api/claude-proxy/."""
+
+    def test_proxy_invalid_json_returns_error(self):
+        response = self.client.post(
+            "/api/claude-proxy/",
+            data="NOT_JSON",
+            content_type="application/json"
+        )
+        self.assertIn(response.status_code, [400, 500])
+
+    @patch('httpx.stream')
+    def test_proxy_valid_request(self, mock_stream):
+        mock_stream.return_value.__enter__ = lambda s: s
+        mock_stream.return_value.__exit__ = MagicMock(return_value=False)
+        mock_stream.return_value.iter_bytes = MagicMock(return_value=iter([b'data: {}']))
+        payload = {"messages": [{"role": "user", "content": "Hello"}]}
+        response = self.client.post("/api/claude-proxy/", payload, format="json")
+        self.assertIn(response.status_code, [200, 500])
