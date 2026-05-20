@@ -1378,11 +1378,7 @@ def forecast_view(request):
             prophet_df['ds'].dt.year.min(),
             prophet_df['ds'].dt.year.max() + 3
         ))
-        tn_hol = holidays.country_holidays('TN', years=range(
-            prophet_df['ds'].dt.year.min(),
-            prophet_df['ds'].dt.year.max() + 3
-        ))
-        all_holidays = {**fr_hol, **tn_hol}
+        all_holidays = fr_hol
 
         holidays_df = pd.DataFrame({
             'holiday': 'public_holiday',
