@@ -660,7 +660,7 @@ export default function Forecasting() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: DXC.text, margin: 0 }}>📊 Forecasting Prophet — Servier</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: DXC.text, margin: 0 }}>📊 Forecasting — Servier</h1>
         </div>
       </div>
 
