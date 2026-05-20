@@ -11,7 +11,6 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                cleanWs()
                 git branch: 'main',
                     credentialsId: 'github-credentials',
                     url: 'https://github.com/raniamaamer/Rania-Maamer-DXC'
