@@ -1373,7 +1373,7 @@ def forecast_view(request):
             'y': df['Offered contacts'].values
         })
 
-        # Jours fériés France + Tunisie
+        # Jours fériés France 
         fr_hol = holidays.country_holidays('FR', years=range(
             prophet_df['ds'].dt.year.min(),
             prophet_df['ds'].dt.year.max() + 3
@@ -1414,7 +1414,8 @@ def forecast_view(request):
 
             # Marquer weekends + jours fériés
             future_only['is_weekend'] = future_only['ds'].dt.dayofweek >= 5
-            future_only['is_holiday'] = future_only['ds'].apply(lambda x: x in all_holidays)
+            future_only['is_holiday'] = future_only['ds'].apply(lambda x: x.date() in all_holidays)
+
 
             result[key] = future_only.rename(columns={
                 'ds': 'date',
