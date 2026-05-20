@@ -474,9 +474,8 @@ function HorizonTab({ data, horizon, color }) {
 
   // Table preview: first 14 rows for 7d/30d, weekly for 365d
   const tableRows = horizon === '365d'
-    ? forecast.filter((_, i) => i % 7 === 0)
+    ? forecast.filter(f => new Date(f.date).getDay() === 1)
     : forecast.slice(0, horizon === '7d' ? 7 : 30)
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <MetricsBar forecast={forecast} metrics={horizon === '7d' ? metrics : null} />
