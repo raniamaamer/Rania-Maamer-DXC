@@ -1,17 +1,20 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
-from drf_spectacular.views import (          
+from django.views.decorators.http import require_http_methods
+from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
 
+
+@require_http_methods(["GET"])
 def root(request):
     return JsonResponse({
         "project": "DXC KPI Intelligence Dashboard",
         "version": "1.0.0 — Sprint 1",
-        "docs": "/api/docs/",                
+        "docs": "/api/docs/",
         "endpoints": [
             "/api/overview/",
             "/api/accounts/",
@@ -21,24 +24,27 @@ def root(request):
             "/api/trend7/",
             "/api/snapshots/",
             "/api/sla-config/",
+            "/api/historical/",
+            "/api/realtime/",
+            "/api/desk-langue/",
+            "/api/predictions/",
+            "/api/forecast/",
+            "/api/claude/",
             "/api/health/",
         ]
     })
 
-def health_check(request):
-    return JsonResponse({"status": "ok"})
 
 urlpatterns = [
-    path('', root),
-    path('admin/', admin.site.urls),
-    path('api/', include('api.urls')),
+    path('',        root,                                               name='root'),
+    path('admin/',  admin.site.urls),
+    path('api/',    include('api.urls', namespace='api')),
 
-    # ── Swagger ─────────────────────────────────────────────────
-    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    # ── Swagger ──────────────────────────────────────────────────
+    path('api/schema/', SpectacularAPIView.as_view(),                   name='schema'),
+    path('api/docs/',   SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
-    # ── Sprint S3 ────────────────────────────────────────────────
-    path('health/', health_check),
+    # ── Prometheus ───────────────────────────────────────────────
     path('', include('django_prometheus.urls')),
 ]
