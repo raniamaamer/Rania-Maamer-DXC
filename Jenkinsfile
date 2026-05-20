@@ -5,6 +5,7 @@ pipeline {
         PYTHON  = "C:\\Users\\rania\\AppData\\Local\\Programs\\Python\\Python39\\python.exe"
         COMPOSE = "docker-compose -p rania-maamer"
         GMAIL   = credentials('gmail-smtp')
+        ENV_FILE = credentials('dxc-env-file')   // ← ajoute cette ligne
     }
 
     stages {
@@ -56,8 +57,8 @@ pipeline {
         // ================= SONARQUBE STARTUP =================
         stage('Start SonarQube') {
             steps {
-                bat "%COMPOSE% up -d db sonarqube"
-                bat "ping -n 90 127.0.0.1 > nul"
+                bat "copy \"%ENV_FILE%\" backend\\.env"
+                bat "docker-compose -p rania-maamer up -d db sonarqube"
             }
         }
 
