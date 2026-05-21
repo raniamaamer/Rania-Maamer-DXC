@@ -70,7 +70,7 @@ DATABASES = {
         'USER': os.environ.get('DB_USER', 'dxc_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'dxc_secure_pass'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5433'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {
             'connect_timeout': 10,
         },
