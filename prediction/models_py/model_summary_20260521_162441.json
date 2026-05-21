@@ -1,0 +1,11 @@
+{
+  "meilleur_modele": "XGBoost",
+  "metriques": {
+    "rmse": 2.026,
+    "r2": 0.991,
+    "mae": 0.961,
+    "mape": 5.408
+  },
+  "date_sauvegarde": "20260521_162441",
+  "chemin_modele": "./models_py\\xgboost_best_20260521_162441.pkl"
+}

@@ -625,7 +625,7 @@ export default function Forecasting() {
     }))
 
     try {
-      const res = await fetch('/api/forecast/', {
+      const res = await fetch(`/api/forecast/?queue=${encodeURIComponent(selectedQueue)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       })
