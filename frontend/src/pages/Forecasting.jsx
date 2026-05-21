@@ -776,15 +776,15 @@ export default function Forecasting() {
           {/* Empty state */}
           {!queueData && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: DXC.textMuted }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🔮</div>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>💡</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: DXC.text, marginBottom: 8 }}>
                 Prévision Prophet non lancée
               </div>
               <div style={{ fontSize: 13, maxWidth: 400, margin: '0 auto', lineHeight: 1.7 }}>
-                Cliquez sur <strong>Lancer la prévision Prophet</strong> pour générer les prévisions J+7, J+30 et 1 an avec gestion des jours fériés France & Tunisie et des weekends.
+                Cliquez sur <strong>Lancer la prévision Prophet</strong>.
               </div>
               <div style={{ marginTop: 20, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {['📈 Intervalles de confiance 80%', '🏖 Jours fériés FR + TN', '📅 Marqueurs weekends', '📉 Métriques MAE / MAPE'].map(f => (
+                {['📈 Intervalles de confiance 80%', '📴 Jours fériés', '📅 Marqueurs weekends', '📉 Métriques MAE / MAPE'].map(f => (
                   <span key={f} style={{ background: DXC.bluePale, color: DXC.blue, fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8 }}>{f}</span>
                 ))}
               </div>
