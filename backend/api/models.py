@@ -366,3 +366,25 @@ class TelephonyData(models.Model):
 
     def __str__(self):
         return f"{self.queue} | {self.start_interval}"
+
+class ForecastResult(models.Model):
+    queue        = models.CharField(max_length=200, db_index=True)
+    horizon      = models.CharField(max_length=10)        # '7d', '30d', '365d'
+    forecast_date = models.DateField(db_index=True)
+    predicted    = models.FloatField()
+    lower        = models.FloatField()
+    upper        = models.FloatField()
+    is_weekend   = models.BooleanField(default=False)
+    is_holiday   = models.BooleanField(default=False)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table     = 'forecast_results'
+        unique_together = ('queue', 'horizon', 'forecast_date')
+        indexes = [
+            models.Index(fields=['queue', 'horizon'],       name='idx_fc_queue_horizon'),
+            models.Index(fields=['forecast_date', 'queue'], name='idx_fc_date_queue'),
+        ]
+
+    def __str__(self):
+        return f"{self.queue} | {self.horizon} | {self.forecast_date} → {self.predicted:.0f}"
