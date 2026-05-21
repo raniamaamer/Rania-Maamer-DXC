@@ -1328,89 +1328,270 @@ def claude_proxy(request):
 
     return StreamingHttpResponse(stream(), content_type='text/event-stream')
 
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def forecast_view(request):
+    import json, warnings
+    import numpy as np
+    import pandas as pd
+    import holidays
+    from prophet import Prophet
+    import logging
+
+    warnings.filterwarnings("ignore")
+    logging.getLogger("prophet").setLevel(logging.WARNING)
+    logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+
+    try:
+        # ── 1. Charger les données depuis la DB ──────────────────────────
+        from .models import DailySnapshot  # adapte selon ton modèle réel
+        qs = DailySnapshot.objects.values('date', 'total_offered').order_by('date')
+        df_raw = pd.DataFrame(list(qs))
+
+        if df_raw.empty:
+            return JsonResponse({'status': 'error', 'message': 'Aucune donnée dans DailySnapshot'}, status=500)
+
+        df_raw.rename(columns={'date': 'Day', 'total_offered': 'Offered contacts'}, inplace=True)
+        
+        # ── 2. Agrégation + nettoyage ────────────────────────────────────
+        df_raw['Day'] = pd.to_datetime(df_raw['Day'])
+        df = df_raw.groupby('Day')['Offered contacts'].sum().reset_index()
+        df = df.sort_values('Day').set_index('Day')
+
+        # Réindexation pour combler les trous
+        full_idx = pd.date_range(df.index.min(), df.index.max(), freq='D')
+        df = df.reindex(full_idx)
+        df['Offered contacts'] = df['Offered contacts'].interpolate(method='time').ffill().bfill()
+
+        # Winsorisation douce
+        roll_med = df['Offered contacts'].rolling(7, min_periods=1, center=True).median()
+        Q1, Q3 = df['Offered contacts'].quantile(0.25), df['Offered contacts'].quantile(0.75)
+        IQR = Q3 - Q1
+        mask = (df['Offered contacts'] < Q1 - 1.5*IQR) | (df['Offered contacts'] > Q3 + 1.5*IQR)
+        df.loc[mask, 'Offered contacts'] = roll_med[mask]
+
+        # ── 3. Préparer Prophet ──────────────────────────────────────────
+        prophet_df = pd.DataFrame({
+            'ds': df.index,
+            'y': df['Offered contacts'].values
+        })
+
+        # Jours fériés France 
+        fr_hol = holidays.country_holidays('FR', years=range(
+            prophet_df['ds'].dt.year.min(),
+            prophet_df['ds'].dt.year.max() + 3
+        ))
+        all_holidays = fr_hol
+
+        holidays_df = pd.DataFrame({
+            'holiday': 'public_holiday',
+            'ds': pd.to_datetime(list(all_holidays.keys())),
+            'lower_window': -1,
+            'upper_window': 1
+        })
+
+        # ── 4. Entraîner le modèle ───────────────────────────────────────
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.01,
+            seasonality_prior_scale=1.0,
+            seasonality_mode='additive',
+            interval_width=0.80,
+            holidays=holidays_df,
+        )
+        model.fit(prophet_df)
+
+        # ── 5. Prévisions J+7, J+30, J+365 ──────────────────────────────
+        horizons = {'7d': 7, '30d': 30, '365d': 365}
+        result = {}
+
+        for key, days in horizons.items():
+            future = model.make_future_dataframe(periods=days, freq='D')
+            forecast = model.predict(future)
+            future_only = forecast.tail(days)[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+            future_only['yhat'] = future_only['yhat'].clip(lower=0).round(0)
+            future_only['yhat_lower'] = future_only['yhat_lower'].clip(lower=0).round(0)
+            future_only['yhat_upper'] = future_only['yhat_upper'].clip(lower=0).round(0)
+
+            # Marquer weekends + jours fériés
+            future_only['is_weekend'] = future_only['ds'].dt.dayofweek >= 5
+            future_only['is_holiday'] = future_only['ds'].apply(lambda x: x.date() in all_holidays)
+
+
+            result[key] = future_only.rename(columns={
+                'ds': 'date',
+                'yhat': 'predicted',
+                'yhat_lower': 'lower',
+                'yhat_upper': 'upper',
+            }).assign(date=lambda x: x['date'].dt.strftime('%Y-%m-%d')).to_dict('records')
+
+        # Historique (30 derniers jours pour le graphe)
+        history = prophet_df.tail(60).copy()
+        history['date'] = history['ds'].dt.strftime('%Y-%m-%d')
+        history['actual'] = history['y'].round(0)
+        result['history'] = history[['date', 'actual']].to_dict('records')
+
+        # Métriques rapides (sur les 30 derniers jours vs prévision in-sample)
+        forecast_full = model.predict(prophet_df)
+        y_true = prophet_df['y'].values[-30:]
+        y_pred = forecast_full['yhat'].values[-30:]
+        mae = float(np.mean(np.abs(y_true - y_pred)))
+        mape = float(np.mean(np.abs((y_true - y_pred) / (y_true + 1e-9))) * 100)
+        result['metrics'] = {'mae': round(mae, 1), 'mape': round(mape, 2)}
+
+        return JsonResponse({'status': 'ok', 'data': result})
+
+    except Exception as e:
+        import traceback
+        return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
 # ══ Forecast View ══════════════════════════════════════════════════
 class ForecastView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
+        warnings.filterwarnings("ignore")
+        logging.getLogger("prophet").setLevel(logging.WARNING)
+        logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+
         queue = request.GET.get('queue', 'Servier French')
         logger.info(f"ForecastView called for queue: '{queue}'")
 
-        # ── 1. Vérifier que des prévisions existent en DB ──────────────
-        qs_365 = ForecastResult.objects.filter(queue=queue, horizon='365d')
+        # ── 1. Charger les données ────────────────────────────────────────
+        qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
+        count = qs.count()
+        logger.info(f"Found {count} rows for queue '{queue}'")
 
-        if not qs_365.exists():
+        if not qs.exists():
+            available = list(
+                HistoricalMetric.objects
+                .values_list('queue', flat=True)
+                .distinct()
+                .order_by('queue')
+            )
             return Response({
                 'status': 'error',
-                'message': f"Aucune prévision en DB pour '{queue}'. Lancez le notebook Prophet d'abord.",
-                'available_queues': list(
-                    ForecastResult.objects.values_list('queue', flat=True).distinct().order_by('queue')
-                ),
+                'message': f"No data for queue '{queue}'",
+                'available_queues': available,
             }, status=404)
 
-        # ── 2. Lire les prévisions depuis la DB ────────────────────────
-        results = {}
+        # ── 2. Préparer le DataFrame ──────────────────────────────────────
+        df = pd.DataFrame(list(qs))
+        df['ds'] = pd.to_datetime(df['start_date']).dt.normalize()  # date sans heure
+        df = df.groupby('ds')['offered'].sum().reset_index()
+        df.columns = ['ds', 'y']
+        df = df.sort_values('ds').reset_index(drop=True)
 
-        for horizon in ['7d', '30d', '365d']:
-            qs = ForecastResult.objects.filter(
-                queue=queue, horizon='365d'
-            ).order_by('forecast_date')
-            limit = {'7d': 7, '30d': 30, '365d': 365}[horizon]
-            qs = qs[:limit]
+        # Supprimer les jours sans activité (weekends vides, etc.)
+        df = df[df['y'] > 0].copy()
 
-            results[horizon] = [
-                {
-                    'date':       str(row.forecast_date),
-                    'predicted':  float(row.predicted),
-                    'lower':      float(row.lower),
-                    'upper':      float(row.upper),
-                    'is_weekend': row.is_weekend,
-                    'is_holiday': row.is_holiday,
-                }
-                for row in qs
-            ]
-            logger.info(f"Loaded '{horizon}' for '{queue}': {len(results[horizon])} rows")
+        if len(df) < 10:
+            return Response({
+                'status': 'error',
+                'message': f"Not enough data points ({len(df)}) for queue '{queue}'. Minimum 10 required.",
+            }, status=422)
 
-        # ── 3. Historique depuis HistoricalMetric (60 derniers jours) ──
-        hist_qs = (
-            HistoricalMetric.objects
-            .filter(queue=queue)
-            .values('start_date', 'offered')
-            .order_by('start_date')
+        # Winsorisation douce pour éviter que les outliers biaisent Prophet
+        q1 = df['y'].quantile(0.10)
+        q3 = df['y'].quantile(0.90)
+        iqr = q3 - q1
+        roll_med = df['y'].rolling(7, min_periods=1, center=True).median()
+        mask = (df['y'] < q1 - 1.5 * iqr) | (df['y'] > q3 + 1.5 * iqr)
+        df.loc[mask, 'y'] = roll_med[mask]
+
+        # ── 3. Jours fériés ───────────────────────────────────────────────
+        year_min = int(df['ds'].dt.year.min())
+        year_max = int(df['ds'].dt.year.max()) + 3
+        fr_holidays = hols.country_holidays('FR', years=range(year_min, year_max))
+
+        holiday_df = pd.DataFrame([
+            {'holiday': name, 'ds': pd.Timestamp(d), 'lower_window': -1, 'upper_window': 1}
+            for d, name in fr_holidays.items()
+        ])
+
+        # ── 4. Entraîner Prophet ──────────────────────────────────────────
+        m = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.05,
+            seasonality_prior_scale=5.0,
+            seasonality_mode='additive',
+            interval_width=0.80,
+            holidays=holiday_df,
         )
+        m.fit(df)
 
-        if hist_qs.exists():
-            df_hist = pd.DataFrame(list(hist_qs))
-            df_hist['date'] = pd.to_datetime(df_hist['start_date']).dt.date
-            df_hist = df_hist.groupby('date')['offered'].sum().reset_index()
-            df_hist = df_hist[df_hist['offered'] > 0].tail(60)
-            history_points = [
-                {'date': str(r['date']), 'actual': int(r['offered'])}
-                for _, r in df_hist.iterrows()
-            ]
-        else:
-            history_points = []
+        # ── 5. Historique à retourner (60 derniers jours) ─────────────────
+        history_points = [
+            {'date': str(r['ds'].date()), 'actual': int(r['y'])}
+            for _, r in df.tail(60).iterrows()
+        ]
 
-        # ── 4. Métriques simples ───────────────────────────────────────
-        # Comparer les 30 dernières prévisions vs historique réel
-        mae, mape = 0.0, 0.0
+        # ── 6. Prévisions J+7 / J+30 / J+365 ────────────────────────────
+        results = {}
+        to_save_all = []
+
+        for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
+            future   = m.make_future_dataframe(periods=days, freq='D')
+            fc       = m.predict(future)
+            fc_future = fc[fc['ds'] > df['ds'].max()].copy()
+
+            rows = []
+            for _, row in fc_future.iterrows():
+                d         = row['ds'].date()
+                is_we     = d.weekday() >= 5
+                is_hol    = d in fr_holidays
+                predicted = max(0, round(float(row['yhat'])))
+                lower     = max(0, round(float(row['yhat_lower'])))
+                upper     = max(0, round(float(row['yhat_upper'])))
+
+                rows.append({
+                    'date':       str(d),
+                    'predicted':  predicted,
+                    'lower':      lower,
+                    'upper':      upper,
+                    'is_weekend': is_we,
+                    'is_holiday': is_hol,
+                })
+                to_save_all.append(ForecastResult(
+                    queue=queue, horizon=horizon, forecast_date=d,
+                    predicted=predicted, lower=lower, upper=upper,
+                    is_weekend=is_we, is_holiday=is_hol,
+                ))
+
+            results[horizon] = rows
+            logger.info(f"Forecast '{horizon}' for '{queue}': {len(rows)} rows")
+
+        # ── 7. Sauvegarder en DB (delete + bulk_create par horizon) ───────
         try:
-            if hist_qs.exists() and len(history_points) >= 2:
-                last_actual = {p['date']: p['actual'] for p in history_points[-30:]}
-                fc_dates = {
-                    r['date']: r['predicted']
-                    for r in results['365d']
-                    if r['date'] in last_actual
-                }
-                if fc_dates:
-                    errors = [abs(last_actual[d] - fc_dates[d]) for d in fc_dates]
-                    mae = round(sum(errors) / len(errors), 1)
-                    mape = round(
-                        sum(abs(last_actual[d] - fc_dates[d]) / max(last_actual[d], 1)
-                            for d in fc_dates) / len(fc_dates) * 100, 1
-                    )
+            ForecastResult.objects.filter(queue=queue).delete()
+            ForecastResult.objects.bulk_create(to_save_all, batch_size=500)
+            logger.info(f"Saved {len(to_save_all)} forecast rows for '{queue}'")
         except Exception as e:
-            logger.warning(f"Metrics error: {e}")
+            logger.error(f"DB save error for '{queue}': {e}")
+            # On continue quand même — on retourne les données même si la DB échoue
+
+        # ── 8. Métriques in-sample (30 derniers jours) ────────────────────
+        try:
+            cv_df    = df.tail(30).copy()
+            future_cv = m.make_future_dataframe(periods=0)
+            pred_cv  = m.predict(future_cv[future_cv['ds'].isin(cv_df['ds'])])
+            merged   = cv_df.merge(pred_cv[['ds', 'yhat']], on='ds')
+            if len(merged) > 0:
+                mae  = round(float((merged['y'] - merged['yhat']).abs().mean()), 1)
+                mape = round(
+                    float(((merged['y'] - merged['yhat']).abs()
+                           / merged['y'].replace(0, 1)).mean() * 100), 1
+                )
+            else:
+                mae, mape = 0.0, 0.0
+        except Exception as e:
+            logger.warning(f"Metrics computation failed: {e}")
+            mae, mape = 0.0, 0.0
 
         return Response({
             'status': 'ok',

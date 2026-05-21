@@ -101,23 +101,17 @@ const ForecastTooltip = ({ active, payload, label }) => {
 /* ══ ForecastCalendar ════════════════════════════════════════════════ */
 function ForecastCalendar({ forecastData, horizon }) {
   const allForecast = forecastData?.[horizon] || []
-  const [curMonth, setCurMonth] = useState({ year: 2026, month: 4 })
+  const [curMonth, setCurMonth] = useState(() => {
+    if (allForecast.length) {
+      const d = new Date(allForecast[0].date)
+      return { year: d.getFullYear(), month: d.getMonth() }
+    }
+    return { year: 2026, month: 4 }
+  })
   const [selectedWeek, setSelectedWeek] = useState(0)
 
-  // Resync quand les données arrivent ou changent de queue
-  const firstDate = allForecast[0]?.date ?? null
-
-  useEffect(() => {
-    if (firstDate) {
-      const d = new Date(firstDate)
-      setCurMonth({ year: d.getFullYear(), month: d.getMonth() })
-      setSelectedWeek(0)
-    }
-  }, [firstDate])
-
-  useEffect(() => {
-    setSelectedWeek(0)
-  }, [curMonth.year, curMonth.month])
+  const fcMap = {}
+  allForecast.forEach(f => { fcMap[f.date] = f })
 
   const workdays = allForecast.filter(f => !f.is_weekend && f.predicted > 100)
   const maxVal = workdays.length ? Math.max(...workdays.map(f => f.predicted)) : 1500
