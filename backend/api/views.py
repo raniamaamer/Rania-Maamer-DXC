@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import (
     HourlyTrend, SLAConfig, DailySnapshot,
-    HistoricalMetric, RealtimeMetric,
+    HistoricalMetric, ForecastResult, RealtimeMetric,
 )
 from .serializers import (
     SLAConfigSerializer,
@@ -1443,3 +1443,76 @@ def forecast_view(request):
     except Exception as e:
         import traceback
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
+
+# ══ Forecast View ══════════════════════════════════════════════════
+class ForecastView(APIView):
+    def get(self, request):
+        queue = request.GET.get('queue', 'Servier French')
+        
+        qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
+        if not qs.exists():
+            return Response({'status': 'error', 'message': 'No data for this queue'}, status=404)
+        
+        import pandas as pd
+        from prophet import Prophet
+        import holidays as hols
+
+        df = pd.DataFrame(list(qs))
+        df['ds'] = pd.to_datetime(df['start_date']).dt.date
+        df = df.groupby('ds')['offered'].sum().reset_index()
+        df.columns = ['ds', 'y']
+        df['ds'] = pd.to_datetime(df['ds'])
+
+        fr_holidays = hols.country_holidays('FR', years=range(2025, 2028))
+        holiday_df = pd.DataFrame([
+            {'holiday': name, 'ds': pd.Timestamp(d)}
+            for d, name in fr_holidays.items()
+        ])
+
+        m = Prophet(interval_width=0.80, yearly_seasonality=True,
+                    weekly_seasonality=True, holidays=holiday_df)
+        m.fit(df)
+
+        results = {}
+        history_points = [
+            {'date': str(r.ds.date()), 'actual': int(r.y)}
+            for _, r in df.iterrows()
+        ]
+
+        for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
+            future = m.make_future_dataframe(periods=days)
+            fc = m.predict(future)
+            fc_future = fc[fc['ds'] > df['ds'].max()].copy()
+
+            rows, to_save = [], []
+            for _, row in fc_future.iterrows():
+                d = row['ds'].date()
+                is_we = d.weekday() >= 5
+                is_hol = d in fr_holidays
+                predicted = max(0, round(row['yhat']))
+                rows.append({'date': str(d), 'predicted': predicted,
+                             'lower': max(0, round(row['yhat_lower'])),
+                             'upper': max(0, round(row['yhat_upper'])),
+                             'is_weekend': is_we, 'is_holiday': is_hol})
+                to_save.append(ForecastResult(
+                    queue=queue, horizon=horizon, forecast_date=d,
+                    predicted=predicted,
+                    lower=max(0, round(row['yhat_lower'])),
+                    upper=max(0, round(row['yhat_upper'])),
+                    is_weekend=is_we, is_holiday=is_hol))
+
+            ForecastResult.objects.filter(queue=queue, horizon=horizon).delete()
+            ForecastResult.objects.bulk_create(to_save)
+            results[horizon] = rows
+
+        cv_df = df.tail(30).copy()
+        future_cv = m.make_future_dataframe(periods=0)
+        pred_cv = m.predict(future_cv[future_cv['ds'].isin(cv_df['ds'])])
+        merged = cv_df.merge(pred_cv[['ds', 'yhat']], on='ds')
+        mae  = round(float((merged['y'] - merged['yhat']).abs().mean()), 1)
+        mape = round(float(((merged['y'] - merged['yhat']).abs() / merged['y'].replace(0, 1)).mean() * 100), 1)
+
+        return Response({'status': 'ok', 'data': {
+            **results, 'history': history_points,
+            'metrics': {'mae': mae, 'mape': mape}
+        }})
