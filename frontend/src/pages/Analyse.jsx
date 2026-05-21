@@ -198,7 +198,10 @@ Réponds en français, structuré et professionnel.`
 
   const analyzeIncident = useCallback(async (inc) => {
     const key = inc.id
-    if (incResult[key] || incLoading[key]) return
+    if (incLoading[key]) return          
+    setSelectedInc(inc)
+    if (incResult[key]) return           
+    setIncLoading(prev => ({ ...prev, [key]: true }))
     setIncLoading(prev => ({ ...prev, [key]: true })); setSelectedInc(inc)
     const prompt = `Expert ITSM — Incident en rupture SLA :
 Numéro : ${inc.id} | CI : ${inc.ci} | Groupe : ${inc.group}
@@ -462,7 +465,7 @@ Réponds en français, concis.`
                             : <span style={{ color:DXC.blue, fontWeight:700 }}>🤖 Analyser</span>}
                         </div>
                       </div>
-                      {(incResult[inc.id] || incLoading[inc.id]) && selectedInc?.id===inc.id && (
+                      {selectedInc?.id === inc.id && (incResult[inc.id] || incLoading[inc.id]) && (
                         <div className="fade-in" style={{ padding:'20px 26px', background:DXC.bluePale, borderBottom:`1px solid ${DXC.border}` }}>
                           {incLoading[inc.id] && !incResult[inc.id] ? (
                             <div style={{ display:'flex', gap:10, alignItems:'center', color:DXC.textMuted, fontSize:15 }}>
