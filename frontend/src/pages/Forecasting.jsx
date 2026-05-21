@@ -101,15 +101,22 @@ const ForecastTooltip = ({ active, payload, label }) => {
 /* ══ ForecastCalendar ════════════════════════════════════════════════ */
 function ForecastCalendar({ forecastData, horizon }) {
   const allForecast = forecastData?.[horizon] || []
-  const [curMonth, setCurMonth] = useState(() => {
-    if (allForecast.length) {
-      const d = new Date(allForecast[0].date)
-      return { year: d.getFullYear(), month: d.getMonth() }
-    }
-    return { year: 2026, month: 4 }
-  })
+  const [curMonth, setCurMonth] = useState({ year: 2026, month: 4 })
   const [selectedWeek, setSelectedWeek] = useState(0)
 
+  // Resync quand les données arrivent ou changent de queue
+  useEffect(() => {
+    if (allForecast.length > 0) {
+      const d = new Date(allForecast[0].date)
+      setCurMonth({ year: d.getFullYear(), month: d.getMonth() })
+      setSelectedWeek(0)
+    }
+  }, [allForecast.length, allForecast[0]?.date])
+
+  // Reset semaine quand on change de mois
+  useEffect(() => {
+    setSelectedWeek(0)
+  }, [curMonth.year, curMonth.month])
   const fcMap = {}
   allForecast.forEach(f => { fcMap[f.date] = f })
 

@@ -1355,8 +1355,6 @@ class ForecastView(APIView):
             qs = ForecastResult.objects.filter(
                 queue=queue, horizon='365d'
             ).order_by('forecast_date')
-
-            # Pour 7d et 30d : prendre les N premiers jours futurs
             limit = {'7d': 7, '30d': 30, '365d': 365}[horizon]
             qs = qs[:limit]
 
