@@ -1449,10 +1449,7 @@ def forecast_view(request):
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
 # ══ Forecast View ══════════════════════════════════════════════════
-Le message est clair : "Aucune prévision en DB pour 'Servier French'. Lancez le notebook Prophet d'abord."
-Cela signifie que votre ForecastView actuelle lit depuis la DB ForecastResult au lieu de calculer Prophet à la volée. Il faut modifier la view pour qu'elle calcule directement quand on clique le bouton.
-Regardez votre views.py — il y a probablement une autre version de ForecastView qui fait un ForecastResult.objects.filter(queue=queue) au lieu de lancer Prophet. Remplacez le get de ForecastView par celui qui lance Prophet :
-pythonclass ForecastView(APIView):
+class ForecastView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
