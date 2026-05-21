@@ -460,6 +460,7 @@ function MetricsBar({ forecast, metrics }) {
 
 /* ══ HorizonTab ══════════════════════════════════════════════════════ */
 function HorizonTab({ data, horizon, color }) {
+  const [page, setPage] = useState(0)
   const forecast = data?.[horizon]
   const history = data?.history
   const metrics = data?.metrics
