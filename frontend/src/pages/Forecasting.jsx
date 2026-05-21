@@ -111,14 +111,11 @@ function ForecastCalendar({ forecastData, horizon }) {
       setCurMonth({ year: d.getFullYear(), month: d.getMonth() })
       setSelectedWeek(0)
     }
-  }, [allForecast.length, allForecast[0]?.date])
+  }, [allForecast]) // ✅ tableau entier au lieu de allForecast[0]?.date
 
-  // Reset semaine quand on change de mois
   useEffect(() => {
     setSelectedWeek(0)
   }, [curMonth.year, curMonth.month])
-  const fcMap = {}
-  allForecast.forEach(f => { fcMap[f.date] = f })
 
   const workdays = allForecast.filter(f => !f.is_weekend && f.predicted > 100)
   const maxVal = workdays.length ? Math.max(...workdays.map(f => f.predicted)) : 1500
