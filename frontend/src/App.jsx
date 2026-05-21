@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Component, createContext, useContext } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import Overview from './pages/Overview'
 import Accounts from './pages/Accounts'
@@ -12,10 +12,42 @@ import { fetchOverview, fetchSnapshots } from './utils/api'
 import { useFetch } from './hooks/useFetch'
 import './styles/index.css'
 
-import { createContext, useContext } from 'react'
 export const FilterContext = createContext({})
 export const useFilters = () => useContext(FilterContext)
 
+/* ══ Error Boundary ══════════════════════════════════════════════════ */
+class ErrorBoundary extends Component {
+  state = { error: null }
+  static getDerivedStateFromError(e) { return { error: e } }
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info)
+  }
+  render() {
+    if (this.state.error) return (
+      <div style={{
+        padding: 40, color: '#D94040', fontFamily: 'monospace',
+        background: '#FDEAEA', borderRadius: 12, margin: 20,
+        border: '1px solid #D9404033'
+      }}>
+        <h2 style={{ marginBottom: 12 }}>❌ Erreur dans ce composant</h2>
+        <pre style={{
+          background: '#fff', padding: 16, borderRadius: 8,
+          fontSize: 13, overflowX: 'auto'
+        }}>{this.state.error.message}</pre>
+        <button
+          onClick={() => this.setState({ error: null })}
+          style={{
+            marginTop: 16, padding: '8px 16px', background: '#D94040',
+            color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer'
+          }}
+        >Réessayer</button>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
+/* ══ Config ══════════════════════════════════════════════════════════ */
 const NAV_LINKS = [
   { to: '/',            label: '📊 Vue Globale',        end: true },
   { to: '/accounts',    label: '🏢 Comptes' },
@@ -26,6 +58,7 @@ const NAV_LINKS = [
   { to: '/forecasting', label: '📈 Forecasting' },
   { to: '/analyse',     label: '🔍 Analyse' },
 ]
+
 const INTERVAL_OPTIONS = (() => {
   const opts = []
   for (let h = 8; h < 20; h++) {
@@ -49,6 +82,7 @@ function getISOWeek(date) {
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7)
 }
 
+/* ══ App ═════════════════════════════════════════════════════════════ */
 export default function App() {
   const [filters, setFilters] = useState({
     year:     'all',
@@ -57,7 +91,7 @@ export default function App() {
     day:      'all',
     account:  'all',
     language: 'all',
-    interval: 'all',   
+    interval: 'all',
   })
   const [status,     setStatus]     = useState({ live: true, lastRefresh: null })
   const [refreshing, setRefreshing] = useState(false)
@@ -79,9 +113,9 @@ export default function App() {
   ).sort((a, b) => a - b)
 
   const filteredSnapsForDays = (snapshots || []).filter(s => {
-    const d = new Date(s.date)
-    const y = d.getFullYear()
-    const m = d.getMonth() + 1
+    const d     = new Date(s.date)
+    const y     = d.getFullYear()
+    const m     = d.getMonth() + 1
     const yearOk  = filters.year  === 'all' || y === Number(filters.year)
     const monthOk = filters.month === 'all' || m === Number(filters.month)
     return yearOk && monthOk
@@ -198,7 +232,7 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Intervalle ← nouveau */}
+              {/* Intervalle */}
               <div className="ctrl-group">
                 <span className="ctrl-label">Intervalle</span>
                 <select className="ctrl-select" value={filters.interval}
@@ -248,14 +282,14 @@ export default function App() {
           {/* ── Main content ── */}
           <main className="main">
             <Routes>
-              <Route path="/"            element={<Overview />} />
-              <Route path="/accounts"    element={<Accounts />} />
-              <Route path="/queues"      element={<Queues />} />
-              <Route path="/hourly"      element={<Hourly />} />
-              <Route path="/sla-config"  element={<SLAConfig />} />
-              <Route path="/live-data"   element={<LiveData />} />
-              <Route path="/forecasting" element={<Forecasting />} />
-              <Route path="/Analyse" element={<Analyse />} />
+              <Route path="/"            element={<ErrorBoundary><Overview /></ErrorBoundary>} />
+              <Route path="/accounts"    element={<ErrorBoundary><Accounts /></ErrorBoundary>} />
+              <Route path="/queues"      element={<ErrorBoundary><Queues /></ErrorBoundary>} />
+              <Route path="/hourly"      element={<ErrorBoundary><Hourly /></ErrorBoundary>} />
+              <Route path="/sla-config"  element={<ErrorBoundary><SLAConfig /></ErrorBoundary>} />
+              <Route path="/live-data"   element={<ErrorBoundary><LiveData /></ErrorBoundary>} />
+              <Route path="/forecasting" element={<ErrorBoundary><Forecasting /></ErrorBoundary>} />
+              <Route path="/analyse"     element={<ErrorBoundary><Analyse /></ErrorBoundary>} />
             </Routes>
           </main>
 
