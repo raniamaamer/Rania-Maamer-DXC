@@ -1458,6 +1458,7 @@ class ForecastView(APIView):
         logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
         queue = request.GET.get('queue', 'Servier French')
+        logger.info(f"ForecastView called for queue: '{queue}'")
 
         # ── 1. Données depuis HistoricalMetric ──────────────────────────
         qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
@@ -1466,8 +1467,7 @@ class ForecastView(APIView):
             available = list(
                 HistoricalMetric.objects
                 .values_list('queue', flat=True)
-                .distinct()
-                .order_by('queue')
+                .distinct().order_by('queue')
             )
             return Response({
                 'status': 'error',
@@ -1553,11 +1553,13 @@ class ForecastView(APIView):
                     is_weekend=is_we, is_holiday=is_hol,
                 ))
             results[horizon] = rows
+            logger.info(f"Forecast '{horizon}' for '{queue}': {len(rows)} rows")
 
         # Sauvegarde DB
         try:
             ForecastResult.objects.filter(queue=queue).delete()
             ForecastResult.objects.bulk_create(to_save, batch_size=500)
+            logger.info(f"Saved {len(to_save)} forecast rows for '{queue}'")
         except Exception as e:
             logger.error(f"DB save error: {e}")
 
@@ -1567,7 +1569,9 @@ class ForecastView(APIView):
             pred_cv   = m.predict(future_cv[future_cv['ds'].isin(df['ds'].tail(30))])
             merged    = df.tail(30).merge(pred_cv[['ds', 'yhat']], on='ds')
             mae  = round(float((merged['y'] - merged['yhat']).abs().mean()), 1)
-            mape = round(float(((merged['y'] - merged['yhat']).abs() / merged['y'].replace(0, 1)).mean() * 100), 1)
+            mape = round(float(
+                ((merged['y'] - merged['yhat']).abs() / merged['y'].replace(0, 1)).mean() * 100
+            ), 1)
         except Exception:
             mae, mape = 0.0, 0.0
 
