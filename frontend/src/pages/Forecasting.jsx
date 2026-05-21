@@ -473,9 +473,10 @@ function HorizonTab({ data, horizon, color }) {
   )
 
   // Table preview: first 14 rows for 7d/30d, weekly for 365d
-  const tableRows = horizon === '365d'
-    ? forecast.filter(f => new Date(f.date).getDay() === 1)
-    : forecast.slice(0, horizon === '7d' ? 7 : 30)
+  const PAGE_SIZE = horizon === '7d' ? 7 : horizon === '30d' ? 30 : 14
+  const [page, setPage] = useState(0)
+  const totalPages = Math.ceil(forecast.length / PAGE_SIZE)
+  const tableRows = forecast.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <MetricsBar forecast={forecast} metrics={horizon === '7d' ? metrics : null} />
@@ -519,11 +520,34 @@ function HorizonTab({ data, horizon, color }) {
             ))}
           </tbody>
         </table>
-        {(horizon === '30d' || horizon === '365d') && (
-          <div style={{ padding: '10px 14px', fontSize: 11, color: DXC.textMuted, background: DXC.bgSurface, borderTop: `1px solid ${DXC.border}` }}>
-            {horizon === '30d' ? `30 premiers jours affichés sur ${forecast.length}` : `${tableRows.length} semaines affichées`}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 14px', fontSize: 11, color: DXC.textMuted,
+          background: DXC.bgSurface, borderTop: `1px solid ${DXC.border}`
+        }}>
+          <span>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, forecast.length)} sur {forecast.length} jours</span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              style={{
+                background: 'none', border: `1px solid ${DXC.border}`, borderRadius: 6,
+                padding: '2px 10px', cursor: page === 0 ? 'not-allowed' : 'pointer',
+                color: DXC.textMuted, fontSize: 11, opacity: page === 0 ? 0.4 : 1
+              }}
+            >‹</button>
+            <span style={{ fontWeight: 700, color: DXC.text }}>{page + 1} / {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              style={{
+                background: 'none', border: `1px solid ${DXC.border}`, borderRadius: 6,
+                padding: '2px 10px', cursor: page === totalPages - 1 ? 'not-allowed' : 'pointer',
+                color: DXC.textMuted, fontSize: 11, opacity: page === totalPages - 1 ? 0.4 : 1
+              }}
+            >›</button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
