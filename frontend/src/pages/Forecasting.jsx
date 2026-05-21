@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -460,7 +460,6 @@ function MetricsBar({ forecast, metrics }) {
 
 /* ══ HorizonTab ══════════════════════════════════════════════════════ */
 function HorizonTab({ data, horizon, color }) {
-  const [page, setPage] = useState(0)
   const forecast = data?.[horizon]
   const history = data?.history
   const metrics = data?.metrics
@@ -475,6 +474,7 @@ function HorizonTab({ data, horizon, color }) {
 
   // Table preview: first 14 rows for 7d/30d, weekly for 365d
   const PAGE_SIZE = horizon === '7d' ? 7 : horizon === '30d' ? 30 : 14
+  const [page, setPage] = useState(0)
   const totalPages = Math.ceil(forecast.length / PAGE_SIZE)
   const tableRows = forecast.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   return (
