@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import (
     HourlyTrend, SLAConfig, DailySnapshot,
-    HistoricalMetric, ForecastResult, RealtimeMetric,
+    HistoricalMetric, RealtimeMetric,
 )
 from .serializers import (
     SLAConfigSerializer,
@@ -1533,7 +1533,7 @@ class ForecastView(APIView):
 
         # ── 6. Prévisions J+7 / J+30 / J+365 ────────────────────────────
         results = {}
-        to_save_all = []
+        
 
         for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
             future   = m.make_future_dataframe(periods=days, freq='D')
@@ -1557,25 +1557,13 @@ class ForecastView(APIView):
                     'is_weekend': is_we,
                     'is_holiday': is_hol,
                 })
-                to_save_all.append(ForecastResult(
-                    queue=queue, horizon=horizon, forecast_date=d,
-                    predicted=predicted, lower=lower, upper=upper,
-                    is_weekend=is_we, is_holiday=is_hol,
-                ))
+                
 
             results[horizon] = rows
             logger.info(f"Forecast '{horizon}' for '{queue}': {len(rows)} rows")
 
-        # ── 7. Sauvegarder en DB (delete + bulk_create par horizon) ───────
-        try:
-            ForecastResult.objects.filter(queue=queue).delete()
-            ForecastResult.objects.bulk_create(to_save_all, batch_size=500)
-            logger.info(f"Saved {len(to_save_all)} forecast rows for '{queue}'")
-        except Exception as e:
-            logger.error(f"DB save error for '{queue}': {e}")
-            # On continue quand même — on retourne les données même si la DB échoue
 
-        # ── 8. Métriques in-sample (30 derniers jours) ────────────────────
+        # ── 7. Métriques in-sample (30 derniers jours) ────────────────────
         try:
             cv_df    = df.tail(30).copy()
             future_cv = m.make_future_dataframe(periods=0)
