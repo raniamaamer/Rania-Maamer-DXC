@@ -105,13 +105,15 @@ function ForecastCalendar({ forecastData, horizon }) {
   const [selectedWeek, setSelectedWeek] = useState(0)
 
   // Resync quand les données arrivent ou changent de queue
+  const firstDate = allForecast[0]?.date ?? null
+
   useEffect(() => {
-    if (allForecast.length > 0) {
-      const d = new Date(allForecast[0].date)
+    if (firstDate) {
+      const d = new Date(firstDate)
       setCurMonth({ year: d.getFullYear(), month: d.getMonth() })
       setSelectedWeek(0)
     }
-  }, [allForecast]) // ✅ tableau entier au lieu de allForecast[0]?.date
+  }, [firstDate])
 
   useEffect(() => {
     setSelectedWeek(0)
