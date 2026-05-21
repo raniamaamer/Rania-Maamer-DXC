@@ -255,7 +255,7 @@ export default function App() {
               <Route path="/sla-config"  element={<SLAConfig />} />
               <Route path="/live-data"   element={<LiveData />} />
               <Route path="/forecasting" element={<Forecasting />} />
-              <Route path="/Analyse" element={<Analyse />} />
+              <Route path="/Analyse"     element={<Analyse />} />
             </Routes>
           </main>
 
