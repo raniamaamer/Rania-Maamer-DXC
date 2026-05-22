@@ -101,14 +101,29 @@ const ForecastTooltip = ({ active, payload, label }) => {
 /* ══ ForecastCalendar ════════════════════════════════════════════════ */
 function ForecastCalendar({ forecastData, horizon }) {
   const allForecast = forecastData?.[horizon] || []
-  const [curMonth, setCurMonth] = useState(() => {
+
+  const getInitialMonth = () => {
     if (allForecast.length) {
       const d = new Date(allForecast[0].date)
       return { year: d.getFullYear(), month: d.getMonth() }
     }
     return { year: 2026, month: 4 }
-  })
-  const [selectedWeek, setSelectedWeek] = useState(0)
+  }
+
+  const getInitialWeek = () => {
+    if (!allForecast.length) return 0
+    const firstFc = new Date(allForecast[0].date)
+    const year = firstFc.getFullYear()
+    const month = firstFc.getMonth()
+    const day = firstFc.getDate()
+    const first = new Date(year, month, 1)
+    let startDow = first.getDay()
+    startDow = startDow === 0 ? 6 : startDow - 1
+    return Math.floor((startDow + day - 1) / 7)
+  }
+
+  const [curMonth, setCurMonth] = useState(getInitialMonth)
+  const [selectedWeek, setSelectedWeek] = useState(getInitialWeek)
 
   const fcMap = {}
   allForecast.forEach(f => { fcMap[f.date] = f })
@@ -119,7 +134,7 @@ function ForecastCalendar({ forecastData, horizon }) {
   const q2 = maxVal * 0.66
 
   function getColor(p, isWE) {
-    if (isWE || p < 50) return null
+    if (isWE || p <= 0) return null   // ← bas 0 mich 50
     if (p < q1) return { bg: '#dcfce7', txt: '#166534' }
     if (p < q2) return { bg: '#fef3c7', txt: '#92400e' }
     return { bg: '#fee2e2', txt: '#991b1b' }
@@ -228,7 +243,7 @@ function ForecastCalendar({ forecastData, horizon }) {
                 <div style={{ fontSize: 10, fontWeight: 600, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>{d}</div>
                 {fc && fc.predicted > 0 && (
                   <div style={{ fontSize: 8, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>
-                    {fc.predicted >= 1000 ? (Math.round(fc.predicted / 100) / 10) + 'k' : fc.predicted}
+                    {fc.predicted >= 1000 ? (Math.round(fc.predicted / 100) / 10) + 'k' : fc.predicted < 10 ? fc.predicted.toFixed(1): Math.round(fc.predicted)}
                   </div>
                 )}
               </div>
