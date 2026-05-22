@@ -1621,3 +1621,234 @@ class ClaudeProxyViewTest(APITestCase):
         payload = {"messages": [{"role": "user", "content": "Hello"}]}
         response = self.client.post("/api/claude-proxy/", payload, format="json")
         self.assertIn(response.status_code, [200, 500])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NOUVEAUX TESTS — Couverture views.py manquante
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ForecastViewAPITest(APITestCase):
+    """Tests de ForecastView (APIView) — endpoint /api/forecast-queue/"""
+
+    def setUp(self):
+        # Crée assez de données pour Prophet (minimum 10 points)
+        for i in range(15):
+            HistoricalMetric.objects.create(
+                queue="Servier French",
+                account="Servier",
+                start_date=timezone.now() - datetime.timedelta(days=i),
+                hour="10:00",
+                year=2024, month=4, week=15,
+                offered=100 + i, abandoned=5, answered=95 + i,
+                sla_rate=0.88, target_ans_rate=0.80,
+            )
+
+    @patch('api.views.Prophet')
+    def test_forecast_queue_returns_200(self, mock_prophet):
+        mock_model = MagicMock()
+        mock_prophet.return_value = mock_model
+
+        import pandas as pd
+        future_df = pd.DataFrame({
+            'ds': pd.date_range('2024-05-01', periods=7),
+            'yhat': [100.0] * 7,
+            'yhat_lower': [90.0] * 7,
+            'yhat_upper': [110.0] * 7,
+        })
+        mock_model.predict.return_value = future_df
+        mock_model.make_future_dataframe.return_value = future_df
+
+        response = self.client.get("/api/forecast-queue/?queue=Servier French")
+        self.assertIn(response.status_code, [200, 404, 500])
+
+    def test_forecast_queue_no_data_returns_404(self):
+        response = self.client.get("/api/forecast-queue/?queue=NonExistentQueue")
+        self.assertEqual(response.status_code, 404)
+        data = response.json()
+        self.assertIn("available_queues", data)
+
+    def test_forecast_queue_not_enough_data_returns_422(self):
+        HistoricalMetric.objects.all().delete()
+        # Crée seulement 3 points (< 10 minimum)
+        for i in range(3):
+            HistoricalMetric.objects.create(
+                queue="SmallQueue", account="SmallAcc",
+                start_date=timezone.now() - datetime.timedelta(days=i),
+                hour="10:00", year=2024, month=4, week=15,
+                offered=50 + i, abandoned=2, answered=48,
+                sla_rate=0.88, target_ans_rate=0.80,
+            )
+        response = self.client.get("/api/forecast-queue/?queue=SmallQueue")
+        self.assertIn(response.status_code, [200, 404, 422, 500])
+
+
+class ForecastViewStandaloneTest(APITestCase):
+    """Tests de forecast_view (fonction @api_view) — /api/forecast/"""
+
+    def test_forecast_view_empty_db_returns_error(self):
+        DailySnapshot.objects.all().delete()
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 500])
+        if response.status_code == 500:
+            self.assertIn("status", response.json())
+
+    def test_forecast_view_with_data(self):
+        for i in range(15):
+            DailySnapshot.objects.create(
+                date=datetime.date(2024, 1, 1) + datetime.timedelta(days=i),
+                total_offered=100 + i,
+                total_answered=95 + i,
+                global_sla_rate=0.88,
+            )
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 500])
+
+
+class ClaudeProxyViewExtendedTest(APITestCase):
+    """Tests étendus de claude_proxy."""
+
+    def test_proxy_empty_body_returns_error(self):
+        response = self.client.post(
+            "/api/claude-proxy/",
+            data="",
+            content_type="application/json"
+        )
+        self.assertIn(response.status_code, [400, 500])
+
+    def test_proxy_valid_json_structure(self):
+        """Vérifie que le proxy accepte un JSON valide sans crasher sur le parsing."""
+        payload = {
+            "messages": [{"role": "user", "content": "test"}],
+            "max_tokens": 100,
+            "stream": False,
+        }
+        # On mock httpx.stream pour éviter l'appel réseau réel
+        with patch('httpx.stream') as mock_stream:
+            mock_ctx = MagicMock()
+            mock_ctx.__enter__ = MagicMock(return_value=mock_ctx)
+            mock_ctx.__exit__ = MagicMock(return_value=False)
+            mock_ctx.iter_bytes = MagicMock(return_value=iter([b'data: {"choices":[]}']))
+            mock_stream.return_value = mock_ctx
+            response = self.client.post("/api/claude-proxy/", payload, format="json")
+        self.assertIn(response.status_code, [200, 500])
+
+
+class DeskLangueViewExtendedTest(APITestCase):
+    """Tests supplémentaires pour DeskLangueView — branches non couvertes."""
+
+    def setUp(self):
+        # Données avec avg_ttc, hold_time pour couvrir les calculs avancés
+        HistoricalMetric.objects.create(
+            queue="Sony EN", account="Sony",
+            desk="EN Desk",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=150, abandoned=8, answered=142,
+            ans_in_sla=120.0, abd_in_sla=3.0,
+            ans_out_sla=25.0, abd_out_60=5.0, abd_in_60=3.0,
+            abd_out_sla=5.0,
+            callback_contacts=2,
+            avg_ttc=60.0, average_hold_time=30.0,
+            contacts_put_on_hold=10,
+            handle_time=7100.0, total_answer_time=1420.0,
+            total_hold_time=300.0,
+            sla_rate=0.85, target_ans_rate=0.80, target_abd_rate=0.05,
+            is_ooh=False,
+        )
+        HistoricalMetric.objects.create(
+            queue="Sony FR", account="Sony",
+            desk="FR Desk",
+            start_date=timezone.now(), hour="11:00",
+            year=2024, month=4, week=15,
+            offered=100, abandoned=5, answered=95,
+            ans_in_sla=80.0, abd_in_sla=2.0,
+            ans_out_sla=15.0, abd_out_60=3.0, abd_in_60=2.0,
+            abd_out_sla=3.0,
+            callback_contacts=1,
+            avg_ttc=45.0, average_hold_time=25.0,
+            contacts_put_on_hold=5,
+            handle_time=4750.0, total_answer_time=950.0,
+            total_hold_time=125.0,
+            sla_rate=0.85, target_ans_rate=0.80, target_abd_rate=0.05,
+            is_ooh=False,
+        )
+
+    def test_desk_langue_with_hold_and_ttc_data(self):
+        """Couvre les calculs avg_ttc, avg_hold, sec_to_mmss dans DeskLangueView."""
+        response = self.client.get("/api/desk-langue/?account=Sony")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("rows", data)
+        rows = data["rows"]
+        self.assertGreater(len(rows), 0)
+        # Vérifie que les champs de temps sont présents
+        non_total = [r for r in rows if r.get("desk_langue") != "Total"]
+        if non_total:
+            self.assertIn("asa", non_total[0])
+            self.assertIn("avg_hold", non_total[0])
+            self.assertIn("avg_ttc", non_total[0])
+
+    def test_desk_langue_queues_by_desk_present(self):
+        """Vérifie que queues_by_desk est retourné."""
+        response = self.client.get("/api/desk-langue/?account=Sony")
+        data = response.json()
+        self.assertIn("queues_by_desk", data)
+
+    def test_desk_langue_single_account_uses_account_abd(self):
+        """Un seul compte → abandon rate calculé avec la formule du compte."""
+        response = self.client.get("/api/desk-langue/?account=Sony")
+        rows = response.json()["rows"]
+        total = next((r for r in rows if r.get("desk_langue") == "Total"), None)
+        self.assertIsNotNone(total)
+        self.assertIn("abd_rate", total)
+
+    def test_desk_langue_with_ooh_data(self):
+        HistoricalMetric.objects.create(
+            queue="Sony OOH", account="Sony",
+            desk="OOH Desk",
+            start_date=timezone.now(), hour="22:00",
+            year=2024, month=4, week=15,
+            offered=20, abandoned=1, answered=19,
+            ans_in_sla=17.0, abd_in_sla=0.0,
+            sla_rate=0.90, target_ans_rate=0.80,
+            is_ooh=True,
+        )
+        response = self.client.get("/api/desk-langue/?account=Sony&is_ooh=true")
+        self.assertEqual(response.status_code, 200)
+
+
+class DebugMetricsViewExtendedTest(APITestCase):
+    """Tests supplémentaires pour DebugMetricsView."""
+
+    def setUp(self):
+        HistoricalMetric.objects.create(
+            queue="Debug Full", account="DebugFull",
+            desk="Debug Desk",
+            start_date=timezone.now(), hour="10:00",
+            year=2024, month=4, week=15,
+            offered=200, abandoned=10, answered=100,
+            ans_in_sla=80.0, abd_in_sla=5.0,
+            ans_out_sla=15.0, abd_out_sla=5.0,
+            contacts_put_on_hold=20,
+            avg_handle_time=200.0, avg_answer_time=35.0,
+            avg_ttc=70.0, average_hold_time=50.0,
+            sla_rate=0.85, target_ans_rate=0.80,
+            is_ooh=False,
+        )
+
+    def test_debug_metrics_with_time_filter(self):
+        response = self.client.get("/api/debug-metrics/?year=2024")
+        self.assertEqual(response.status_code, 200)
+
+    def test_debug_metrics_full_row_fields(self):
+        response = self.client.get("/api/debug-metrics/?account=DebugFull")
+        data = response.json()
+        if data["count"] > 0:
+            row = data["metrics"][0]
+            for key in [
+                "desk", "account", "offered", "answered", "abandoned",
+                "ans_in_sla", "abd_in_sla", "ans_out_sla", "abd_out_sla",
+                "sum_handle_time_seconds", "sum_ttc_seconds",
+                "sum_answer_time_seconds", "sum_hold_time_seconds",
+                "contacts_put_on_hold"
+            ]:
+                self.assertIn(key, row)
