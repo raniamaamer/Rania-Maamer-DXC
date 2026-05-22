@@ -1523,6 +1523,7 @@ class ForecastView(APIView):
             interval_width=0.80,
             holidays=holiday_df,
         )
+        df['ds'] = pd.to_datetime(df['ds']).apply(lambda x: x.tz_convert(None) if x.tzinfo else x)
         m.fit(df)
 
         # ── 5. Historique à retourner (60 derniers jours) ─────────────────
