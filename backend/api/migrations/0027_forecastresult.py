@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('api', '0027_forecastresult'),
+        ('api', '0026_alter_historicalmetric_account_and_more.py'),
     ]
 
     operations = [
