@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import ChatBot from "./ChatBot";
 
 const DXC = {
   blue:        '#3B6AC8',
@@ -119,6 +120,7 @@ export default function SlaBreachAnalyzer() {
   const [incLoading,  setIncLoading]  = useState({})
   const [fileError,   setFileError]   = useState(null)
   const [tab,         setTab]         = useState('overview')
+  const [csvTextData, setCsvTextData] = useState("")
 
   const handleFile = useCallback((e) => {
     const file = e.target.files[0]
@@ -128,6 +130,7 @@ export default function SlaBreachAnalyzer() {
     reader.onload = (ev) => {
       try {
         const rows = parseCSV(ev.target.result)
+        setCsvTextData(ev.target.result.slice(0, 3000))
         setAnalysis(analyzeIncidents(rows))
         setAiResult(''); setIncResult({}); setTab('overview')
       } catch (err) { setFileError('Erreur CSV : ' + err.message) }
@@ -524,6 +527,7 @@ Réponds en français, concis.`
           </div>
         )}
       </div>
+      <ChatBot csvContext={csvTextData} />
     </div>
   )
 }
