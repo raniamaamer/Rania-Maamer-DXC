@@ -15,11 +15,9 @@ RUN pip install -r requirements.txt && \
 COPY backend/ .
 COPY data/ /app/data/
 
-# Create directories first, then set ownership, then switch user
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser && \
-    mkdir -p /app/staticfiles /app/media && \
-    chown -R appuser:appgroup /app
-
+# Créer un utilisateur non-root
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
 USER appuser
 
 EXPOSE 8000
