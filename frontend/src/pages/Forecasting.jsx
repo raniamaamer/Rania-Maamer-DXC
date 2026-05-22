@@ -674,7 +674,7 @@ export default function Forecasting() {
   }, [selectedQueue, queueData])
 
   const horizonTabs = [
-    { id: '7d',   label: '🗓 J+7' },
+    { id: '7d',   label: '📅 J+7' },
     { id: '30d',  label: '📅 J+30' },
     { id: '365d', label: '📆 1 an' },
   ]
