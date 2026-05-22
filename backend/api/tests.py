@@ -1828,12 +1828,9 @@ class URLSConfigTest(APITestCase):
     """Couvre urls.py — résolution des routes."""
 
     def test_urls_health_resolves(self):
-        from django.urls import reverse
-        url = reverse('health-check')
-        self.assertIsNotNone(url)
+        response = self.client.get("/api/health/")
+        self.assertEqual(response.status_code, 200)
 
     def test_urls_overview_resolves(self):
-        from django.urls import reverse
-        url = reverse('overview')
-        response = self.client.get(url)
+        response = self.client.get("/api/overview/")
         self.assertEqual(response.status_code, 200)
