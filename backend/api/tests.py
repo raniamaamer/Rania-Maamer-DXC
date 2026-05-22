@@ -1823,3 +1823,17 @@ class DebugMetricsViewExtendedTest(APITestCase):
                 "contacts_put_on_hold"
             ]:
                 self.assertIn(key, row)
+
+class URLSConfigTest(APITestCase):
+    """Couvre urls.py — résolution des routes."""
+
+    def test_urls_health_resolves(self):
+        from django.urls import reverse
+        url = reverse('health-check')
+        self.assertIsNotNone(url)
+
+    def test_urls_overview_resolves(self):
+        from django.urls import reverse
+        url = reverse('overview')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
