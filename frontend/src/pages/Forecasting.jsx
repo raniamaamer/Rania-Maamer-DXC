@@ -113,8 +113,8 @@ function ForecastCalendar({ forecastData, horizon }) {
   const fcMap = {}
   allForecast.forEach(f => { fcMap[f.date] = f })
 
-  const workdays = allForecast.filter(f => !f.is_weekend && f.predicted > 100)
-  const maxVal = workdays.length ? Math.max(...workdays.map(f => f.predicted)) : 1500
+  const workdays = allForecast.filter(f => !f.is_weekend && f.predicted > 0)
+  const maxVal = workdays.length ? Math.max(...workdays.map(f => f.predicted)) : 100
   const q1 = maxVal * 0.33
   const q2 = maxVal * 0.66
 
@@ -158,7 +158,7 @@ function ForecastCalendar({ forecastData, horizon }) {
 
   const weekDays = getWeekDays(selectedWeek)
   const total = weekDays.reduce((s, x) => s + (x.fc ? x.fc.predicted : 0), 0)
-  const workD = weekDays.filter(x => x.fc && !x.fc.is_weekend && x.fc.predicted > 50)
+  const workD = weekDays.filter(x => x.fc && !x.fc.is_weekend && x.fc.predicted > 0)
   const avgW = workD.length ? Math.round(workD.reduce((s, x) => s + x.fc.predicted, 0) / workD.length) : 0
   const peak = workD.length ? Math.max(...workD.map(x => x.fc.predicted)) : 0
   const maxBar = Math.max(...weekDays.filter(x => x.fc).map(x => x.fc.predicted), 1)
@@ -226,7 +226,7 @@ function ForecastCalendar({ forecastData, horizon }) {
                 }}
               >
                 <div style={{ fontSize: 10, fontWeight: 600, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>{d}</div>
-                {fc && fc.predicted > 50 && (
+                {fc && fc.predicted > 0 && (
                   <div style={{ fontSize: 8, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>
                     {fc.predicted >= 1000 ? (Math.round(fc.predicted / 100) / 10) + 'k' : fc.predicted}
                   </div>
