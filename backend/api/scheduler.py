@@ -2,11 +2,13 @@ import logging
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from django.core.management import call_command
 from django_apscheduler.jobstores import DjangoJobStore
 
 logger = logging.getLogger(__name__)
 scheduler = None
+
 
 def archive_realtime_job():
     logger.info("[SCHEDULER] Déclenchement archive_realtime (23:59)")
@@ -15,6 +17,17 @@ def archive_realtime_job():
         logger.info("[SCHEDULER] archive_realtime terminé avec succès")
     except Exception as e:
         logger.error(f"[SCHEDULER] Erreur archive_realtime : {e}", exc_info=True)
+
+
+def refresh_metrics_job():
+    logger.info("[SCHEDULER] Rafraîchissement métriques Prometheus")
+    try:
+        from metrics_exporter import refresh_metrics
+        refresh_metrics()
+        logger.info("[SCHEDULER] Métriques Prometheus mises à jour avec succès")
+    except Exception as e:
+        logger.error(f"[SCHEDULER] Erreur refresh_metrics : {e}", exc_info=True)
+
 
 def start():
     global scheduler
@@ -32,6 +45,8 @@ def start():
 
     scheduler = BackgroundScheduler()
     scheduler.add_jobstore(DjangoJobStore(), "default")
+
+    # ── Job 1 : Archive realtime → historical (23:59) ──────────
     scheduler.add_job(
         archive_realtime_job,
         trigger=CronTrigger(hour=23, minute=59, timezone="Europe/Paris"),
@@ -43,8 +58,26 @@ def start():
         misfire_grace_time=300,
         coalesce=True,
     )
+
+    # ── Job 2 : Rafraîchissement métriques Prometheus (toutes les 5 min) ──
+    scheduler.add_job(
+        refresh_metrics_job,
+        trigger=IntervalTrigger(minutes=5),
+        id="refresh_prometheus_metrics",
+        name="Rafraîchissement métriques Prometheus (5 min)",
+        jobstore="default",
+        replace_existing=True,
+        max_instances=1,
+        misfire_grace_time=60,
+        coalesce=True,
+    )
+
     scheduler.start()
-    logger.info("[SCHEDULER] APScheduler démarré — archive_realtime planifiée à 23:59")
+    logger.info(
+        "[SCHEDULER] APScheduler démarré — "
+        "archive_realtime @ 23:59 | métriques Prometheus toutes les 5 min"
+    )
+
 
 def stop():
     global scheduler

@@ -1,113 +1,335 @@
 {
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "DXC Tunisia — KPIs Contact Center + Django + PostgreSQL",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
   "id": null,
-  "uid": "django-portal",
-  "title": "DXC Portal - Django Metrics",
-  "tags": ["django", "dxc", "backend"],
-  "timezone": "browser",
-  "schemaVersion": 36,
-  "version": 1,
-  "refresh": "30s",
-  "time": { "from": "now-1h", "to": "now" },
+  "links": [],
   "panels": [
+
     {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Vue Globale — KPIs Contact Center",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
       "id": 1,
-      "title": "Requêtes HTTP / seconde",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Taux SLA Global",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
-      "targets": [{
-        "expr": "rate(django_http_requests_total_by_method_total[5m])",
-        "legendFormat": "{{method}}"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" },
-        "thresholds": { "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 50}] }
-      }}
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_global", "legendFormat": "SLA %", "refId": "A" }]
     },
+
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
       "id": 2,
-      "title": "Latence moyenne (ms)",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Taux Abandon Global",
       "type": "stat",
-      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
-      "targets": [{
-        "expr": "rate(django_http_requests_latency_seconds_sum[5m]) / rate(django_http_requests_latency_seconds_count[5m]) * 1000",
-        "legendFormat": "Latence moy."
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
-      "fieldConfig": { "defaults": { "unit": "ms", "color": { "mode": "thresholds" },
-        "thresholds": { "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 200}, {"color": "red", "value": 500}] }
-      }}
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_abandon_rate_global", "legendFormat": "Abandon %", "refId": "A" }]
     },
+
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
       "id": 3,
-      "title": "Erreurs HTTP 4xx / 5xx",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Contacts Offerts Total",
       "type": "stat",
-      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
-      "targets": [{
-        "expr": "sum(rate(django_http_responses_total_by_status_total{status=~\"4..|5..\"}[5m]))",
-        "legendFormat": "Erreurs"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
-      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" },
-        "thresholds": { "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}] }
-      }}
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_contacts_offered_total", "legendFormat": "Contacts", "refId": "A" }]
     },
+
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 480 }, { "color": "red", "value": 600 }] }, "unit": "s" } },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
       "id": 4,
-      "title": "Connexions DB actives",
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Durée Moyenne Traitement (AHT)",
       "type": "stat",
-      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
-      "targets": [{
-        "expr": "pg_stat_database_numbackends{datname=\"dxc_kpi_db\"}",
-        "legendFormat": "Connexions"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" },
-        "thresholds": { "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 10}, {"color": "red", "value": 20}] }
-      }}
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_avg_aht_seconds", "legendFormat": "AHT", "refId": "A" }]
     },
+
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 30 }, { "color": "red", "value": 60 }] }, "unit": "s" } },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
       "id": 5,
-      "title": "Requêtes HTTP par statut (timeline)",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "rate(django_http_responses_total_by_status_total[5m])",
-        "legendFormat": "HTTP {{status}}"
-      }],
-      "fieldConfig": { "defaults": { "unit": "reqps" } }
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Vitesse Réponse (ASA)",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_avg_asa_seconds", "legendFormat": "ASA", "refId": "A" }]
     },
+
     {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" } },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
       "id": 6,
-      "title": "Latence par endpoint (p95)",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "histogram_quantile(0.95, rate(django_http_requests_latency_seconds_bucket[5m]))",
-        "legendFormat": "p95 latency"
-      }],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "title": "Callbacks",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_callbacks_total", "legendFormat": "Callbacks", "refId": "A" }]
     },
+
     {
-      "id": 7,
-      "title": "Transactions PostgreSQL / seconde",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "title": "SLA par Compte",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 75 }, { "color": "green", "value": 80 }] },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "id": 10,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true
+      },
+      "title": "Taux SLA par Compte (%)",
+      "type": "bargauge",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_by_account", "legendFormat": "{{account}}", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] },
+          "mappings": [{ "type": "value", "options": { "0": { "text": "❌ Infraction", "color": "red" }, "1": { "text": "✅ Conforme", "color": "green" } } }]
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "id": 11,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal" },
+      "title": "Conformité SLA par Compte",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_account_sla_compliant", "legendFormat": "{{account}}", "refId": "A" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 102,
+      "title": "Files d'Attente — Détail SLA",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 75 }, { "color": "green", "value": 80 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+      "id": 20,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "title": "Taux SLA par File d'Attente (%)",
+      "type": "bargauge",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_by_queue", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 5 }, { "color": "red", "value": 10 }] },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "id": 21,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "title": "Taux Abandon par File d'Attente (%)",
+      "type": "bargauge",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_abandon_rate_by_queue", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "id": 103,
+      "title": "Django — Performance API",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "id": 30,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Requêtes HTTP / seconde",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(django_http_requests_total_by_method_total[5m])", "legendFormat": "{{method}}", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "id": 31,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Latence API p50 / p95 / p99",
+      "type": "timeseries",
       "targets": [
-        { "expr": "rate(pg_stat_database_xact_commit{datname=\"dxc_kpi_db\"}[5m])", "legendFormat": "Commits/s" },
-        { "expr": "rate(pg_stat_database_xact_rollback{datname=\"dxc_kpi_db\"}[5m])", "legendFormat": "Rollbacks/s" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ops" } }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.95, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+      ]
     },
+
     {
-      "id": 8,
-      "title": "Taille base de données (MB)",
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 104,
+      "title": "PostgreSQL",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 41 },
+      "id": 40,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Connexions DB actives",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "pg_database_size_bytes{datname=\"dxc_kpi_db\"} / 1024 / 1024",
-        "legendFormat": "dxc_kpi_db (MB)"
-      }],
-      "fieldConfig": { "defaults": { "unit": "MB" } }
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "pg_stat_activity_count{datname=\"dxc_kpi_db\"}", "legendFormat": "Connexions", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops", "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 41 },
+      "id": 41,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Transactions PostgreSQL / s",
+      "type": "timeseries",
+      "targets": [
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(pg_stat_database_xact_commit{datname=\"dxc_kpi_db\"}[5m])", "legendFormat": "Commits/s", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(pg_stat_database_xact_rollback{datname=\"dxc_kpi_db\"}[5m])", "legendFormat": "Rollbacks/s", "refId": "B" }
+      ]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 314572800 }, { "color": "red", "value": 524288000 }] } } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 41 },
+      "id": 42,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "title": "Taille Base de Données",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "pg_database_size_bytes{datname=\"dxc_kpi_db\"}", "legendFormat": "dxc_kpi_db", "refId": "A" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 },
+      "id": 105,
+      "title": "ETL & Données",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "dateTimeFromNow", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 50 },
+      "id": 50,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "title": "Dernier Run ETL",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_etl_last_run_timestamp", "legendFormat": "ETL", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 50 },
+      "id": 51,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "title": "Total Enregistrements BDD",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_total_records_db", "legendFormat": "Records", "refId": "A" }]
+    },
+
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 50 },
+      "id": 52,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "title": "Heure de Pointe (contacts)",
+      "type": "stat",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_peak_hour_contacts", "legendFormat": "Contacts", "refId": "A" }]
     }
-  ]
+
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["dxc", "contact-center", "sla", "kpi"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "Africa/Tunis",
+  "title": "DXC Tunisia — KPI Dashboard",
+  "uid": "dxc-kpi-dashboard",
+  "version": 1
 }

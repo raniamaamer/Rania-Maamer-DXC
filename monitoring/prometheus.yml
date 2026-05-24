@@ -30,3 +30,14 @@ scrape_configs:
     static_configs:
       - targets: ['backend:8001']
     scrape_interval: 5m
+
+  # Métriques KPI métier DXC (SLA, abandon, contacts, files)
+  - job_name: 'dxc-kpi'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 1m
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'dxc_.*'
+        action: keep
