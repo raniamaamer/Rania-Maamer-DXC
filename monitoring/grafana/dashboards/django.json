@@ -40,7 +40,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Taux SLA Global",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_global", "legendFormat": "SLA %", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_sla_rate_global)", "legendFormat": "SLA %", "refId": "A" }]
     },
 
     {
@@ -64,7 +64,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Taux Abandon Global",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_abandon_rate_global", "legendFormat": "Abandon %", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_abandon_rate_global)", "legendFormat": "Abandon %", "refId": "A" }]
     },
 
     {
@@ -75,7 +75,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Contacts Offerts Total",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_contacts_offered_total", "legendFormat": "Contacts", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_contacts_offered_total)", "legendFormat": "Contacts", "refId": "A" }]
     },
 
     {
@@ -86,7 +86,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Durée Moyenne Traitement (AHT)",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_avg_aht_seconds", "legendFormat": "AHT", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_avg_aht_seconds)", "legendFormat": "AHT", "refId": "A" }]
     },
 
     {
@@ -97,7 +97,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Vitesse Réponse (ASA)",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_avg_asa_seconds", "legendFormat": "ASA", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_avg_asa_seconds)", "legendFormat": "ASA", "refId": "A" }]
     },
 
     {
@@ -108,7 +108,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "title": "Callbacks",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_callbacks_total", "legendFormat": "Callbacks", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_callbacks_total)", "legendFormat": "Callbacks", "refId": "A" }]
     },
 
     {
@@ -142,7 +142,7 @@
       },
       "title": "Taux SLA par Compte (%)",
       "type": "bargauge",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_by_account", "legendFormat": "{{account}}", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_sla_rate_by_account)", "legendFormat": "{{account}}", "refId": "A" }]
     },
 
     {
@@ -159,7 +159,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal" },
       "title": "Conformité SLA par Compte",
       "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_account_sla_compliant", "legendFormat": "{{account}}", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_account_sla_compliant)", "legendFormat": "{{account}}", "refId": "A" }]
     },
 
     {
@@ -183,7 +183,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
       "title": "Taux SLA par File d'Attente (%)",
       "type": "bargauge",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_sla_rate_by_queue", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_sla_rate_by_queue)", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
     },
 
     {
@@ -199,7 +199,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
       "title": "Taux Abandon par File d'Attente (%)",
       "type": "bargauge",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "dxc_abandon_rate_by_queue", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid)(dxc_abandon_rate_by_queue)", "legendFormat": "{{account}} — {{queue}}", "refId": "A" }]
     },
 
     {
