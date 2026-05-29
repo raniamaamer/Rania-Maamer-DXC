@@ -278,7 +278,7 @@ Réponds en français, concis.`
                   cursor: aiLoading ? 'not-allowed' : 'pointer',
                   fontSize:15, fontWeight:700, display:'flex', alignItems:'center', gap:8, whiteSpace:'nowrap',
                 }}>
-                  {aiLoading ? <><span style={{ animation:'spin 0.8s linear infinite', display:'inline-block' }}>⟳</span> Analyse en cours...</> : '🤖 Analyser avec Claude AI'}
+                  {aiLoading ? <><span style={{ animation:'spin 0.8s linear infinite', display:'inline-block' }}>⟳</span> Analyse en cours...</> : '🤖 Analyser avec Groq'}
                 </button>
               </div>
             )}
