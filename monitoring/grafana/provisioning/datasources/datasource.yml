@@ -2,7 +2,9 @@ apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
-    uid: prometheus        # ← doit être exactement "prometheus"
+    uid: prometheus
     url: http://prometheus:9090
     isDefault: true
     access: proxy
+    editable: true
+    orgId: 1
