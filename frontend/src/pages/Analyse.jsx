@@ -507,7 +507,7 @@ Réponds en français, concis.`
                     <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24, paddingBottom:20, borderBottom:`1px solid ${DXC.border}` }}>
                       <div style={{ width:42, height:42, background:`linear-gradient(135deg,${DXC.blue},${DXC.purple})`, borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🤖</div>
                       <div>
-                        <div style={{ fontSize:18, fontWeight:700, color:DXC.text }}>Analyse Claude AI — Servier Service Desk</div>
+                        <div style={{ fontSize:18, fontWeight:700, color:DXC.text }}>Analyse — Servier Service Desk</div>
                         <div style={{ fontSize:14, color:DXC.textMuted }}>Hypothèses · Recommandations · Staffing</div>
                       </div>
                       {aiLoading && (
