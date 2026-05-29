@@ -326,7 +326,7 @@
   "schemaVersion": 38,
   "tags": ["dxc", "contact-center", "sla", "kpi"],
   "templating": { "list": [] },
-  "time": { "from": "now-24h", "to": "now" },
+  "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "Africa/Tunis",
   "title": "DXC Tunisia — KPI Dashboard",
