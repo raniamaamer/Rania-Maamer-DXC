@@ -4,6 +4,10 @@ DXC KPI Dashboard - Django Settings (Base)
 import os
 from pathlib import Path
 
+# ── PROMETHEUS MULTIPROCESS ──────────────────────────────────────────────────
+os.environ.setdefault("PROMETHEUS_MULTIPROC_DIR", "/tmp/prometheus_multiproc")
+os.makedirs("/tmp/prometheus_multiproc", exist_ok=True)
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dxc-dev-secret-key-change-in-production-2024')

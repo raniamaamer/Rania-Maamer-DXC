@@ -3,13 +3,12 @@ workers = 3
 worker_class = "gthread"
 threads = 4
 
-def post_fork(server, worker):
+def on_starting(_server):
+    import os
+    os.environ.setdefault("PROMETHEUS_MULTIPROC_DIR", "/tmp/prometheus_multiproc")
+    os.makedirs("/tmp/prometheus_multiproc", exist_ok=True)
+
+def post_fork(_server, worker):
     import os
     os.environ["GUNICORN_WORKER"] = "true"
-
-def on_starting(_server):   # ← remplace "server" par "_server"
-    import django, os
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "dxc_backend.settings")
-    django.setup()
-    from api import scheduler
-    scheduler.start()
+    os.environ.setdefault("PROMETHEUS_MULTIPROC_DIR", "/tmp/prometheus_multiproc")
