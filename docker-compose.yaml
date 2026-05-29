@@ -57,9 +57,8 @@ services:
         condition: service_healthy
     command: >
       sh -c "python manage.py migrate --noinput &&
-           python manage.py collectstatic --noinput &&
-           python metrics_exporter.py &
-           gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
+         python manage.py collectstatic --noinput &&
+         gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
     restart: unless-stopped
     networks:
       - dxc-network
