@@ -142,7 +142,12 @@
       },
       "title": "Taux SLA par Compte (%)",
       "type": "bargauge",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid, job)(dxc_sla_rate_by_account)", "legendFormat": "{{account}}", "refId": "A" }]
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "avg without(pid, job)(dxc_sla_rate_by_account{account=~\"[A-Za-z].*\"})",
+        "legendFormat": "{{account}}",
+        "refId": "A"
+      }]
     },
 
     {
@@ -150,16 +155,32 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] },
-          "mappings": [{ "type": "value", "options": { "0": { "text": "❌ Infraction", "color": "red" }, "1": { "text": "✅ Conforme", "color": "green" } } }]
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "orange", "value": 75 }, { "color": "green", "value": 80 }] },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "❌ Infraction", "color": "red" } } },
+            { "type": "range", "options": { "from": 0.01, "to": 100, "result": { "text": "✅ Conforme", "color": "green" } } }
+          ]
         }
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "id": 11,
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal" },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      },
       "title": "Conformité SLA par Compte",
-      "type": "stat",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "avg without(pid, job)(dxc_account_sla_compliant)", "legendFormat": "{{account}}", "refId": "A" }]
+      "type": "bargauge",
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "expr": "avg without(pid, job)(dxc_sla_rate_by_account{account=~\"[A-Za-z].*\"})",
+        "legendFormat": "{{account}}",
+        "refId": "A"
+      }]
     },
 
     {
@@ -230,9 +251,9 @@
       "title": "Latence API p50 / p95 / p99",
       "type": "timeseries",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.95, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, rate(django_http_requests_latency_seconds_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.50, sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.95, sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.99, sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le))", "legendFormat": "p99", "refId": "C" }
       ]
     },
 
