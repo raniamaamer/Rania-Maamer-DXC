@@ -1,6 +1,4 @@
 # monitoring/prometheus.yml
-# Prometheus scrape configuration pour le projet DXC
-
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -21,8 +19,3 @@ scrape_configs:
     static_configs:
       - targets: ['postgres-exporter:9187']
     scrape_interval: 30s
-
-  - job_name: 'sla-ml-exporter'
-    static_configs:
-      - targets: ['backend:8001']
-    scrape_interval: 5m
