@@ -48,6 +48,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=dxc_backend.settings
       - TZ=Africa/Tunis
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
