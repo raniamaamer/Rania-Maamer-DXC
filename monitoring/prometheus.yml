@@ -7,37 +7,22 @@ global:
 
 scrape_configs:
 
-  # Prometheus se surveille lui-même
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # Métriques Django via django-prometheus (endpoint /metrics)
   - job_name: 'django-backend'
     static_configs:
       - targets: ['backend:8000']
     metrics_path: '/metrics'
     scrape_interval: 10s
 
-  # Métriques PostgreSQL
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres-exporter:9187']
     scrape_interval: 30s
 
-  # Métriques ML SLA
   - job_name: 'sla-ml-exporter'
     static_configs:
       - targets: ['backend:8001']
     scrape_interval: 5m
-
-  # Métriques KPI métier DXC (SLA, abandon, contacts, files)
-  - job_name: 'dxc-kpi'
-    static_configs:
-      - targets: ['backend:8000']
-    metrics_path: '/metrics'
-    scrape_interval: 1m
-    metric_relabel_configs:
-      - source_labels: [__name__]
-        regex: 'dxc_.*'
-        action: keep
