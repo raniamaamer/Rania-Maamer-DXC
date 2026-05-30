@@ -208,28 +208,60 @@ def _refresh_accounts(AccountSummary):
 
 
 def _refresh_queues(QueueMetric):
-    """KPIs par file depuis QueueMetric (agrégés)."""
+    """
+    KPIs par file — lit HourlyTrend si QueueMetric est vide.
+    """
     from django.db.models import Sum, Avg
+    from api.models import HourlyTrend
 
+    # QueueMetric vide → fallback sur HourlyTrend
+    if QueueMetric.objects.count() == 0:
+        queues = (
+            HourlyTrend.objects
+            .values('account')
+            .annotate(
+                total_offered=Sum('offered'),
+                total_abandoned=Sum('abandoned'),
+                avg_sla=Avg('sla_rate'),
+                avg_abd=Avg('abandon_rate'),
+                total_callbacks=Sum('ans_in_sla'),  # approximation
+            )
+        )
+        total_callbacks = 0
+        for q in queues:
+            a_name = q['account'] or 'unknown'
+            offered = q['total_offered'] or 0
+            sla_rate = round((q['avg_sla'] or 0) * 100, 2)
+            abd_rate = round((q['avg_abd'] or 0) * 100, 2)
+            total_callbacks += q['total_callbacks'] or 0
+
+            # On utilise account comme queue label (pas de queue dans HourlyTrend)
+            dxc_sla_rate_by_queue.labels(queue=a_name, account=a_name).set(sla_rate)
+            dxc_abandon_rate_by_queue.labels(queue=a_name, account=a_name).set(abd_rate)
+            dxc_contacts_by_queue.labels(queue=a_name, account=a_name).set(offered)
+            dxc_queue_sla_breach.labels(queue=a_name, account=a_name).set(
+                1 if sla_rate < 80 else 0
+            )
+        dxc_callbacks_total.set(total_callbacks)
+        logger.info("[Metrics] _refresh_queues: fallback HourlyTrend utilisé.")
+        return
+
+    # Comportement normal si QueueMetric a des données
     queues = (
         QueueMetric.objects
         .values('queue', 'account')
         .annotate(
             total_offered=Sum('offered'),
-            total_abandoned=Sum('abandoned'),
-            total_ans_in_sla=Sum('ans_in_sla'),
-            total_callbacks=Sum('callback_contacts'),
             avg_sla=Avg('sla_rate'),
             avg_abd=Avg('abandon_rate'),
+            total_callbacks=Sum('callback_contacts'),
             target=Avg('target_ans_rate'),
         )
     )
-
     total_callbacks = 0
     for q in queues:
         q_name = q['queue']
         a_name = q['account'] or 'unknown'
-        offered = q['total_offered'] or 0
         sla_rate = round((q['avg_sla'] or 0) * 100, 2)
         abd_rate = round((q['avg_abd'] or 0) * 100, 2)
         target = (q['target'] or 0.8) * 100
@@ -237,11 +269,10 @@ def _refresh_queues(QueueMetric):
 
         dxc_sla_rate_by_queue.labels(queue=q_name, account=a_name).set(sla_rate)
         dxc_abandon_rate_by_queue.labels(queue=q_name, account=a_name).set(abd_rate)
-        dxc_contacts_by_queue.labels(queue=q_name, account=a_name).set(offered)
+        dxc_contacts_by_queue.labels(queue=q_name, account=a_name).set(q['total_offered'] or 0)
         dxc_queue_sla_breach.labels(queue=q_name, account=a_name).set(
             1 if sla_rate < target else 0
         )
-
     dxc_callbacks_total.set(total_callbacks)
 
 

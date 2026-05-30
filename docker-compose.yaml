@@ -95,8 +95,12 @@ services:
       backend:
         condition: service_healthy
     command: >
-      sh -c "python manage.py run_etl --batch-size 1000 --incremental && echo '[ETL] Terminé.'"
-    restart: "no"
+      sh -c "while true; do
+        python manage.py run_etl --batch-size 1000 --incremental;
+        echo '[ETL] Prochain run dans 5 min...';
+        sleep 300;
+      done"
+    restart: unless-stopped
     networks:
       - dxc-network
 
