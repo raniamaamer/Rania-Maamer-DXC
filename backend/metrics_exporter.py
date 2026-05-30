@@ -1,3 +1,9 @@
+# ── DOIT ÊTRE EN TOUT PREMIER AVANT TOUT IMPORT prometheus_client ──
+import os
+os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus_multiproc"
+os.makedirs("/tmp/prometheus_multiproc", exist_ok=True)
+# ──────────────────────────────────────────────────────────────────
+
 """
 backend/metrics_exporter.py
 Exporte les métriques métier DXC Tunisia vers Prometheus.
@@ -78,7 +84,7 @@ dxc_account_sla_compliant = Gauge(
 )
 dxc_account_target_ans_rate = Gauge(
     "dxc_account_target_ans_rate",
-    "Objectif SLA configuré par compte (0.0–1.0)",
+    "Objectif SLA configuré par compte (0.0-1.0)",
     ["account"]
 )
 
@@ -107,11 +113,11 @@ dxc_queue_sla_breach = Gauge(
 # --- Tendance Horaire ---
 dxc_peak_hour_contacts = Gauge(
     "dxc_peak_hour_contacts",
-    "Nombre de contacts à l'heure de pointe"
+    "Nombre de contacts a l'heure de pointe"
 )
 dxc_worst_sla_hour = Gauge(
     "dxc_worst_sla_hour",
-    "Heure avec le pire SLA (0–23)"
+    "Heure avec le pire SLA (0-23)"
 )
 
 # --- Realtime ---
@@ -125,7 +131,7 @@ dxc_realtime_agents_available = Gauge(
 )
 dxc_realtime_agents_busy = Gauge(
     "dxc_realtime_agents_busy",
-    "Agents occupés (toutes files)"
+    "Agents occupes (toutes files)"
 )
 
 # --- ETL ---
@@ -183,7 +189,6 @@ def _refresh_global(HistoricalMetric):
         total_callbacks=Sum("callback_contacts"),
     )
 
-    # Calcul conformité SLA par compte
     accounts = (
         HistoricalMetric.objects
         .filter(target_ans_rate__gt=0)
@@ -243,7 +248,6 @@ def _refresh_accounts(HistoricalMetric):
         )
         dxc_account_target_ans_rate.labels(account=name).set(target)
 
-    # AHT / ASA globaux (moyenne simple sur tous les comptes)
     agg = HistoricalMetric.objects.aggregate(
         aht=Avg("avg_handle_time"),
         asa=Avg("avg_answer_time"),
@@ -258,7 +262,6 @@ def _refresh_queues(HistoricalMetric):
     """KPIs par file d'attente depuis HistoricalMetric."""
     from django.db.models import Sum, Avg, Max
 
-    # Vérifie si le champ 'queue' existe sur HistoricalMetric
     field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
     has_queue = "queue" in field_names
 
@@ -295,7 +298,6 @@ def _refresh_queues(HistoricalMetric):
         logger.info("[Metrics] _refresh_queues OK (champ queue détecté)")
 
     else:
-        # Fallback : agrégation par compte uniquement
         accounts = (
             HistoricalMetric.objects
             .values("account")
@@ -315,7 +317,6 @@ def _refresh_queues(HistoricalMetric):
             target = (a["target"] or 0.8) * 100
             total_callbacks += int(a["total_callbacks"] or 0)
 
-            # Utilise le compte comme label de file (pas de granularité queue)
             dxc_sla_rate_by_queue.labels(queue=a_name, account=a_name).set(sla_rate)
             dxc_abandon_rate_by_queue.labels(queue=a_name, account=a_name).set(abd_rate)
             dxc_contacts_by_queue.labels(queue=a_name, account=a_name).set(
@@ -325,7 +326,7 @@ def _refresh_queues(HistoricalMetric):
                 1 if sla_rate < target else 0
             )
         dxc_callbacks_total.set(total_callbacks)
-        logger.info("[Metrics] _refresh_queues OK (fallback compte → queue)")
+        logger.info("[Metrics] _refresh_queues OK (fallback compte -> queue)")
 
 
 def _refresh_hourly(HourlyTrend):
@@ -346,11 +347,9 @@ def _refresh_hourly(HourlyTrend):
         logger.warning("[Metrics] _refresh_hourly : aucune donnée HourlyTrend.")
         return
 
-    # Heure de pointe
     peak = hourly[0]
     dxc_peak_hour_contacts.set(int(peak["total_offered"] or 0))
 
-    # Pire heure SLA
     worst = min(hourly, key=lambda x: x["avg_sla"] or 1.0)
     try:
         hour_int = int(str(worst["hour"]).split(":")[0])
@@ -393,22 +392,28 @@ def _refresh_realtime(RealtimeMetric):
 def _refresh_etl(HistoricalMetric):
     """Timestamp du dernier enregistrement et total records."""
     from django.db.models import Max
+    from api.models import HourlyTrend
 
-    # Détection automatique du champ de date disponible
-    field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
-    date_field = None
-    for candidate in ("created_at", "updated_at", "start_date", "date"):
-        if candidate in field_names:
-            date_field = candidate
-            break
-
-    if date_field:
-        latest = HistoricalMetric.objects.aggregate(t=Max(date_field))["t"]
-        if latest and hasattr(latest, "timestamp"):
-            dxc_etl_last_run_timestamp.set(latest.timestamp())
+    count = HistoricalMetric.objects.count()
+    if count > 0:
+        field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
+        date_field = next(
+            (f for f in ("created_at", "updated_at", "start_date", "date")
+             if f in field_names),
+            None
+        )
+        if date_field:
+            latest = HistoricalMetric.objects.aggregate(t=Max(date_field))["t"]
+            if latest and hasattr(latest, "timestamp"):
+                dxc_etl_last_run_timestamp.set(latest.timestamp())
+        dxc_total_records_db.set(count)
     else:
-        logger.warning("[Metrics] _refresh_etl : aucun champ date trouvé sur HistoricalMetric.")
-
-    dxc_total_records_db.set(HistoricalMetric.objects.count())
+        # Fallback HourlyTrend
+        ht_count = HourlyTrend.objects.count()
+        dxc_total_records_db.set(ht_count)
+        latest_ht = HourlyTrend.objects.order_by("-date").values("date").first()
+        if latest_ht and latest_ht.get("date") and hasattr(latest_ht["date"], "timestamp"):
+            dxc_etl_last_run_timestamp.set(latest_ht["date"].timestamp())
+        logger.info("[Metrics] _refresh_etl: fallback HourlyTrend utilisé.")
 
     logger.info("[Metrics] _refresh_etl OK")
