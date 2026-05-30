@@ -8,6 +8,17 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
+from django.http import HttpResponse
+
+def metrics_view(request):
+    from prometheus_client import (
+        CollectorRegistry, multiprocess,
+        generate_latest, CONTENT_TYPE_LATEST
+    )
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    data = generate_latest(registry)
+    return HttpResponse(data, content_type=CONTENT_TYPE_LATEST)
 
 @require_http_methods(["GET"])
 def root(request):
@@ -46,5 +57,5 @@ urlpatterns = [
     path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # ── Prometheus ───────────────────────────────────────────────
-    path('', include('django_prometheus.urls')),
+    path('metrics', metrics_view, name='prometheus-metrics'),
 ]
