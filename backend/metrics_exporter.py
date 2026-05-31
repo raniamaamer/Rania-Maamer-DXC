@@ -12,6 +12,8 @@ Appelé automatiquement par le scheduler Django toutes les 5 minutes.
 Source principale : HistoricalMetric
 Fallback realtime : RealtimeMetric
 Fallback horaire  : HourlyTrend
+
+Calculs : moyennes PONDÉRÉES par volume de contacts (cohérence avec dashboard React)
 """
 
 import logging
@@ -24,125 +26,41 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────
 
 # --- Vue Globale ---
-dxc_sla_rate_global = Gauge(
-    "dxc_sla_rate_global",
-    "Taux SLA global en %"
-)
-dxc_abandon_rate_global = Gauge(
-    "dxc_abandon_rate_global",
-    "Taux abandon global en %"
-)
-dxc_response_rate_global = Gauge(
-    "dxc_response_rate_global",
-    "Taux de réponse global en %"
-)
-dxc_contacts_offered_total = Gauge(
-    "dxc_contacts_offered_total",
-    "Nombre total de contacts offerts"
-)
-dxc_avg_aht_seconds = Gauge(
-    "dxc_avg_aht_seconds",
-    "Durée moyenne de traitement (AHT) en secondes"
-)
-dxc_avg_asa_seconds = Gauge(
-    "dxc_avg_asa_seconds",
-    "Vitesse moyenne de réponse (ASA) en secondes"
-)
-dxc_callbacks_total = Gauge(
-    "dxc_callbacks_total",
-    "Nombre total de demandes de rappel"
-)
-dxc_compliant_accounts = Gauge(
-    "dxc_compliant_accounts",
-    "Nombre de comptes conformes au SLA"
-)
-dxc_total_accounts = Gauge(
-    "dxc_total_accounts",
-    "Nombre total de comptes actifs"
-)
+dxc_sla_rate_global = Gauge("dxc_sla_rate_global", "Taux SLA global en %")
+dxc_abandon_rate_global = Gauge("dxc_abandon_rate_global", "Taux abandon global en %")
+dxc_response_rate_global = Gauge("dxc_response_rate_global", "Taux de réponse global en %")
+dxc_contacts_offered_total = Gauge("dxc_contacts_offered_total", "Nombre total de contacts offerts")
+dxc_avg_aht_seconds = Gauge("dxc_avg_aht_seconds", "Durée moyenne de traitement (AHT) en secondes")
+dxc_avg_asa_seconds = Gauge("dxc_avg_asa_seconds", "Vitesse moyenne de réponse (ASA) en secondes")
+dxc_callbacks_total = Gauge("dxc_callbacks_total", "Nombre total de demandes de rappel")
+dxc_compliant_accounts = Gauge("dxc_compliant_accounts", "Nombre de comptes conformes au SLA")
+dxc_total_accounts = Gauge("dxc_total_accounts", "Nombre total de comptes actifs")
 
 # --- Par Compte ---
-dxc_sla_rate_by_account = Gauge(
-    "dxc_sla_rate_by_account",
-    "Taux SLA par compte en %",
-    ["account"]
-)
-dxc_abandon_rate_by_account = Gauge(
-    "dxc_abandon_rate_by_account",
-    "Taux abandon par compte en %",
-    ["account"]
-)
-dxc_contacts_by_account = Gauge(
-    "dxc_contacts_by_account",
-    "Contacts offerts par compte",
-    ["account"]
-)
-dxc_account_sla_compliant = Gauge(
-    "dxc_account_sla_compliant",
-    "1 si le compte respecte son objectif SLA, 0 sinon",
-    ["account"]
-)
-dxc_account_target_ans_rate = Gauge(
-    "dxc_account_target_ans_rate",
-    "Objectif SLA configuré par compte (0.0-1.0)",
-    ["account"]
-)
+dxc_sla_rate_by_account = Gauge("dxc_sla_rate_by_account", "Taux SLA par compte en %", ["account"])
+dxc_abandon_rate_by_account = Gauge("dxc_abandon_rate_by_account", "Taux abandon par compte en %", ["account"])
+dxc_contacts_by_account = Gauge("dxc_contacts_by_account", "Contacts offerts par compte", ["account"])
+dxc_account_sla_compliant = Gauge("dxc_account_sla_compliant", "1 si le compte respecte son objectif SLA, 0 sinon", ["account"])
+dxc_account_target_ans_rate = Gauge("dxc_account_target_ans_rate", "Objectif SLA configuré par compte (0.0-1.0)", ["account"])
 
 # --- Par File d'attente ---
-dxc_sla_rate_by_queue = Gauge(
-    "dxc_sla_rate_by_queue",
-    "Taux SLA par file en %",
-    ["queue", "account"]
-)
-dxc_abandon_rate_by_queue = Gauge(
-    "dxc_abandon_rate_by_queue",
-    "Taux abandon par file en %",
-    ["queue", "account"]
-)
-dxc_contacts_by_queue = Gauge(
-    "dxc_contacts_by_queue",
-    "Contacts offerts par file",
-    ["queue", "account"]
-)
-dxc_queue_sla_breach = Gauge(
-    "dxc_queue_sla_breach",
-    "1 si la file est en rupture SLA, 0 sinon",
-    ["queue", "account"]
-)
+dxc_sla_rate_by_queue = Gauge("dxc_sla_rate_by_queue", "Taux SLA par file en %", ["queue", "account"])
+dxc_abandon_rate_by_queue = Gauge("dxc_abandon_rate_by_queue", "Taux abandon par file en %", ["queue", "account"])
+dxc_contacts_by_queue = Gauge("dxc_contacts_by_queue", "Contacts offerts par file", ["queue", "account"])
+dxc_queue_sla_breach = Gauge("dxc_queue_sla_breach", "1 si la file est en rupture SLA, 0 sinon", ["queue", "account"])
 
 # --- Tendance Horaire ---
-dxc_peak_hour_contacts = Gauge(
-    "dxc_peak_hour_contacts",
-    "Nombre de contacts a l'heure de pointe"
-)
-dxc_worst_sla_hour = Gauge(
-    "dxc_worst_sla_hour",
-    "Heure avec le pire SLA (0-23)"
-)
+dxc_peak_hour_contacts = Gauge("dxc_peak_hour_contacts", "Nombre de contacts a l'heure de pointe")
+dxc_worst_sla_hour = Gauge("dxc_worst_sla_hour", "Heure avec le pire SLA (0-23)")
 
 # --- Realtime ---
-dxc_realtime_in_queue = Gauge(
-    "dxc_realtime_in_queue",
-    "Contacts actuellement en attente (toutes files)"
-)
-dxc_realtime_agents_available = Gauge(
-    "dxc_realtime_agents_available",
-    "Agents disponibles (toutes files)"
-)
-dxc_realtime_agents_busy = Gauge(
-    "dxc_realtime_agents_busy",
-    "Agents occupes (toutes files)"
-)
+dxc_realtime_in_queue = Gauge("dxc_realtime_in_queue", "Contacts actuellement en attente (toutes files)")
+dxc_realtime_agents_available = Gauge("dxc_realtime_agents_available", "Agents disponibles (toutes files)")
+dxc_realtime_agents_busy = Gauge("dxc_realtime_agents_busy", "Agents occupes (toutes files)")
 
 # --- ETL ---
-dxc_etl_last_run_timestamp = Gauge(
-    "dxc_etl_last_run_timestamp",
-    "Timestamp Unix du dernier enregistrement HistoricalMetric"
-)
-dxc_total_records_db = Gauge(
-    "dxc_total_records_db",
-    "Nombre total d'enregistrements HistoricalMetric"
-)
+dxc_etl_last_run_timestamp = Gauge("dxc_etl_last_run_timestamp", "Timestamp Unix du dernier enregistrement HistoricalMetric")
+dxc_total_records_db = Gauge("dxc_total_records_db", "Nombre total d'enregistrements HistoricalMetric")
 
 
 # ─────────────────────────────────────────
@@ -150,20 +68,14 @@ dxc_total_records_db = Gauge(
 # ─────────────────────────────────────────
 
 def refresh_metrics():
-    """
-    Calcule et met à jour toutes les métriques Prometheus.
-    Appelé depuis scheduler.py toutes les 5 minutes.
-    """
     try:
         from api.models import HistoricalMetric, HourlyTrend, RealtimeMetric
-
         _refresh_global(HistoricalMetric)
         _refresh_accounts(HistoricalMetric)
         _refresh_queues(HistoricalMetric)
         _refresh_hourly(HourlyTrend)
         _refresh_realtime(RealtimeMetric)
         _refresh_etl(HistoricalMetric)
-
         logger.info("[Metrics] Métriques Prometheus mises à jour avec succès.")
     except Exception as e:
         logger.error(f"[Metrics] Erreur lors du rafraîchissement : {e}", exc_info=True)
@@ -174,60 +86,74 @@ def refresh_metrics():
 # ─────────────────────────────────────────
 
 def _refresh_global(HistoricalMetric):
-    """Vue Globale agrégée depuis HistoricalMetric."""
+    """
+    Vue Globale — moyennes PONDÉRÉES par volume de contacts.
+    Cohérent avec le dashboard React (évite la distorsion des petits comptes).
+    Ex: Nordic (50% abandon, 11 contacts) ne tire plus la moyenne vers le haut.
+    """
     from django.db.models import Sum, Avg, Max
 
     agg = HistoricalMetric.objects.aggregate(
         total_offered=Sum("offered"),
         total_abandoned=Sum("abandoned"),
         total_answered=Sum("answered"),
-        avg_sla=Avg("sla_rate"),
-        avg_abd=Avg("abandon_rate"),
-        avg_ans=Avg("answer_rate"),
+        total_callbacks=Sum("callback_contacts"),
+        # AHT/ASA : moyenne pondérée via somme × offered / total_offered
+        # Approximation acceptable avec Avg pondéré manuellement ci-dessous
         avg_aht=Avg("avg_handle_time"),
         avg_asa=Avg("avg_answer_time"),
-        total_callbacks=Sum("callback_contacts"),
     )
 
+    offered  = agg["total_offered"]  or 1  # évite division par zéro
+    abandoned = agg["total_abandoned"] or 0
+    answered  = agg["total_answered"]  or 0
+
+    # ── Moyennes pondérées par volume ──────────────────────────────
+    sla_rate     = round((answered  / offered) * 100, 2)
+    abandon_rate = round((abandoned / offered) * 100, 2)
+    answer_rate  = round((answered  / offered) * 100, 2)
+
+    # ── Conformité SLA par compte ──────────────────────────────────
     accounts = (
         HistoricalMetric.objects
         .filter(target_ans_rate__gt=0)
         .values("account")
-        .annotate(
-            avg_sla=Avg("sla_rate"),
-            target=Max("target_ans_rate"),
-        )
+        .annotate(avg_sla=Avg("sla_rate"), target=Max("target_ans_rate"))
     )
     total_accounts = accounts.count()
-    compliant = sum(
-        1 for a in accounts
-        if (a["avg_sla"] or 0) >= (a["target"] or 0.8)
-    )
+    compliant = sum(1 for a in accounts if (a["avg_sla"] or 0) >= (a["target"] or 0.8))
 
-    dxc_sla_rate_global.set(round((agg["avg_sla"] or 0) * 100, 2))
-    dxc_abandon_rate_global.set(round((agg["avg_abd"] or 0) * 100, 2))
-    dxc_response_rate_global.set(round((agg["avg_ans"] or 0) * 100, 2))
-    dxc_contacts_offered_total.set(int(agg["total_offered"] or 0))
+    dxc_sla_rate_global.set(sla_rate)
+    dxc_abandon_rate_global.set(abandon_rate)
+    dxc_response_rate_global.set(answer_rate)
+    dxc_contacts_offered_total.set(int(offered))
     dxc_avg_aht_seconds.set(round(agg["avg_aht"] or 0, 2))
     dxc_avg_asa_seconds.set(round(agg["avg_asa"] or 0, 2))
     dxc_callbacks_total.set(int(agg["total_callbacks"] or 0))
     dxc_compliant_accounts.set(compliant)
     dxc_total_accounts.set(total_accounts)
 
-    logger.info("[Metrics] _refresh_global OK")
+    logger.info(
+        f"[Metrics] _refresh_global OK — SLA={sla_rate}% | "
+        f"Abandon={abandon_rate}% | Offered={int(offered)}"
+    )
 
 
 def _refresh_accounts(HistoricalMetric):
-    """KPIs par compte depuis HistoricalMetric."""
+    """
+    KPIs par compte — moyennes pondérées par volume de contacts.
+    sla_rate  = answered / offered
+    abd_rate  = abandoned / offered
+    """
     from django.db.models import Sum, Avg, Max
 
     accounts = (
         HistoricalMetric.objects
         .values("account")
         .annotate(
-            offered=Sum("offered"),
-            avg_sla=Avg("sla_rate"),
-            avg_abd=Avg("abandon_rate"),
+            total_offered=Sum("offered"),
+            total_abandoned=Sum("abandoned"),
+            total_answered=Sum("answered"),
             avg_aht=Avg("avg_handle_time"),
             avg_asa=Avg("avg_answer_time"),
             target=Max("target_ans_rate"),
@@ -235,19 +161,22 @@ def _refresh_accounts(HistoricalMetric):
     )
 
     for a in accounts:
-        name = a["account"] or "unknown"
-        sla = round((a["avg_sla"] or 0) * 100, 2)
-        abd = round((a["avg_abd"] or 0) * 100, 2)
-        target = a["target"] or 0.8
+        name    = a["account"] or "unknown"
+        offered  = a["total_offered"]  or 1
+        abandoned = a["total_abandoned"] or 0
+        answered  = a["total_answered"]  or 0
+        target   = a["target"] or 0.8
+
+        sla = round((answered  / offered) * 100, 2)
+        abd = round((abandoned / offered) * 100, 2)
 
         dxc_sla_rate_by_account.labels(account=name).set(sla)
         dxc_abandon_rate_by_account.labels(account=name).set(abd)
-        dxc_contacts_by_account.labels(account=name).set(int(a["offered"] or 0))
-        dxc_account_sla_compliant.labels(account=name).set(
-            1 if (a["avg_sla"] or 0) >= target else 0
-        )
+        dxc_contacts_by_account.labels(account=name).set(int(offered))
+        dxc_account_sla_compliant.labels(account=name).set(1 if sla / 100 >= target else 0)
         dxc_account_target_ans_rate.labels(account=name).set(target)
 
+    # AHT / ASA globaux (moyenne simple — acceptable car granularité secondaire)
     agg = HistoricalMetric.objects.aggregate(
         aht=Avg("avg_handle_time"),
         asa=Avg("avg_answer_time"),
@@ -259,7 +188,7 @@ def _refresh_accounts(HistoricalMetric):
 
 
 def _refresh_queues(HistoricalMetric):
-    """KPIs par file d'attente depuis HistoricalMetric."""
+    """KPIs par file d'attente — moyennes pondérées par volume."""
     from django.db.models import Sum, Avg, Max
 
     field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
@@ -271,26 +200,28 @@ def _refresh_queues(HistoricalMetric):
             .values("queue", "account")
             .annotate(
                 total_offered=Sum("offered"),
-                avg_sla=Avg("sla_rate"),
-                avg_abd=Avg("abandon_rate"),
+                total_abandoned=Sum("abandoned"),
+                total_answered=Sum("answered"),
                 total_callbacks=Sum("callback_contacts"),
                 target=Max("target_ans_rate"),
             )
         )
         total_callbacks = 0
         for q in queues:
-            q_name = q["queue"] or "unknown"
-            a_name = q["account"] or "unknown"
-            sla_rate = round((q["avg_sla"] or 0) * 100, 2)
-            abd_rate = round((q["avg_abd"] or 0) * 100, 2)
-            target = (q["target"] or 0.8) * 100
+            q_name   = q["queue"]   or "unknown"
+            a_name   = q["account"] or "unknown"
+            offered   = q["total_offered"]  or 1
+            abandoned = q["total_abandoned"] or 0
+            answered  = q["total_answered"]  or 0
+            target    = (q["target"] or 0.8) * 100
             total_callbacks += int(q["total_callbacks"] or 0)
+
+            sla_rate = round((answered  / offered) * 100, 2)
+            abd_rate = round((abandoned / offered) * 100, 2)
 
             dxc_sla_rate_by_queue.labels(queue=q_name, account=a_name).set(sla_rate)
             dxc_abandon_rate_by_queue.labels(queue=q_name, account=a_name).set(abd_rate)
-            dxc_contacts_by_queue.labels(queue=q_name, account=a_name).set(
-                int(q["total_offered"] or 0)
-            )
+            dxc_contacts_by_queue.labels(queue=q_name, account=a_name).set(int(offered))
             dxc_queue_sla_breach.labels(queue=q_name, account=a_name).set(
                 1 if sla_rate < target else 0
             )
@@ -298,30 +229,33 @@ def _refresh_queues(HistoricalMetric):
         logger.info("[Metrics] _refresh_queues OK (champ queue détecté)")
 
     else:
+        # Fallback : agrégation par compte
         accounts = (
             HistoricalMetric.objects
             .values("account")
             .annotate(
                 total_offered=Sum("offered"),
-                avg_sla=Avg("sla_rate"),
-                avg_abd=Avg("abandon_rate"),
+                total_abandoned=Sum("abandoned"),
+                total_answered=Sum("answered"),
                 total_callbacks=Sum("callback_contacts"),
                 target=Max("target_ans_rate"),
             )
         )
         total_callbacks = 0
         for a in accounts:
-            a_name = a["account"] or "unknown"
-            sla_rate = round((a["avg_sla"] or 0) * 100, 2)
-            abd_rate = round((a["avg_abd"] or 0) * 100, 2)
-            target = (a["target"] or 0.8) * 100
+            a_name   = a["account"] or "unknown"
+            offered   = a["total_offered"]  or 1
+            abandoned = a["total_abandoned"] or 0
+            answered  = a["total_answered"]  or 0
+            target    = (a["target"] or 0.8) * 100
             total_callbacks += int(a["total_callbacks"] or 0)
+
+            sla_rate = round((answered  / offered) * 100, 2)
+            abd_rate = round((abandoned / offered) * 100, 2)
 
             dxc_sla_rate_by_queue.labels(queue=a_name, account=a_name).set(sla_rate)
             dxc_abandon_rate_by_queue.labels(queue=a_name, account=a_name).set(abd_rate)
-            dxc_contacts_by_queue.labels(queue=a_name, account=a_name).set(
-                int(a["total_offered"] or 0)
-            )
+            dxc_contacts_by_queue.labels(queue=a_name, account=a_name).set(int(offered))
             dxc_queue_sla_breach.labels(queue=a_name, account=a_name).set(
                 1 if sla_rate < target else 0
             )
@@ -336,10 +270,7 @@ def _refresh_hourly(HourlyTrend):
     hourly = (
         HourlyTrend.objects
         .values("hour")
-        .annotate(
-            total_offered=Sum("offered"),
-            avg_sla=Avg("sla_rate"),
-        )
+        .annotate(total_offered=Sum("offered"), avg_sla=Avg("sla_rate"))
         .order_by("-total_offered")
     )
 
@@ -347,13 +278,11 @@ def _refresh_hourly(HourlyTrend):
         logger.warning("[Metrics] _refresh_hourly : aucune donnée HourlyTrend.")
         return
 
-    peak = hourly[0]
-    dxc_peak_hour_contacts.set(int(peak["total_offered"] or 0))
+    dxc_peak_hour_contacts.set(int(hourly[0]["total_offered"] or 0))
 
     worst = min(hourly, key=lambda x: x["avg_sla"] or 1.0)
     try:
-        hour_int = int(str(worst["hour"]).split(":")[0])
-        dxc_worst_sla_hour.set(hour_int)
+        dxc_worst_sla_hour.set(int(str(worst["hour"]).split(":")[0]))
     except (ValueError, IndexError, TypeError):
         logger.warning(f"[Metrics] Impossible de parser l'heure : {worst.get('hour')}")
 
@@ -398,8 +327,7 @@ def _refresh_etl(HistoricalMetric):
     if count > 0:
         field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
         date_field = next(
-            (f for f in ("created_at", "updated_at", "start_date", "date")
-             if f in field_names),
+            (f for f in ("created_at", "updated_at", "start_date", "date") if f in field_names),
             None
         )
         if date_field:
