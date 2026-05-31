@@ -42,7 +42,7 @@ services:
     expose:
       - "8000"
     ports:
-    - "8000:8000" 
+      - "8000:8000"
     env_file:
       - ./backend/.env
     environment:
@@ -58,17 +58,17 @@ services:
         condition: service_healthy
     command: >
       sh -c "python manage.py migrate --noinput &&
-         python manage.py collectstatic --noinput &&
-         gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 1 --config gunicorn.conf.py"
+             python manage.py collectstatic --noinput &&
+             gunicorn dxc_backend.wsgi:application --bind 0.0.0.0:8000 --workers 3 --config gunicorn.conf.py"
     restart: unless-stopped
     networks:
       - dxc-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/', timeout=25)"]
+      interval: 60s
+      timeout: 30s
       retries: 5
-      start_period: 40s
+      start_period: 60s
     develop:
       watch:
         - action: rebuild

@@ -4,7 +4,7 @@ import shutil
 PROMETHEUS_MULTIPROC_DIR = "/tmp/prometheus_multiproc"
 
 bind = "0.0.0.0:8000"
-workers = 1
+workers = 3
 worker_class = "gthread"
 threads = 4
 
