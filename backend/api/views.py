@@ -244,7 +244,11 @@ class OverviewView(APIView):
         return Response({
             'abandon_rate':       _abandon_rate(total_abandoned, total_offered),
             'answered_rate':      _answer_rate(total_answered,   total_offered),
-            'sla_rate':           round(agg['avg_sla_rate'] or 0, 4),
+            'sla_rate': round(
+                (agg['total_ans_in_sla'] or 0) /
+                max((agg['total_offered'] or 1) - (agg['total_abd_in_sla'] or 0), 1),
+                4
+            ),
             'total_offered':      total_offered,
             'total_abandoned':    total_abandoned,
             'total_answered':     total_answered,
@@ -782,11 +786,7 @@ class HistoricalView(APIView):
                 'total_offered':      total_offered,
                 'total_abandoned':    total_abandoned,
                 'total_answered':     total_answered,
-                'sla_rate': round(
-                    (agg['total_ans_in_sla'] or 0) /
-                    max((agg['total_offered'] or 1) - (agg['total_abd_in_sla'] or 0), 1),
-                    4
-                ),
+                'sla_rate':           round(agg['avg_sla_rate'] or 0, 4),
                 'abandon_rate':       _abandon_rate(total_abandoned, total_offered),
                 'answer_rate':        _answer_rate(total_answered,   total_offered),
                 'avg_handle_time':    aht,
