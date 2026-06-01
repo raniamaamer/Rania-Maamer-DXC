@@ -111,45 +111,72 @@ def refresh_metrics():
 # ─────────────────────────────────────────
 
 def _refresh_global(HistoricalMetric):
-    """
-    Vue Globale — formule SLA pondérée identique au dashboard React.
-    SLA = ans_in_sla / max(offered - abd_in_sla, 1)
-    ⚠ Ne jamais utiliser Avg('sla_rate') : moyenne de pourcentages != pourcentage global.
-    """
     from django.db.models import Sum, Max
 
-    agg = HistoricalMetric.objects.aggregate(
-        total_offered=Sum("offered"),
-        total_abandoned=Sum("abandoned"),
-        total_answered=Sum("answered"),
-        total_callbacks=Sum("callback_contacts"),
-        total_ans_in_sla=Sum("ans_in_sla"),
-        total_abd_in_sla=Sum("abd_in_sla"),
-        total_ans_out_sla=Sum("ans_out_sla"),
-        total_abd_in_60=Sum("abd_in_60"),
-        sum_handle_time=Sum("handle_time"),
-        sum_answer_time=Sum("total_answer_time"),
+    accounts = (
+        HistoricalMetric.objects
+        .values("account")
+        .annotate(
+            total_offered=Sum("offered"),
+            total_abandoned=Sum("abandoned"),
+            total_answered=Sum("answered"),
+            total_ans_in_sla=Sum("ans_in_sla"),
+            total_abd_in_sla=Sum("abd_in_sla"),
+            total_ans_out_sla=Sum("ans_out_sla"),
+            total_abd_in_60=Sum("abd_in_60"),
+            sum_answer_time=Sum("total_answer_time"),
+            sum_handle_time=Sum("handle_time"),
+            total_callbacks=Sum("callback_contacts"),
+        )
     )
 
-    offered    = agg["total_offered"]    or 0
-    abandoned  = agg["total_abandoned"]  or 0
-    answered   = agg["total_answered"]   or 0
-    ans_in     = agg["total_ans_in_sla"] or 0
-    abd_in     = agg["total_abd_in_sla"] or 0
+    from api.views import _recalc_sla_for_account, _abandon_rate, _answer_rate
 
-    # ── Formule SLA pondérée (= React) ────────────────────────────
-    sla_rate     = _sla_rate(ans_in, offered, abd_in)
-    abandon_rate = _abandon_rate(abandoned, offered)
-    answer_rate  = _answer_rate(answered, offered)
+    total_offered   = 0
+    total_abandoned = 0
+    total_answered  = 0
+    total_callbacks = 0
+    sum_handle      = 0
+    sum_answer      = 0
 
-    # ── AHT / ASA pondérés par volume ─────────────────────────────
-    # AHT = total handle_time / max(answered, 1)
-    # ASA = total answer_time / max(answered, 1)
-    aht = round((agg["sum_handle_time"] or 0) / max(answered, 1), 2)
-    asa = round((agg["sum_answer_time"] or 0) / max(answered, 1), 2)
+    weighted_sla    = 0.0  # somme(sla * offered)
+    weighted_abd    = 0.0  # somme(abd * offered)
 
-    # ── Conformité SLA par compte ──────────────────────────────────
-    accounts = (
+    for a in accounts:
+        off  = int(a["total_offered"]  or 0)
+        abd  = int(a["total_abandoned"] or 0)
+        ans  = int(a["total_answered"]  or 0)
+        asa  = round((a["sum_answer_time"] or 0) / max(ans, 1), 1)
+
+        sla = _recalc_sla_for_account(
+            a["account"],
+            a["total_ans_in_sla"],
+            a["total_abd_in_sla"],
+            a["total_ans_out_sla"],
+            off, ans,
+            abd_in_60=float(a["total_abd_in_60"] or 0),
+            avg_answer_time=asa,
+        )
+        abd_rate = _abandon_rate(abd, off, acc_name=a["account"])
+
+        weighted_sla    += sla      * off
+        weighted_abd    += abd_rate * off
+        total_offered   += off
+        total_abandoned += abd
+        total_answered  += ans
+        total_callbacks += int(a["total_callbacks"] or 0)
+        sum_handle      += float(a["sum_handle_time"]  or 0)
+        sum_answer      += float(a["sum_answer_time"]  or 0)
+
+    sla_rate     = round((weighted_sla / max(total_offered, 1)) * 100, 2)
+    abandon_rate = round((weighted_abd / max(total_offered, 1)) * 100, 2)
+    answer_rate  = _answer_rate(total_answered, total_offered) * 100
+    aht          = round(sum_handle / max(total_answered, 1), 2)
+    asa          = round(sum_answer / max(total_answered, 1), 2)
+
+    # Conformité par compte
+    from django.db.models import Max as DMax
+    acc_targets = (
         HistoricalMetric.objects
         .filter(target_ans_rate__gt=0)
         .values("account")
@@ -157,33 +184,41 @@ def _refresh_global(HistoricalMetric):
             total_offered=Sum("offered"),
             total_ans_in_sla=Sum("ans_in_sla"),
             total_abd_in_sla=Sum("abd_in_sla"),
-            target=Max("target_ans_rate"),
+            total_ans_out_sla=Sum("ans_out_sla"),
+            total_abd_in_60=Sum("abd_in_60"),
+            total_answered=Sum("answered"),
+            sum_answer_time=Sum("total_answer_time"),
+            target=DMax("target_ans_rate"),
         )
     )
-    total_accounts = accounts.count()
     compliant = 0
-    for a in accounts:
-        acc_sla = _sla_rate(
-            a["total_ans_in_sla"],
-            a["total_offered"],
-            a["total_abd_in_sla"],
+    for a in acc_targets:
+        ans  = int(a["total_answered"] or 0)
+        asa_a = round((a["sum_answer_time"] or 0) / max(ans, 1), 1)
+        sla = _recalc_sla_for_account(
+            a["account"],
+            a["total_ans_in_sla"], a["total_abd_in_sla"],
+            a["total_ans_out_sla"], a["total_offered"], ans,
+            abd_in_60=float(a["total_abd_in_60"] or 0),
+            avg_answer_time=asa_a,
         )
-        if acc_sla / 100 >= (a["target"] or 0.8):
+        if sla >= (a["target"] or 0.8):
             compliant += 1
+    total_accounts = acc_targets.count()
 
     dxc_sla_rate_global.set(sla_rate)
     dxc_abandon_rate_global.set(abandon_rate)
-    dxc_response_rate_global.set(answer_rate)
-    dxc_contacts_offered_total.set(int(offered))
+    dxc_response_rate_global.set(round(answer_rate, 2))
+    dxc_contacts_offered_total.set(total_offered)
     dxc_avg_aht_seconds.set(aht)
     dxc_avg_asa_seconds.set(asa)
-    dxc_callbacks_total.set(int(agg["total_callbacks"] or 0))
+    dxc_callbacks_total.set(total_callbacks)
     dxc_compliant_accounts.set(compliant)
     dxc_total_accounts.set(total_accounts)
 
     logger.info(
         f"[Metrics] _refresh_global OK — SLA={sla_rate}% | "
-        f"Abandon={abandon_rate}% | Offered={int(offered)}"
+        f"Abandon={abandon_rate}% | Offered={total_offered}"
     )
 
 
