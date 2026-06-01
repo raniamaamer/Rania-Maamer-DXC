@@ -14,6 +14,7 @@ Fallback realtime : RealtimeMetric
 Fallback horaire  : HourlyTrend
 
 Calculs : moyennes PONDÉRÉES par volume de contacts (cohérence avec dashboard React)
+Formule SLA : ans_in_sla / max(offered - abd_in_sla, 1)  ← identique à _recalc_sla_for_account()
 """
 
 import logging
@@ -64,6 +65,30 @@ dxc_total_records_db = Gauge("dxc_total_records_db", "Nombre total d'enregistrem
 
 
 # ─────────────────────────────────────────
+#  Helpers
+# ─────────────────────────────────────────
+
+def _sla_rate(ans_in_sla, offered, abd_in_sla):
+    """
+    Formule SLA identique à _recalc_sla_for_account() dans le dashboard React.
+    SLA = ans_in_sla / max(offered - abd_in_sla, 1)
+    Retourne un float entre 0 et 100.
+    """
+    denominator = max((offered or 0) - (abd_in_sla or 0), 1)
+    return round(((ans_in_sla or 0) / denominator) * 100, 2)
+
+
+def _abandon_rate(abandoned, offered):
+    """Taux d'abandon = abandoned / max(offered, 1) * 100."""
+    return round(((abandoned or 0) / max(offered or 1, 1)) * 100, 2)
+
+
+def _answer_rate(answered, offered):
+    """Taux de réponse = answered / max(offered, 1) * 100."""
+    return round(((answered or 0) / max(offered or 1, 1)) * 100, 2)
+
+
+# ─────────────────────────────────────────
 #  Fonction principale
 # ─────────────────────────────────────────
 
@@ -87,48 +112,71 @@ def refresh_metrics():
 
 def _refresh_global(HistoricalMetric):
     """
-    Vue Globale — moyennes PONDÉRÉES par volume de contacts.
-    Cohérent avec le dashboard React (évite la distorsion des petits comptes).
-    Ex: Nordic (50% abandon, 11 contacts) ne tire plus la moyenne vers le haut.
+    Vue Globale — formule SLA pondérée identique au dashboard React.
+    SLA = ans_in_sla / max(offered - abd_in_sla, 1)
+    ⚠ Ne jamais utiliser Avg('sla_rate') : moyenne de pourcentages != pourcentage global.
     """
-    from django.db.models import Sum, Avg, Max
+    from django.db.models import Sum, Max
 
     agg = HistoricalMetric.objects.aggregate(
         total_offered=Sum("offered"),
         total_abandoned=Sum("abandoned"),
         total_answered=Sum("answered"),
         total_callbacks=Sum("callback_contacts"),
-        # AHT/ASA : moyenne pondérée via somme × offered / total_offered
-        # Approximation acceptable avec Avg pondéré manuellement ci-dessous
-        avg_aht=Avg("avg_handle_time"),
-        avg_asa=Avg("avg_answer_time"),
+        total_ans_in_sla=Sum("ans_in_sla"),
+        total_abd_in_sla=Sum("abd_in_sla"),
+        total_ans_out_sla=Sum("ans_out_sla"),
+        total_abd_in_60=Sum("abd_in_60"),
+        sum_handle_time=Sum("handle_time"),
+        sum_answer_time=Sum("total_answer_time"),
     )
 
-    offered  = agg["total_offered"]  or 1  # évite division par zéro
-    abandoned = agg["total_abandoned"] or 0
-    answered  = agg["total_answered"]  or 0
+    offered    = agg["total_offered"]    or 0
+    abandoned  = agg["total_abandoned"]  or 0
+    answered   = agg["total_answered"]   or 0
+    ans_in     = agg["total_ans_in_sla"] or 0
+    abd_in     = agg["total_abd_in_sla"] or 0
 
-    # ── Moyennes pondérées par volume ──────────────────────────────
-    sla_rate     = round((answered  / offered) * 100, 2)
-    abandon_rate = round((abandoned / offered) * 100, 2)
-    answer_rate  = round((answered  / offered) * 100, 2)
+    # ── Formule SLA pondérée (= React) ────────────────────────────
+    sla_rate     = _sla_rate(ans_in, offered, abd_in)
+    abandon_rate = _abandon_rate(abandoned, offered)
+    answer_rate  = _answer_rate(answered, offered)
+
+    # ── AHT / ASA pondérés par volume ─────────────────────────────
+    # AHT = total handle_time / max(answered, 1)
+    # ASA = total answer_time / max(answered, 1)
+    aht = round((agg["sum_handle_time"] or 0) / max(answered, 1), 2)
+    asa = round((agg["sum_answer_time"] or 0) / max(answered, 1), 2)
 
     # ── Conformité SLA par compte ──────────────────────────────────
     accounts = (
         HistoricalMetric.objects
         .filter(target_ans_rate__gt=0)
         .values("account")
-        .annotate(avg_sla=Avg("sla_rate"), target=Max("target_ans_rate"))
+        .annotate(
+            total_offered=Sum("offered"),
+            total_ans_in_sla=Sum("ans_in_sla"),
+            total_abd_in_sla=Sum("abd_in_sla"),
+            target=Max("target_ans_rate"),
+        )
     )
     total_accounts = accounts.count()
-    compliant = sum(1 for a in accounts if (a["avg_sla"] or 0) >= (a["target"] or 0.8))
+    compliant = 0
+    for a in accounts:
+        acc_sla = _sla_rate(
+            a["total_ans_in_sla"],
+            a["total_offered"],
+            a["total_abd_in_sla"],
+        )
+        if acc_sla / 100 >= (a["target"] or 0.8):
+            compliant += 1
 
     dxc_sla_rate_global.set(sla_rate)
     dxc_abandon_rate_global.set(abandon_rate)
     dxc_response_rate_global.set(answer_rate)
     dxc_contacts_offered_total.set(int(offered))
-    dxc_avg_aht_seconds.set(round(agg["avg_aht"] or 0, 2))
-    dxc_avg_asa_seconds.set(round(agg["avg_asa"] or 0, 2))
+    dxc_avg_aht_seconds.set(aht)
+    dxc_avg_asa_seconds.set(asa)
     dxc_callbacks_total.set(int(agg["total_callbacks"] or 0))
     dxc_compliant_accounts.set(compliant)
     dxc_total_accounts.set(total_accounts)
@@ -141,11 +189,10 @@ def _refresh_global(HistoricalMetric):
 
 def _refresh_accounts(HistoricalMetric):
     """
-    KPIs par compte — moyennes pondérées par volume de contacts.
-    sla_rate  = answered / offered
-    abd_rate  = abandoned / offered
+    KPIs par compte — formule SLA pondérée identique au dashboard React.
+    ⚠ Ne jamais utiliser Avg('sla_rate').
     """
-    from django.db.models import Sum, Avg, Max
+    from django.db.models import Sum, Max
 
     accounts = (
         HistoricalMetric.objects
@@ -154,21 +201,29 @@ def _refresh_accounts(HistoricalMetric):
             total_offered=Sum("offered"),
             total_abandoned=Sum("abandoned"),
             total_answered=Sum("answered"),
-            avg_aht=Avg("avg_handle_time"),
-            avg_asa=Avg("avg_answer_time"),
+            total_ans_in_sla=Sum("ans_in_sla"),
+            total_abd_in_sla=Sum("abd_in_sla"),
+            sum_handle_time=Sum("handle_time"),
+            sum_answer_time=Sum("total_answer_time"),
             target=Max("target_ans_rate"),
         )
     )
 
     for a in accounts:
-        name    = a["account"] or "unknown"
-        offered  = a["total_offered"]  or 1
+        name     = a["account"]       or "unknown"
+        offered  = a["total_offered"] or 0
         abandoned = a["total_abandoned"] or 0
         answered  = a["total_answered"]  or 0
+        ans_in   = a["total_ans_in_sla"] or 0
+        abd_in   = a["total_abd_in_sla"] or 0
         target   = a["target"] or 0.8
 
-        sla = round((answered  / offered) * 100, 2)
-        abd = round((abandoned / offered) * 100, 2)
+        sla = _sla_rate(ans_in, offered, abd_in)
+        abd = _abandon_rate(abandoned, offered)
+
+        # AHT / ASA pondérés par answered
+        aht = round((a["sum_handle_time"] or 0) / max(answered, 1), 2)
+        asa = round((a["sum_answer_time"] or 0) / max(answered, 1), 2)
 
         dxc_sla_rate_by_account.labels(account=name).set(sla)
         dxc_abandon_rate_by_account.labels(account=name).set(abd)
@@ -176,20 +231,22 @@ def _refresh_accounts(HistoricalMetric):
         dxc_account_sla_compliant.labels(account=name).set(1 if sla / 100 >= target else 0)
         dxc_account_target_ans_rate.labels(account=name).set(target)
 
-    # AHT / ASA globaux (moyenne simple — acceptable car granularité secondaire)
+    # ── AHT / ASA globaux pondérés ────────────────────────────────
     agg = HistoricalMetric.objects.aggregate(
-        aht=Avg("avg_handle_time"),
-        asa=Avg("avg_answer_time"),
+        total_answered=Sum("answered"),
+        sum_handle_time=Sum("handle_time"),
+        sum_answer_time=Sum("total_answer_time"),
     )
-    dxc_avg_aht_seconds.set(round(agg["aht"] or 0, 2))
-    dxc_avg_asa_seconds.set(round(agg["asa"] or 0, 2))
+    answered_total = agg["total_answered"] or 1
+    dxc_avg_aht_seconds.set(round((agg["sum_handle_time"] or 0) / answered_total, 2))
+    dxc_avg_asa_seconds.set(round((agg["sum_answer_time"] or 0) / answered_total, 2))
 
     logger.info("[Metrics] _refresh_accounts OK")
 
 
 def _refresh_queues(HistoricalMetric):
-    """KPIs par file d'attente — moyennes pondérées par volume."""
-    from django.db.models import Sum, Avg, Max
+    """KPIs par file d'attente — formule SLA pondérée identique au dashboard React."""
+    from django.db.models import Sum, Max
 
     field_names = [f.name for f in HistoricalMetric._meta.get_fields()]
     has_queue = "queue" in field_names
@@ -203,6 +260,8 @@ def _refresh_queues(HistoricalMetric):
                 total_abandoned=Sum("abandoned"),
                 total_answered=Sum("answered"),
                 total_callbacks=Sum("callback_contacts"),
+                total_ans_in_sla=Sum("ans_in_sla"),
+                total_abd_in_sla=Sum("abd_in_sla"),
                 target=Max("target_ans_rate"),
             )
         )
@@ -210,14 +269,15 @@ def _refresh_queues(HistoricalMetric):
         for q in queues:
             q_name   = q["queue"]   or "unknown"
             a_name   = q["account"] or "unknown"
-            offered   = q["total_offered"]  or 1
-            abandoned = q["total_abandoned"] or 0
-            answered  = q["total_answered"]  or 0
+            offered   = q["total_offered"]    or 0
+            abandoned = q["total_abandoned"]  or 0
+            ans_in    = q["total_ans_in_sla"] or 0
+            abd_in    = q["total_abd_in_sla"] or 0
             target    = (q["target"] or 0.8) * 100
             total_callbacks += int(q["total_callbacks"] or 0)
 
-            sla_rate = round((answered  / offered) * 100, 2)
-            abd_rate = round((abandoned / offered) * 100, 2)
+            sla_rate = _sla_rate(ans_in, offered, abd_in)
+            abd_rate = _abandon_rate(abandoned, offered)
 
             dxc_sla_rate_by_queue.labels(queue=q_name, account=a_name).set(sla_rate)
             dxc_abandon_rate_by_queue.labels(queue=q_name, account=a_name).set(abd_rate)
@@ -229,7 +289,7 @@ def _refresh_queues(HistoricalMetric):
         logger.info("[Metrics] _refresh_queues OK (champ queue détecté)")
 
     else:
-        # Fallback : agrégation par compte
+        # Fallback : agrégation par compte utilisée comme queue
         accounts = (
             HistoricalMetric.objects
             .values("account")
@@ -238,20 +298,23 @@ def _refresh_queues(HistoricalMetric):
                 total_abandoned=Sum("abandoned"),
                 total_answered=Sum("answered"),
                 total_callbacks=Sum("callback_contacts"),
+                total_ans_in_sla=Sum("ans_in_sla"),
+                total_abd_in_sla=Sum("abd_in_sla"),
                 target=Max("target_ans_rate"),
             )
         )
         total_callbacks = 0
         for a in accounts:
             a_name   = a["account"] or "unknown"
-            offered   = a["total_offered"]  or 1
-            abandoned = a["total_abandoned"] or 0
-            answered  = a["total_answered"]  or 0
+            offered   = a["total_offered"]    or 0
+            abandoned = a["total_abandoned"]  or 0
+            ans_in    = a["total_ans_in_sla"] or 0
+            abd_in    = a["total_abd_in_sla"] or 0
             target    = (a["target"] or 0.8) * 100
             total_callbacks += int(a["total_callbacks"] or 0)
 
-            sla_rate = round((answered  / offered) * 100, 2)
-            abd_rate = round((abandoned / offered) * 100, 2)
+            sla_rate = _sla_rate(ans_in, offered, abd_in)
+            abd_rate = _abandon_rate(abandoned, offered)
 
             dxc_sla_rate_by_queue.labels(queue=a_name, account=a_name).set(sla_rate)
             dxc_abandon_rate_by_queue.labels(queue=a_name, account=a_name).set(abd_rate)
@@ -264,23 +327,55 @@ def _refresh_queues(HistoricalMetric):
 
 
 def _refresh_hourly(HourlyTrend):
-    """Heure de pointe et pire heure SLA depuis HourlyTrend."""
+    """
+    Heure de pointe et pire heure SLA depuis HourlyTrend.
+    SLA horaire recalculé depuis les colonnes brutes si disponibles,
+    sinon fallback sur sla_rate stocké.
+    """
     from django.db.models import Sum, Avg
 
-    hourly = (
-        HourlyTrend.objects
-        .values("hour")
-        .annotate(total_offered=Sum("offered"), avg_sla=Avg("sla_rate"))
-        .order_by("-total_offered")
-    )
+    field_names = [f.name for f in HourlyTrend._meta.get_fields()]
+    has_raw = "ans_in_sla" in field_names and "abd_in_sla" in field_names
 
-    if not hourly:
+    if has_raw:
+        hourly = (
+            HourlyTrend.objects
+            .values("hour")
+            .annotate(
+                total_offered=Sum("offered"),
+                total_ans_in_sla=Sum("ans_in_sla"),
+                total_abd_in_sla=Sum("abd_in_sla"),
+            )
+            .order_by("-total_offered")
+        )
+        # Calcul SLA pondéré par heure
+        hourly_list = list(hourly)
+        for row in hourly_list:
+            row["_sla"] = _sla_rate(
+                row["total_ans_in_sla"],
+                row["total_offered"],
+                row["total_abd_in_sla"],
+            )
+    else:
+        # Fallback : sla_rate stocké (moins précis mais acceptable pour HourlyTrend)
+        hourly = (
+            HourlyTrend.objects
+            .values("hour")
+            .annotate(total_offered=Sum("offered"), avg_sla=Avg("sla_rate"))
+            .order_by("-total_offered")
+        )
+        hourly_list = [
+            {**row, "_sla": (row.get("avg_sla") or 0) * 100}
+            for row in hourly
+        ]
+
+    if not hourly_list:
         logger.warning("[Metrics] _refresh_hourly : aucune donnée HourlyTrend.")
         return
 
-    dxc_peak_hour_contacts.set(int(hourly[0]["total_offered"] or 0))
+    dxc_peak_hour_contacts.set(int(hourly_list[0]["total_offered"] or 0))
 
-    worst = min(hourly, key=lambda x: x["avg_sla"] or 1.0)
+    worst = min(hourly_list, key=lambda x: x["_sla"])
     try:
         dxc_worst_sla_hour.set(int(str(worst["hour"]).split(":")[0]))
     except (ValueError, IndexError, TypeError):
