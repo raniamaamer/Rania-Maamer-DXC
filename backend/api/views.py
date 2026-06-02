@@ -1467,7 +1467,7 @@ class ForecastView(APIView):
         logger.info(f"ForecastView called for queue: '{queue}'")
 
         # ── 1. Charger les données depuis CSV ────────────────────────────
-        CSV_PATH = Path(__file__).parent.parent / "data" / "Servier_kpi.csv"
+        CSV_PATH = Path(__file__).parent.parent / "data" / "Servier_KPIs.csv"
 
         df_raw = pd.read_csv(CSV_PATH)
         df_raw = df_raw[df_raw['Queue'] == queue][['Day', 'Offered contacts']].copy()
