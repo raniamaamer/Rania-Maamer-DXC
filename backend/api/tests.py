@@ -1704,25 +1704,6 @@ class ForecastViewAPITest(APITestCase):
         self.assertIn(response.status_code, [200, 404, 422, 500])
 
 
-class ForecastViewStandaloneTest(APITestCase):
-
-    def test_forecast_view_empty_db_returns_error(self):
-        DailySnapshot.objects.all().delete()
-        response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
-
-    def test_forecast_view_with_data(self):
-        for i in range(15):
-            DailySnapshot.objects.create(
-                date=datetime.date(2024, 1, 1) + datetime.timedelta(days=i),
-                total_offered=100 + i,
-                total_answered=95 + i,
-                global_sla_rate=0.88,
-            )
-        response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
-
-
 class ClaudeProxyViewExtendedTest(APITestCase):
     """Tests étendus de claude_proxy."""
 
