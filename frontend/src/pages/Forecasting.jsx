@@ -35,57 +35,66 @@ const QUEUE_ICONS = {
    Reads the raw CSV text and returns REAL_DATA shape:
    { [queueName]: { dates[], offered[], totals: { total_offered, total_abandoned, avg_asa, avg_aht } } }
 */
+// Convert MM:SS or HH:MM:SS string to seconds
+function timeToSeconds(val) {
+  if (val == null || val === '') return NaN
+  const s = String(val).trim()
+  if (!isNaN(parseFloat(s))) return parseFloat(s) // already numeric
+  const parts = s.split(':').map(Number)
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  return NaN
+}
+
 function parseCSV(text) {
   const lines = text.trim().split('\n')
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
 
   const idx = name => headers.indexOf(name)
-  const iQueue       = idx('Queue')
-  const iStart       = idx('StartInterval')
-  const iQueued      = idx('Contacts queued')
-  const iAbandoned   = idx('Contacts abandoned')
-  const iAHT         = idx('Average handle time')
-  const iASA         = idx('Average queue answer time')
 
-  // accumulator: { queue -> { date -> { offered, abandoned, aht_sum, asa_sum, asa_count } } }
-  const acc = {}
+  // Detect format: Servier_KPIs has 'Day' + 'Offered contacts'
+  // Historical_Metrics has 'StartInterval' + 'Contacts queued'
+  const isKPI = headers.includes('Day') && headers.includes('Offered contacts')
+
+  const iQueue     = idx('Queue')
+  const iDate      = isKPI ? idx('Day')              : idx('StartInterval')
+  const iOffered   = isKPI ? idx('Offered contacts') : idx('Contacts queued')
+  const iAbandoned = isKPI ? idx('Abandoned contacts'): idx('Contacts abandoned')
+  const iAHT       = isKPI ? idx('Avg AHT')          : idx('Average handle time')
+  const iASA       = isKPI ? idx('ASA')               : idx('Average queue answer time')
+
+  const acc = {} // { queue -> { date -> { offered, abandoned, aht_sum, aht_count, asa_sum, asa_count } } }
 
   for (let i = 1; i < lines.length; i++) {
-    // Simple CSV split (handles quoted fields with commas)
-    const row = []
-    let cur = '', inQ = false
-    for (const ch of lines[i]) {
-      if (ch === '"') { inQ = !inQ }
-      else if (ch === ',' && !inQ) { row.push(cur.trim()); cur = '' }
-      else cur += ch
-    }
-    row.push(cur.trim())
+    const line = lines[i]
+    if (!line.trim()) continue
 
-    const queue = row[iQueue]?.replace(/^"|"$/g, '')
-    if (!queue?.includes('Servier')) continue
+    const row = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
 
-    const rawDate = row[iStart]?.replace(/^"|"$/g, '')
-    if (!rawDate) continue
+    const queue = row[iQueue]
+    if (!queue || !queue.toLowerCase().includes('servier')) continue
+
+    const rawDate = row[iDate] || ''
     const date = rawDate.substring(0, 10) // 'YYYY-MM-DD'
+    if (!date || date.length < 10) continue
 
-    const offered   = parseFloat(row[iQueued])   || 0
+    const offered   = parseFloat(row[iOffered])   || 0
     const abandoned = parseFloat(row[iAbandoned]) || 0
-    const aht       = parseFloat(row[iAHT])       || 0
-    const asa       = parseFloat(row[iASA])
+    const aht       = timeToSeconds(row[iAHT])
+    const asa       = timeToSeconds(row[iASA])
 
     if (!acc[queue]) acc[queue] = {}
     if (!acc[queue][date]) acc[queue][date] = { offered: 0, abandoned: 0, aht_sum: 0, aht_count: 0, asa_sum: 0, asa_count: 0 }
 
     acc[queue][date].offered   += offered
     acc[queue][date].abandoned += abandoned
-    if (aht > 0) { acc[queue][date].aht_sum += aht; acc[queue][date].aht_count++ }
+    if (!isNaN(aht) && aht > 0) { acc[queue][date].aht_sum += aht; acc[queue][date].aht_count++ }
     if (!isNaN(asa) && asa > 0) { acc[queue][date].asa_sum += asa; acc[queue][date].asa_count++ }
   }
 
   const result = {}
   for (const [queue, dateMap] of Object.entries(acc)) {
     const sortedDates = Object.keys(dateMap).sort()
-    const dates   = sortedDates
     const offered = sortedDates.map(d => dateMap[d].offered)
 
     const total_offered   = sortedDates.reduce((s, d) => s + dateMap[d].offered, 0)
@@ -96,7 +105,7 @@ function parseCSV(text) {
     const avg_aht = all_aht.length ? +(all_aht.reduce((a,b)=>a+b,0)/all_aht.length).toFixed(1) : 0
     const avg_asa = all_asa.length ? +(all_asa.reduce((a,b)=>a+b,0)/all_asa.length).toFixed(1) : 0
 
-    result[queue] = { dates, offered, totals: { total_offered, total_abandoned, avg_aht, avg_asa } }
+    result[queue] = { dates: sortedDates, offered, totals: { total_offered, total_abandoned, avg_aht, avg_asa } }
   }
 
   return result
