@@ -361,15 +361,24 @@ Réponds en français, concis.`
                       return (
                         <div key={d} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
                           <span style={{ fontSize:11, color:DXC.textMuted, fontFamily:"'JetBrains Mono',monospace" }}>{rate.toFixed(0)}%</span>
-                          <div style={{ width:'100%', background:DXC.bgAlt, borderRadius:6, overflow:'hidden', height:130, display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-                            <div style={{ height:`${v.total?(v.total/maxTotal)*100:0}%`, background:rate>3?DXC.red:rate>1?DXC.amber:DXC.blue, borderRadius:6, transition:'height 0.5s ease' }} />
+                          <div style={{ width:'100%', background:DXC.bgAlt, borderRadius:6, overflow:'hidden', height:130, display:'flex', flexDirection:'column', justifyContent:'flex-end', position:'relative' }}>
+                            {/* Barre bleue = volume total */}
+                            <div style={{ height:`${v.total?(v.total/maxTotal)*100:0}%`, background:DXC.blue, borderRadius:6, transition:'height 0.5s ease', position:'relative' }}>
+                              {/* Overlay rouge = proportion de breaches */}
+                              {v.breached>0 && (
+                                <div style={{ position:'absolute', bottom:0, left:0, right:0, height:`${(v.breached/v.total)*100}%`, background:DXC.red, borderRadius:6, opacity:0.85 }} />
+                              )}
+                            </div>
                           </div>
                           <span style={{ fontSize:12, color:DXC.textMuted, fontWeight:700 }}>{analysis.dayNames[d]}</span>
                         </div>
                       )
                     })}
                   </div>
-                  <div style={{ fontSize:13, color:DXC.textMuted }}>Hauteur = volume · Couleur = taux de breach</div>
+                  <div style={{ display:'flex', gap:20, fontSize:13, color:DXC.textMuted, marginTop:8 }}>
+                    <span><span style={{ display:'inline-block', width:12, height:12, background:DXC.blue, borderRadius:3, marginRight:6 }}/>Volume total</span>
+                    <span><span style={{ display:'inline-block', width:12, height:12, background:DXC.red, borderRadius:3, marginRight:6 }}/>Ruptures SLA</span>
+                  </div>
                   {(() => {
                     const worst = analysis.byDay.map((v,d)=>({ d:analysis.dayNames[d], rate:v.total?(v.breached/v.total)*100:0 })).filter(x=>x.rate>0).sort((a,b)=>b.rate-a.rate)[0]
                     return worst ? (
