@@ -12,10 +12,9 @@ from django.utils import timezone
 from unittest.mock import patch, MagicMock, PropertyMock
 import datetime
 import json
-import io
 from pathlib import Path
 import numpy as np
-import pandas as pd 
+
 from api.models import (
     SLAConfig, AccountSummary,
     HourlyTrend, DailySnapshot, HistoricalMetric, RealtimeMetric,
@@ -31,23 +30,6 @@ from api.views import (
     build_time_filter,
 )
 
-MOCK_CSV = """Day,Queue,Offered contacts,Abandoned contacts,Avg AHT,ASA
-2024-06-01,Servier French,30,2,05:00,00:08
-2024-06-02,Servier French,28,1,04:30,00:07
-2024-06-03,Servier French,32,3,05:10,00:09
-2024-06-04,Servier French,31,2,04:50,00:07
-2024-06-05,Servier French,29,1,04:40,00:06
-2024-06-06,Servier French,33,3,05:20,00:09
-2024-06-07,Servier French,27,1,04:20,00:06
-2024-06-08,Servier French,35,4,05:30,00:10
-2024-06-09,Servier French,30,2,05:00,00:08
-2024-06-10,Servier French,28,1,04:30,00:07
-2024-06-11,Servier French,32,3,05:10,00:09
-2024-06-12,Servier French,31,2,04:50,00:07
-2024-06-13,Servier French,29,1,04:40,00:06
-2024-06-14,Servier French,33,3,05:20,00:09
-2024-06-15,Servier French,27,1,04:20,00:06
-"""
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. TESTS DES MODÈLES
@@ -1609,46 +1591,15 @@ class SchedulerTest(TestCase):
 
 class ForecastViewTest(APITestCase):
 
-    def _mock_csv(self):
-        return pd.read_csv(io.StringIO(MOCK_CSV))
-
-    @patch('api.views.pd.read_csv')
-    def test_forecast_empty_db_returns_500(self, mock_read_csv):
-        mock_read_csv.return_value = self._mock_csv()
+    @patch('api.views.DailySnapshot')
+    def test_forecast_empty_db_returns_500(self, mock_snapshot):
+        mock_snapshot.objects.values.return_value.order_by.return_value = []
         response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
+        self.assertIn(response.status_code, [200, 404, 500])  # accept 404
 
-    @patch('api.views.pd.read_csv')
-    def test_forecast_returns_json(self, mock_read_csv):
-        mock_read_csv.return_value = self._mock_csv()
+    def test_forecast_returns_json(self):
         response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
-
-
-class ForecastViewStandaloneTest(APITestCase):
-
-    def _mock_csv(self):
-        return pd.read_csv(io.StringIO(MOCK_CSV))
-
-    @patch('api.views.pd.read_csv')
-    def test_forecast_view_empty_db_returns_error(self, mock_read_csv):
-        mock_read_csv.return_value = self._mock_csv()
-        DailySnapshot.objects.all().delete()
-        response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
-
-    @patch('api.views.pd.read_csv')
-    def test_forecast_view_with_data(self, mock_read_csv):
-        mock_read_csv.return_value = self._mock_csv()
-        for i in range(15):
-            DailySnapshot.objects.create(
-                date=datetime.date(2024, 1, 1) + datetime.timedelta(days=i),
-                total_offered=100 + i,
-                total_answered=95 + i,
-                global_sla_rate=0.88,
-            )
-        response = self.client.get("/api/forecast/")
-        self.assertIn(response.status_code, [200, 404, 500])
+        self.assertIn(response.status_code, [200, 404, 500])  # accept 404
 
 
 class ClaudeProxyViewTest(APITestCase):
@@ -1702,6 +1653,25 @@ class ForecastViewAPITest(APITestCase):
     def test_forecast_queue_returns_200(self):
         response = self.client.get("/api/forecast-queue/?queue=Servier French")
         self.assertIn(response.status_code, [200, 404, 422, 500])
+
+
+class ForecastViewStandaloneTest(APITestCase):
+
+    def test_forecast_view_empty_db_returns_error(self):
+        DailySnapshot.objects.all().delete()
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 404, 500])
+
+    def test_forecast_view_with_data(self):
+        for i in range(15):
+            DailySnapshot.objects.create(
+                date=datetime.date(2024, 1, 1) + datetime.timedelta(days=i),
+                total_offered=100 + i,
+                total_answered=95 + i,
+                global_sla_rate=0.88,
+            )
+        response = self.client.get("/api/forecast/")
+        self.assertIn(response.status_code, [200, 404, 500])
 
 
 class ClaudeProxyViewExtendedTest(APITestCase):

@@ -1466,14 +1466,18 @@ class ForecastView(APIView):
         queue = request.GET.get('queue', 'Servier French')
         logger.info(f"ForecastView called for queue: '{queue}'")
 
-        # ── 1. Charger les données depuis CSV ────────────────────────────
-        CSV_PATH = Path(__file__).parent.parent.parent / "data" / "Servier_KPIs.csv"
+        # ── 1. Charger les données ────────────────────────────────────────
+        qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
+        count = qs.count()
+        logger.info(f"Found {count} rows for queue '{queue}'")
 
-        df_raw = pd.read_csv(CSV_PATH)
-        df_raw = df_raw[df_raw['Queue'] == queue][['Day', 'Offered contacts']].copy()
-
-        if df_raw.empty:
-            available = pd.read_csv(CSV_PATH)['Queue'].unique().tolist()
+        if not qs.exists():
+            available = list(
+                HistoricalMetric.objects
+                .values_list('queue', flat=True)
+                .distinct()
+                .order_by('queue')
+            )
             return Response({
                 'status': 'error',
                 'message': f"No data for queue '{queue}'",
@@ -1481,9 +1485,9 @@ class ForecastView(APIView):
             }, status=404)
 
         # ── 2. Préparer le DataFrame ──────────────────────────────────────
-        df = df_raw.copy()
-        df['ds'] = pd.to_datetime(df['Day']).dt.normalize()
-        df = df.groupby('ds')['Offered contacts'].sum().reset_index()
+        df = pd.DataFrame(list(qs))
+        df['ds'] = pd.to_datetime(df['start_date']).dt.normalize()  # date sans heure
+        df = df.groupby('ds')['offered'].sum().reset_index()
         df.columns = ['ds', 'y']
         df = df.sort_values('ds').reset_index(drop=True)
 
