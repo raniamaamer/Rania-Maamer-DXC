@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -672,6 +672,12 @@ export default function Forecasting() {
       }))
     }
   }, [selectedQueue, queueData])
+
+  useEffect(() => {
+    if (!forecastData[selectedQueue]) {
+      launchForecast()
+    }
+  }, [selectedQueue])
 
   const horizonTabs = [
     { id: '7d',   label: '📅 J+7' },
