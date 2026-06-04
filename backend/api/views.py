@@ -1,7 +1,10 @@
 import warnings
 import logging
 import pandas as pd
-from prophet import Prophet
+import numpy as np
+import xgboost as xgb
+from sklearn.preprocessing import RobustScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 import holidays as hols
 import json
 from pathlib import Path
@@ -1458,25 +1461,19 @@ def forecast_view(request):
 class ForecastView(APIView):
     permission_classes = [AllowAny]
 
+    TARGET = 'offered'
+
     def get(self, request):
-        warnings.filterwarnings("ignore")
-        logging.getLogger("prophet").setLevel(logging.WARNING)
-        logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
-
         queue = request.GET.get('queue', 'Servier French')
-        logger.info(f"ForecastView called for queue: '{queue}'")
+        logger.info(f"ForecastView XGBoost called for queue: '{queue}'")
 
-        # ── 1. Charger les données ────────────────────────────────────────
+        # ── 1. Charger données ────────────────────────────────────────────
         qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
-        count = qs.count()
-        logger.info(f"Found {count} rows for queue '{queue}'")
-
         if not qs.exists():
             available = list(
                 HistoricalMetric.objects
                 .values_list('queue', flat=True)
-                .distinct()
-                .order_by('queue')
+                .distinct().order_by('queue')
             )
             return Response({
                 'status': 'error',
@@ -1484,121 +1481,183 @@ class ForecastView(APIView):
                 'available_queues': available,
             }, status=404)
 
-        # ── 2. Préparer le DataFrame ──────────────────────────────────────
-        df = pd.DataFrame(list(qs))
-        df['ds'] = pd.to_datetime(df['start_date']).dt.normalize()  # date sans heure
-        df = df.groupby('ds')['offered'].sum().reset_index()
-        df.columns = ['ds', 'y']
-        df = df.sort_values('ds').reset_index(drop=True)
+        # ── 2. Agrégation journalière ─────────────────────────────────────
+        import numpy as np
+        import pandas as pd
+        import xgboost as xgb
+        import holidays as hols
+        from sklearn.preprocessing import RobustScaler
+        from sklearn.metrics import mean_absolute_error
 
-        # Supprimer les jours sans activité (weekends vides, etc.)
-        df = df[df['y'] > 0].copy()
+        df_raw = pd.DataFrame(list(qs))
+        df_raw['day'] = pd.to_datetime(df_raw['start_date']).dt.normalize()
+        df = (df_raw.groupby('day')[self.TARGET].sum()
+              .reset_index().set_index('day').sort_index())
 
-        if len(df) < 10:
+        full_idx = pd.date_range(df.index.min(), df.index.max(), freq='D')
+        df = df.reindex(full_idx)
+        df[self.TARGET] = df[self.TARGET].interpolate('time').ffill().bfill()
+
+        if len(df) < 30:
             return Response({
                 'status': 'error',
-                'message': f"Not enough data points ({len(df)}) for queue '{queue}'. Minimum 10 required.",
+                'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
             }, status=422)
 
-        # Winsorisation douce pour éviter que les outliers biaisent Prophet
-        q1 = df['y'].quantile(0.10)
-        q3 = df['y'].quantile(0.90)
-        iqr = q3 - q1
-        roll_med = df['y'].rolling(7, min_periods=1, center=True).median()
-        mask = (df['y'] < q1 - 1.5 * iqr) | (df['y'] > q3 + 1.5 * iqr)
-        df.loc[mask, 'y'] = roll_med[mask]
-
         # ── 3. Jours fériés ───────────────────────────────────────────────
-        year_min = int(df['ds'].dt.year.min())
-        year_max = int(df['ds'].dt.year.max()) + 3
+        year_min = int(df.index.year.min())
+        year_max = int(df.index.year.max()) + 3
         fr_holidays = hols.country_holidays('FR', years=range(year_min, year_max))
+        es_holidays = hols.country_holidays('ES', years=range(year_min, year_max))
+        hols_set = es_holidays if 'Spanish' in queue else fr_holidays
 
-        holiday_df = pd.DataFrame([
-            {'holiday': name, 'ds': pd.Timestamp(d), 'lower_window': -1, 'upper_window': 1}
-            for d, name in fr_holidays.items()
-        ])
+        # ── 4. Feature engineering ────────────────────────────────────────
+        d = df[[self.TARGET]].copy()
+        d['day_of_week'] = d.index.dayofweek
+        d['month']       = d.index.month
+        d['week']        = d.index.isocalendar().week.astype(int)
+        d['is_weekend']  = (d.index.dayofweek >= 5).astype(int)
+        d['quarter']     = d.index.quarter
+        d['is_holiday']  = d.index.map(lambda x: int(x.date() in hols_set))
 
-        # ── 4. Entraîner Prophet ──────────────────────────────────────────
-        m = Prophet(
-            yearly_seasonality=True,
-            weekly_seasonality=True,
-            daily_seasonality=False,
-            changepoint_prior_scale=0.05,
-            seasonality_prior_scale=5.0,
-            seasonality_mode='additive',
-            interval_width=0.80,
-            holidays=holiday_df,
+        for lag in [1, 2, 3, 7, 14, 21, 28]:
+            d[f'lag_{lag}'] = d[self.TARGET].shift(lag)
+        for w in [7, 14, 28]:
+            d[f'rolling_mean_{w}'] = d[self.TARGET].shift(1).rolling(w, min_periods=1).mean()
+            d[f'rolling_std_{w}']  = d[self.TARGET].shift(1).rolling(w, min_periods=1).std().fillna(0)
+        d['ema_7']  = d[self.TARGET].shift(1).ewm(span=7,  adjust=False).mean()
+        d['ema_14'] = d[self.TARGET].shift(1).ewm(span=14, adjust=False).mean()
+        d['diff_1'] = d[self.TARGET].diff(1)
+        d['diff_7'] = d[self.TARGET].diff(7)
+        d = d.dropna()
+
+        feature_cols = [c for c in d.columns if c != self.TARGET]
+
+        # ── 5. Train / Val / Test split ───────────────────────────────────
+        n      = len(d)
+        n_test = max(20, int(n * 0.10))
+        n_val  = max(20, int(n * 0.15))
+
+        d_train = d.iloc[:-(n_test + n_val)]
+        d_val   = d.iloc[-(n_test + n_val):-n_test]
+        d_test  = d.iloc[-n_test:]
+
+        X_train, y_train = d_train[feature_cols].values, d_train[self.TARGET].values
+        X_val,   y_val   = d_val[feature_cols].values,   d_val[self.TARGET].values
+        X_test,  y_test  = d_test[feature_cols].values,  d_test[self.TARGET].values
+
+        scaler    = RobustScaler()
+        X_train_s = scaler.fit_transform(X_train)
+        X_val_s   = scaler.transform(X_val)
+        X_test_s  = scaler.transform(X_test)
+
+        # ── 6. Entraînement XGBoost ───────────────────────────────────────
+        model = xgb.XGBRegressor(
+            n_estimators=500,
+            learning_rate=0.05,
+            max_depth=6,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            early_stopping_rounds=30,
+            eval_metric='rmse',
         )
-        df['ds'] = pd.to_datetime(df['ds']).apply(lambda x: x.tz_convert(None) if x.tzinfo else x)
-        m.fit(df)
+        model.fit(
+            X_train_s, y_train,
+            eval_set=[(X_val_s, y_val)],
+            verbose=False,
+        )
 
-        # ── 5. Historique à retourner (60 derniers jours) ─────────────────
-        history_points = [
-            {'date': str(r['ds'].date()), 'actual': int(r['y'])}
-            for _, r in df.tail(60).iterrows()
-        ]
+        # ── 7. Métriques sur test set ─────────────────────────────────────
+        preds_test = np.maximum(model.predict(X_test_s), 0)
+        mae  = round(float(mean_absolute_error(y_test, preds_test)), 1)
+        mape = round(float(np.mean(np.abs((y_test - preds_test) / (y_test + 1e-9))) * 100), 1)
+        sigma = float((y_test - preds_test).std())   # pour l'intervalle de confiance
 
-        # ── 6. Prévisions J+7 / J+30 / J+365 ────────────────────────────
-        results = {}
-        to_save_all = []
-
-        for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
-            future   = m.make_future_dataframe(periods=days, freq='D')
-            fc       = m.predict(future)
-            fc_future = fc[fc['ds'] > df['ds'].max()].copy()
-
+        # ── 8. Prévision itérative ────────────────────────────────────────
+        def run_forecast(horizon_days):
+            history = d.copy()
+            last_date = history.index[-1]
             rows = []
-            for _, row in fc_future.iterrows():
-                d         = row['ds'].date()
-                is_we     = d.weekday() >= 5
-                is_hol    = d in fr_holidays
-                predicted = max(0, round(float(row['yhat'])))
-                lower     = max(0, round(float(row['yhat_lower'])))
-                upper     = max(0, round(float(row['yhat_upper'])))
 
+            for step in range(horizon_days):
+                fd = last_date + pd.Timedelta(days=step + 1)
+
+                row = {
+                    'day_of_week': fd.dayofweek,
+                    'month':       fd.month,
+                    'week':        fd.isocalendar()[1],
+                    'is_weekend':  int(fd.dayofweek >= 5),
+                    'quarter':     fd.quarter,
+                    'is_holiday':  int(fd.date() in hols_set),
+                }
+                for lag in [1, 2, 3, 7, 14, 21, 28]:
+                    row[f'lag_{lag}'] = (
+                        history[self.TARGET].iloc[-lag]
+                        if len(history) >= lag else 0.0
+                    )
+                for w in [7, 14, 28]:
+                    vals = history[self.TARGET].iloc[-w:].values
+                    row[f'rolling_mean_{w}'] = float(np.mean(vals))
+                    row[f'rolling_std_{w}']  = float(np.std(vals)) if len(vals) > 1 else 0.0
+                row['ema_7']  = float(history[self.TARGET].ewm(span=7,  adjust=False).mean().iloc[-1])
+                row['ema_14'] = float(history[self.TARGET].ewm(span=14, adjust=False).mean().iloc[-1])
+                row['diff_1'] = float(history[self.TARGET].diff(1).iloc[-1])
+                row['diff_7'] = float(history[self.TARGET].diff(7).iloc[-1]) if len(history) >= 7 else 0.0
+
+                X_row = np.array([[row.get(c, 0.0) for c in feature_cols]])
+                p = float(max(model.predict(scaler.transform(X_row))[0], 0))
+
+                is_we  = bool(row['is_weekend'])
+                is_hol = bool(row['is_holiday'])
                 rows.append({
-                    'date':       str(d),
-                    'predicted':  predicted,
-                    'lower':      lower,
-                    'upper':      upper,
+                    'date':       fd.strftime('%Y-%m-%d'),
+                    'predicted':  round(p, 1),
+                    'lower':      round(max(0.0, p - 1.28 * sigma), 1),  # CI 80%
+                    'upper':      round(p + 1.28 * sigma, 1),
                     'is_weekend': is_we,
                     'is_holiday': is_hol,
                 })
-                to_save_all.append(ForecastResult(
-                    queue=queue, horizon=horizon, forecast_date=d,
-                    predicted=predicted, lower=lower, upper=upper,
-                    is_weekend=is_we, is_holiday=is_hol,
+
+                # Ajouter la prédiction à l'historique pour les prochains lags
+                new_row = pd.DataFrame(
+                    [{**{c: row[c] for c in feature_cols}, self.TARGET: p}],
+                    index=[fd]
+                )
+                history = pd.concat([history, new_row[history.columns]])
+
+            return rows
+
+        # ── 9. Générer les 3 horizons ─────────────────────────────────────
+        to_save = []
+        results = {}
+        for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
+            fc_rows = run_forecast(days)
+            results[horizon] = fc_rows
+            for r in fc_rows:
+                to_save.append(ForecastResult(
+                    queue=queue, horizon=horizon,
+                    forecast_date=r['date'],
+                    predicted=r['predicted'],
+                    lower=r['lower'],
+                    upper=r['upper'],
+                    is_weekend=r['is_weekend'],
+                    is_holiday=r['is_holiday'],
                 ))
+            logger.info(f"XGBoost forecast '{horizon}' for '{queue}': {len(fc_rows)} rows")
 
-            results[horizon] = rows
-            logger.info(f"Forecast '{horizon}' for '{queue}': {len(rows)} rows")
-
-        # ── 7. Sauvegarder en DB (delete + bulk_create par horizon) ───────
+        # ── 10. Sauvegarder en DB ─────────────────────────────────────────
         try:
             ForecastResult.objects.filter(queue=queue).delete()
-            ForecastResult.objects.bulk_create(to_save_all, batch_size=500)
-            logger.info(f"Saved {len(to_save_all)} forecast rows for '{queue}'")
+            ForecastResult.objects.bulk_create(to_save, batch_size=500)
         except Exception as e:
             logger.error(f"DB save error for '{queue}': {e}")
-            # On continue quand même — on retourne les données même si la DB échoue
 
-        # ── 8. Métriques in-sample (30 derniers jours) ────────────────────
-        try:
-            cv_df    = df.tail(30).copy()
-            future_cv = m.make_future_dataframe(periods=0)
-            pred_cv  = m.predict(future_cv[future_cv['ds'].isin(cv_df['ds'])])
-            merged   = cv_df.merge(pred_cv[['ds', 'yhat']], on='ds')
-            if len(merged) > 0:
-                mae  = round(float((merged['y'] - merged['yhat']).abs().mean()), 1)
-                mape = round(
-                    float(((merged['y'] - merged['yhat']).abs()
-                           / merged['y'].replace(0, 1)).mean() * 100), 1
-                )
-            else:
-                mae, mape = 0.0, 0.0
-        except Exception as e:
-            logger.warning(f"Metrics computation failed: {e}")
-            mae, mape = 0.0, 0.0
+        # ── 11. Historique (60 derniers jours pour le graphe) ─────────────
+        history_points = [
+            {'date': str(idx.date()), 'actual': round(float(val), 1)}
+            for idx, val in df[self.TARGET].dropna().tail(60).items()
+        ]
 
         return Response({
             'status': 'ok',
