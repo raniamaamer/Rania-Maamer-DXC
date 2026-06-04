@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+from prophet import Prophet
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import mean_absolute_error
 import holidays as hols
@@ -1573,14 +1574,15 @@ class ForecastView(APIView):
         mape = round(float(np.mean(np.abs((y_test - preds_test) / (y_test + 1e-9))) * 100), 1)
         sigma = float((y_test - preds_test).std())   # pour l'intervalle de confiance
 
-         # ── 7b. Entraîner Prophet ─────────────────────────────────────────
-        from prophet import Prophet
+        # ── 7b. Entraîner Prophet ─────────────────────────────────────────
         warnings.filterwarnings("ignore")
         logging.getLogger('prophet').setLevel(logging.WARNING)
         logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
 
-        prophet_df = pd.DataFrame({'ds': df.index.tz_localize(None), 'y': df[self.TARGET].values})
+        # Supprimer timezone partout pour Prophet
+        clean_index = df.index.tz_localize(None) if df.index.tz is None else df.index.tz_convert(None)
 
+        prophet_df = pd.DataFrame({'ds': clean_index, 'y': df[self.TARGET].values})
         hol_df = pd.DataFrame({
             'holiday':      'public_holiday',
             'ds':           pd.to_datetime(list(hols_set.keys())),
@@ -1598,13 +1600,14 @@ class ForecastView(APIView):
         )
         prophet_model.fit(prophet_df)
 
-        # MAE Prophet sur test set pour calculer les poids
+        # MAE Prophet sur test set
+        test_dates_clean = d_test.index.tz_convert(None) if d_test.index.tz else d_test.index.tz_localize(None)
         prophet_test_pred = prophet_model.predict(
-            pd.DataFrame({'ds': d_test.index})
+            pd.DataFrame({'ds': test_dates_clean})
         )['yhat'].clip(lower=0).values
         mae_prophet = round(float(mean_absolute_error(y_test, prophet_test_pred)), 1)
 
-        # Poids inversement proportionnels au MAE
+        # Poids ensemble
         w_xgb     = 1 / max(mae, 0.1)
         w_prophet = 1 / max(mae_prophet, 0.1)
         w_total   = w_xgb + w_prophet
@@ -1644,7 +1647,7 @@ class ForecastView(APIView):
                 x_row   = np.array([[row.get(c, 0.0) for c in feature_cols]])
                 p_xgb   = float(max(model.predict(scaler.transform(x_row))[0], 0))
                 p_proph = float(max(
-                    prophet_model.predict(pd.DataFrame({'ds': [fd]}))['yhat'].iloc[0], 0
+                    prophet_model.predict(pd.DataFrame({'ds': [fd.tz_localize(None) if fd.tzinfo is None else fd.tz_convert(None)]}))['yhat'].iloc[0], 0
                 ))
                 p = (p_xgb * w_xgb + p_proph * w_prophet) / w_total
 
