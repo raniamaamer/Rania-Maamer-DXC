@@ -1579,7 +1579,8 @@ class ForecastView(APIView):
         logging.getLogger('prophet').setLevel(logging.WARNING)
         logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
 
-        prophet_df = pd.DataFrame({'ds': df.index, 'y': df[self.TARGET].values})
+        prophet_df = pd.DataFrame({'ds': df.index.tz_localize(None), 'y': df[self.TARGET].values})
+
         hol_df = pd.DataFrame({
             'holiday':      'public_holiday',
             'ds':           pd.to_datetime(list(hols_set.keys())),
