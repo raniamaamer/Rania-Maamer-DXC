@@ -1612,18 +1612,23 @@ class ForecastView(APIView):
                 is_hol = bool(row['is_holiday'])
                 if is_we or is_hol:
                     p = 0.0
-                rows.append({
+                    p_for_history = float(...)
+                else:
+                    p_for_history = p
+
+                rows.append({           # ← 16 espaces (4 niveaux)
                     'date':       fd.strftime('%Y-%m-%d'),
                     'predicted':  round(p, 1),
-                    'lower':      round(max(0.0, p - 1.28 * sigma), 1),  # CI 80%
-                    'upper':      round(p + 1.28 * sigma, 1),
+                    'lower':      round(max(0.0, p - 1.28 * sigma), 1) if not (is_we or is_hol) else 0.0,
+                    'upper':      round(p + 1.28 * sigma, 1) if not (is_we or is_hol) else 0.0,
                     'is_weekend': is_we,
                     'is_holiday': is_hol,
                 })
 
-                # Ajouter la prédiction à l'historique pour les prochains lags
+
+                # Puis utiliser p_for_history au lieu de p dans le concat
                 new_row = pd.DataFrame(
-                    [{**{c: row[c] for c in feature_cols}, self.TARGET: p}],
+                    [{**{c: row[c] for c in feature_cols}, self.TARGET: p_for_history}],
                     index=[fd]
                 )
                 history = pd.concat([history, new_row[history.columns]])
