@@ -757,8 +757,8 @@ export default function Forecasting() {
             {isLoading
               ? <><span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span> Prophet en cours...</>
               : hasData
-              ? '🔄 Relancer Prophet'
-              : '🚀 Lancer la prévision Prophet'}
+              ? '🔄 Relancer XGBoost'
+              : '🚀 Lancer la prévision'}
           </button>
         </div>
 
