@@ -1285,15 +1285,13 @@ class PredictionsView(APIView):
         return Response({
             "forecast_7days":     data.get("future_7", []),
             "model_stats": {
-                "mae":           data.get("prophet", {}).get("mae"),
-                "rmse":          data.get("prophet", {}).get("rmse"),
-                "mape":          data.get("prophet", {}).get("mape"),
-                "auc_roc":       data.get("random_forest", {}).get("auc_roc"),
+                "mae":           data.get("xgboost", {}).get("mae"),
+                "rmse":          data.get("xgboost", {}).get("rmse"),
+                "mape":          data.get("xgboost", {}).get("mape"),
                 "total_tickets": data.get("dataset", {}).get("total_incidents"),
                 "daily_avg":     data.get("dataset", {}).get("avg_daily_tickets"),
                 "breach_rate":   data.get("dataset", {}).get("breach_rate_pct"),
-                "model":         "Prophet (Meta)",
-                "classifier":    "Random Forest (100 estimators, balanced)",
+                "model":         "XGBoost",
                 "generated_at":  data.get("generated_at"),
             },
             "ci_breach_rates":    data.get("ci_breach", []),
@@ -1602,8 +1600,8 @@ class ForecastView(APIView):
                     row[f'rolling_std_{w}']  = float(np.std(vals)) if len(vals) > 1 else 0.0
                 row['ema_7']  = float(history[self.TARGET].ewm(span=7,  adjust=False).mean().iloc[-1])
                 row['ema_14'] = float(history[self.TARGET].ewm(span=14, adjust=False).mean().iloc[-1])
-                row['diff_1'] = float(history[self.TARGET].diff(1).iloc[-1])
-                row['diff_7'] = float(history[self.TARGET].diff(7).iloc[-1]) if len(history) >= 7 else 0.0
+                row['diff_1'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-2]) if len(history) >= 2 else 0.0
+                row['diff_7'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-7]) if len(history) >= 7 else 0.0
 
                 X_row = np.array([[row.get(c, 0.0) for c in feature_cols]])
                 p = float(max(model.predict(scaler.transform(X_row))[0], 0))

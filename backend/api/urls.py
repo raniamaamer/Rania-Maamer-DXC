@@ -2,8 +2,6 @@ from django.urls import path
 from . import views
 from api.views import DebugMetricsView
 from .views import claude_proxy
-from .views import ForecastView
-
 
 app_name = 'api'
 
@@ -25,8 +23,6 @@ urlpatterns = [
     path('debug-metrics/',       DebugMetricsView.as_view(),            name='debug-metrics'),
     path('predictions/',         views.PredictionsView.as_view(),       name='predictions'),
     path('claude/',              claude_proxy,                          name='claude'),
-    path('claude-proxy/',        claude_proxy,                          name='claude-proxy'),  
-    path('forecast/',            ForecastView.as_view(),                name='forecast'),      
-    path('forecast-queue/',      views.forecast_view,                   name='forecast-view'),
-    path('forecast-debug/',      views.ForecastView.as_view(),          name='forecast-debug'), 
+    path('claude-proxy/',        claude_proxy,                          name='claude-proxy'),
+    path('forecast/',            views.ForecastView.as_view(),          name='forecast'),
 ]
