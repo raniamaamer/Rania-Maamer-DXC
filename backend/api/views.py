@@ -1517,6 +1517,7 @@ class ForecastView(APIView):
         d['is_weekend']  = (d.index.dayofweek >= 5).astype(int)
         d['quarter']     = d.index.quarter
         d['is_holiday']  = d.index.map(lambda x: int(x.date() in hols_set))
+        d['is_monday']   = (d.index.dayofweek == 0).astype(int)
 
         for lag in [1, 2, 3, 7, 14, 21, 28]:
             d[f'lag_{lag}'] = d[self.TARGET].shift(lag)
@@ -1588,6 +1589,7 @@ class ForecastView(APIView):
                     'is_weekend':  int(fd.dayofweek >= 5),
                     'quarter':     fd.quarter,
                     'is_holiday':  int(fd.date() in hols_set),
+                    'is_monday':   int(fd.dayofweek == 0),
                 }
                 for lag in [1, 2, 3, 7, 14, 21, 28]:
                     row[f'lag_{lag}'] = (
@@ -1608,6 +1610,8 @@ class ForecastView(APIView):
 
                 is_we  = bool(row['is_weekend'])
                 is_hol = bool(row['is_holiday'])
+                if is_we or is_hol:
+                    p = 0.0
                 rows.append({
                     'date':       fd.strftime('%Y-%m-%d'),
                     'predicted':  round(p, 1),
