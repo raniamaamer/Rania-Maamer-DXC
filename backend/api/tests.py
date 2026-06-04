@@ -1288,8 +1288,7 @@ class PredictionsViewTest(APITestCase):
     def test_predictions_ml_file_present_returns_200(self):
         ml_payload = {
             "future_7": [{"ds": "2024-05-01", "yhat": 120}],
-            "prophet": {"mae": 5.2, "rmse": 7.1, "mape": 3.4},
-            "random_forest": {"auc_roc": 0.91},
+            "xgboost": {"mae": 5.2, "rmse": 7.1, "mape": 3.4},
             "dataset": {
                 "total_incidents": 5000,
                 "avg_daily_tickets": 68.5,
