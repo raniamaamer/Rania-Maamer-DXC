@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 from sklearn.preprocessing import RobustScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.metrics import mean_absolute_error
 import holidays as hols
 import json
 from pathlib import Path
@@ -1573,6 +1573,41 @@ class ForecastView(APIView):
         mape = round(float(np.mean(np.abs((y_test - preds_test) / (y_test + 1e-9))) * 100), 1)
         sigma = float((y_test - preds_test).std())   # pour l'intervalle de confiance
 
+         # ── 7b. Entraîner Prophet ─────────────────────────────────────────
+        from prophet import Prophet
+        warnings.filterwarnings("ignore")
+        logging.getLogger('prophet').setLevel(logging.WARNING)
+        logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
+
+        prophet_df = pd.DataFrame({'ds': df.index, 'y': df[self.TARGET].values})
+        hol_df = pd.DataFrame({
+            'holiday':      'public_holiday',
+            'ds':           pd.to_datetime(list(hols_set.keys())),
+            'lower_window': -1,
+            'upper_window': 1,
+        })
+        prophet_model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.01,
+            seasonality_mode='additive',
+            interval_width=0.80,
+            holidays=hol_df,
+        )
+        prophet_model.fit(prophet_df)
+
+        # MAE Prophet sur test set pour calculer les poids
+        prophet_test_pred = prophet_model.predict(
+            pd.DataFrame({'ds': d_test.index})
+        )['yhat'].clip(lower=0).values
+        mae_prophet = round(float(mean_absolute_error(y_test, prophet_test_pred)), 1)
+
+        # Poids inversement proportionnels au MAE
+        w_xgb     = 1 / max(mae, 0.1)
+        w_prophet = 1 / max(mae_prophet, 0.1)
+        w_total   = w_xgb + w_prophet
+
         # ── 8. Prévision itérative ────────────────────────────────────────
         def run_forecast(horizon_days):
             history = d.copy()
@@ -1605,8 +1640,12 @@ class ForecastView(APIView):
                 row['diff_1'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-2]) if len(history) >= 2 else 0.0
                 row['diff_7'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-7]) if len(history) >= 7 else 0.0
 
-                X_row = np.array([[row.get(c, 0.0) for c in feature_cols]])
-                p = float(max(model.predict(scaler.transform(X_row))[0], 0))
+                x_row   = np.array([[row.get(c, 0.0) for c in feature_cols]])
+                p_xgb   = float(max(model.predict(scaler.transform(x_row))[0], 0))
+                p_proph = float(max(
+                    prophet_model.predict(pd.DataFrame({'ds': [fd]}))['yhat'].iloc[0], 0
+                ))
+                p = (p_xgb * w_xgb + p_proph * w_prophet) / w_total
 
                 is_we  = bool(row['is_weekend'])
                 is_hol = bool(row['is_holiday'])
@@ -1673,6 +1712,13 @@ class ForecastView(APIView):
             'data': {
                 **results,
                 'history': history_points,
-                'metrics': {'mae': mae, 'mape': mape},
+                'metrics': {
+                    'mae':         round((mae * w_xgb + mae_prophet * w_prophet) / w_total, 1),
+                    'mape':        mape,
+                    'mae_xgb':     mae,
+                    'mae_prophet': mae_prophet,
+                    'w_xgb':       round(w_xgb / w_total * 100, 1),
+                    'w_prophet':   round(w_prophet / w_total * 100, 1),
+                },
             }
         })

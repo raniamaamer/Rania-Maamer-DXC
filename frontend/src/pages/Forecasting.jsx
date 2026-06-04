@@ -456,8 +456,12 @@ function MetricsBar({ forecast, metrics }) {
     { label: 'Weekends', value: weekends, color: DXC.purple },
     { label: 'Jours fériés', value: holidays, color: DXC.amber },
     ...(metrics ? [
-      { label: 'MAE (30j)', value: metrics.mae.toLocaleString('fr-FR'), color: DXC.textMuted },
-      { label: 'MAPE (30j)', value: `${metrics.mape}%`, color: DXC.textMuted },
+      { label: 'MAE (30j)',   value: metrics.mae?.toLocaleString('fr-FR'), color: DXC.textMuted },
+      { label: 'MAPE (30j)',  value: `${metrics.mape}%`,                   color: DXC.textMuted },
+      ...(metrics.w_xgb != null ? [
+        { label: '% XGBoost', value: `${metrics.w_xgb}%`,     color: DXC.blue },
+        { label: '% Prophet', value: `${metrics.w_prophet}%`, color: DXC.orange },
+      ] : []),
     ] : []),
   ]
 
@@ -761,7 +765,7 @@ export default function Forecasting() {
             }}
           >
             {isLoading
-              ? <><span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span> Prophet en cours...</>
+              ? <><span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span> XGBoost + Prophet en cours...</>
               : hasData
               ? '🔄 Relancer XGBoost'
               : '🚀 Lancer la prévision'}
@@ -816,8 +820,8 @@ export default function Forecasting() {
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <div style={{ fontSize: 48, marginBottom: 16, animation: 'spin 2s linear infinite', display: 'inline-block' }}>⟳</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: DXC.text, marginBottom: 8 }}>Entraînement du modèle Prophet...</div>
-              <div style={{ fontSize: 13, color: DXC.textMuted }}>Calcul des saisonnalités, jours fériés et intervalles de confiance</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: DXC.text, marginBottom: 8 }}>Entraînement XGBoost + Prophet...</div>
+              <div style={{ fontSize: 13, color: DXC.textMuted }}>Ensemble des deux modèles — calcul des poids, saisonnalités et intervalles de confiance</div>
             </div>
           )}
 
