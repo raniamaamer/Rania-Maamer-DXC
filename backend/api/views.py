@@ -1664,10 +1664,12 @@ class ForecastView(APIView):
                 is_we  = bool(row['is_weekend'])
                 is_hol = bool(row['is_holiday'])
                 if is_we or is_hol:
-                    p = 0.0
-                    p_for_history = float(history[self.TARGET][
-                        ~pd.Series(history.index).apply(lambda x: x.dayofweek >= 5 or x.date() in hols_set).values
-                    ].tail(5).mean())
+                    # Moyenne des vrais weekends/fériés historiques (pas zéro)
+                    we_vals = history[self.TARGET][
+                        pd.Series(history.index).apply(lambda x: x.dayofweek >= 5 or x.date() in hols_set).values
+                    ]
+                    p = round(float(we_vals.tail(8).mean()), 1) if len(we_vals) >= 3 else round(p * 0.15, 1)
+                    p_for_history = p
                 else:
                     p_for_history = p
 
