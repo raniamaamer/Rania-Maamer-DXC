@@ -1673,11 +1673,11 @@ class ForecastView(APIView):
                 else:
                     p_for_history = p
 
-                rows.append({           # ← 16 espaces (4 niveaux)
+                rows.append({
                     'date':       fd.strftime('%Y-%m-%d'),
                     'predicted':  round(p, 1),
-                    'lower':      round(max(0.0, p - 1.28 * sigma), 1) if not (is_we or is_hol) else 0.0,
-                    'upper':      round(p + 1.28 * sigma, 1) if not (is_we or is_hol) else 0.0,
+                    'lower':      round(max(0.0, p - 1.28 * sigma), 1),
+                    'upper':      round(p + 1.28 * sigma, 1),
                     'is_weekend': is_we,
                     'is_holiday': is_hol,
                 })
