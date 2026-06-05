@@ -1503,8 +1503,8 @@ class ForecastView(APIView):
                 'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
             }, status=422)
         # Fenêtre glissante — garder les 90 derniers jours uniquement
-        if len(df) > 90:
-            df = df.iloc[-90:]
+        if len(df) > 60:
+            df = df.iloc[-60:]
 
         # ── 3. Jours fériés ───────────────────────────────────────────────
         year_min = int(df.index.year.min())
@@ -1522,6 +1522,10 @@ class ForecastView(APIView):
         d['quarter']     = d.index.quarter
         d['is_holiday']  = d.index.map(lambda x: int(x.date() in hols_set))
         d['is_monday']   = (d.index.dayofweek == 0).astype(int)
+        d['trend_recent'] = (                                          # ← AJOUTER ICI
+            d[self.TARGET].shift(1).rolling(7,  min_periods=1).mean() /
+            (d[self.TARGET].shift(1).rolling(30, min_periods=1).mean() + 1e-9)
+        )
 
         for lag in [1, 2, 3, 7, 14, 21, 28]:
             d[f'lag_{lag}'] = d[self.TARGET].shift(lag)
