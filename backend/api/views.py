@@ -1502,6 +1502,9 @@ class ForecastView(APIView):
                 'status': 'error',
                 'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
             }, status=422)
+        # Fenêtre glissante — garder les 90 derniers jours uniquement
+        if len(df) > 90:
+            df = df.iloc[-90:]
 
         # ── 3. Jours fériés ───────────────────────────────────────────────
         year_min = int(df.index.year.min())
@@ -1609,7 +1612,7 @@ class ForecastView(APIView):
 
         # Poids ensemble
         w_xgb     = 1 / max(mae, 0.1)
-        w_prophet = 1 / max(mae_prophet, 0.1)
+        w_prophet = (1 / max(mae_prophet, 0.1)) * 0.5
         w_total   = w_xgb + w_prophet
 
         # ── 8. Prévision itérative ────────────────────────────────────────
@@ -1630,6 +1633,9 @@ class ForecastView(APIView):
                     'is_holiday':  int(fd.date() in hols_set),
                     'is_monday':   int(fd.dayofweek == 0),
                 }
+                recent_7  = float(history[self.TARGET].iloc[-7:].mean())
+                recent_30 = float(history[self.TARGET].iloc[-30:].mean())
+                row['trend_recent'] = recent_7 / (recent_30 + 1e-9)
                 for lag in [1, 2, 3, 7, 14, 21, 28]:
                     row[f'lag_{lag}'] = (
                         history[self.TARGET].iloc[-lag]
