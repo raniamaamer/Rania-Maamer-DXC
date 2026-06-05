@@ -1843,7 +1843,7 @@ class ForecastViewEnsembleTest(APITestCase):
 
     def setUp(self):
         base = datetime.date(2026, 1, 1)
-        for i in range(60):
+        for i in range(120):
             d = base + datetime.timedelta(days=i)
             HistoricalMetric.objects.create(
                 queue='Servier French',

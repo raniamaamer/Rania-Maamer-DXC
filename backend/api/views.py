@@ -1537,13 +1537,24 @@ class ForecastView(APIView):
         d['diff_1'] = d[self.TARGET].diff(1)
         d['diff_7'] = d[self.TARGET].diff(7)
         d = d.dropna()
+        # ── Guard : données suffisantes après feature engineering ────────────────
+        n = len(d)
+        if n < 30:
+            return Response({
+                'status': 'error',
+                'message': f"Not enough data after feature engineering ({n} rows). Minimum 30 required.",
+            }, status=422)
+
+        # Splits adaptatifs — garantit que d_train n'est jamais vide
+        n_test = max(5, int(n * 0.10))
+        n_val  = max(5, int(n * 0.15))
+        if n - n_test - n_val < 10:
+            n_test = max(3, n // 5)
+            n_val  = max(3, n // 6)
 
         feature_cols = [c for c in d.columns if c != self.TARGET]
 
         # ── 5. Train / Val / Test split ───────────────────────────────────
-        n      = len(d)
-        n_test = max(20, int(n * 0.10))
-        n_val  = max(20, int(n * 0.15))
 
         d_train = d.iloc[:-(n_test + n_val)]
         d_val   = d.iloc[-(n_test + n_val):-n_test]
