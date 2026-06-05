@@ -1623,7 +1623,10 @@ class ForecastView(APIView):
         prophet_test_pred = prophet_model.predict(
             pd.DataFrame({'ds': test_dates_clean})
         )['yhat'].clip(lower=0).values
-        mae_prophet = round(float(mean_absolute_error(y_test, prophet_test_pred)), 1)
+
+        # Aligner les tailles en cas de mismatch (ex: mock Prophet)
+        min_len = min(len(y_test), len(prophet_test_pred))
+        mae_prophet = round(float(mean_absolute_error(y_test[:min_len], prophet_test_pred[:min_len])), 1)
 
         # Poids ensemble
         w_xgb     = 1 / max(mae, 0.1)
