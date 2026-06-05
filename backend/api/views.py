@@ -1503,8 +1503,8 @@ class ForecastView(APIView):
                 'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
             }, status=422)
         # Fenêtre glissante — garder les 90 derniers jours uniquement
-        if len(df) > 60:
-            df = df.iloc[-60:]
+        if len(df) > 120:
+            df = df.iloc[-120:]
 
         # ── 3. Jours fériés ───────────────────────────────────────────────
         year_min = int(df.index.year.min())
