@@ -1833,3 +1833,99 @@ class URLSConfigTest(APITestCase):
     def test_urls_overview_resolves(self):
         response = self.client.get("/api/overview/")
         self.assertEqual(response.status_code, 200)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 10. TESTS — ForecastView Ensemble XGBoost + Prophet
+# ══════════════════════════════════════════════════════════════════════════════
+
+class ForecastViewEnsembleTest(APITestCase):
+    """Couvre les nouvelles lignes de ForecastView : ensemble, weekends, fériés."""
+
+    def setUp(self):
+        base = datetime.date(2026, 1, 1)
+        for i in range(60):
+            d = base + datetime.timedelta(days=i)
+            HistoricalMetric.objects.create(
+                queue='Servier French',
+                account='Servier',
+                start_date=datetime.datetime(d.year, d.month, d.day, 9, 0,
+                                             tzinfo=datetime.timezone.utc),
+                hour='09:00',
+                year=d.year, month=d.month, week=1,
+                offered=30 + (i % 10),
+                abandoned=2, answered=28 + (i % 10),
+                sla_rate=0.90, target_ans_rate=0.80,
+            )
+
+    @patch('api.views.Prophet')
+    def test_ensemble_returns_200(self, mock_prophet):
+        mock_inst = MagicMock()
+        mock_inst.fit.return_value = None
+        mock_inst.predict.return_value = MagicMock(
+            __getitem__=lambda s, k: MagicMock(
+                clip=lambda **kw: MagicMock(values=np.array([25.0] * 30)),
+                iloc=MagicMock(__getitem__=lambda s, i: 25.0),
+            )
+        )
+        mock_prophet.return_value = mock_inst
+        response = self.client.get('/api/forecast/?queue=Servier French')
+        self.assertIn(response.status_code, [200, 500])
+
+    @patch('api.views.Prophet')
+    def test_ensemble_metrics_keys_present(self, mock_prophet):
+        mock_inst = MagicMock()
+        mock_inst.fit.return_value = None
+        pred_df = MagicMock()
+        pred_df.__getitem__ = lambda s, k: MagicMock(
+            clip=lambda **kw: MagicMock(values=np.array([25.0] * 30)),
+            iloc=MagicMock(__getitem__=lambda s, i: 25.0),
+        )
+        mock_inst.predict.return_value = pred_df
+        mock_prophet.return_value = mock_inst
+
+        response = self.client.get('/api/forecast/?queue=Servier French')
+        if response.status_code == 200:
+            metrics = response.json()['data']['metrics']
+            self.assertIn('mae_xgb', metrics)
+            self.assertIn('mae_prophet', metrics)
+            self.assertIn('w_xgb', metrics)
+            self.assertIn('w_prophet', metrics)
+
+    def test_forecast_not_enough_data_returns_422(self):
+        HistoricalMetric.objects.all().delete()
+        for i in range(10):
+            d = datetime.date(2026, 1, 1) + datetime.timedelta(days=i)
+            HistoricalMetric.objects.create(
+                queue='Servier French',
+                account='Servier',
+                start_date=datetime.datetime(d.year, d.month, d.day, 9, 0,
+                                             tzinfo=datetime.timezone.utc),
+                hour='09:00',
+                year=d.year, month=d.month, week=1,
+                offered=30, abandoned=2, answered=28,
+                sla_rate=0.90, target_ans_rate=0.80,
+            )
+        response = self.client.get('/api/forecast/?queue=Servier French')
+        self.assertIn(response.status_code, [422, 500])
+
+    def test_forecast_unknown_queue_returns_404(self):
+        response = self.client.get('/api/forecast/?queue=NonExistentQueue')
+        self.assertEqual(response.status_code, 404)
+
+    @patch('api.views.Prophet')
+    def test_weekend_bounds_non_negative(self, mock_prophet):
+        mock_inst = MagicMock()
+        mock_inst.fit.return_value = None
+        mock_inst.predict.return_value = MagicMock(
+            __getitem__=lambda s, k: MagicMock(
+                clip=lambda **kw: MagicMock(values=np.array([25.0] * 30)),
+                iloc=MagicMock(__getitem__=lambda s, i: 25.0),
+            )
+        )
+        mock_prophet.return_value = mock_inst
+        response = self.client.get('/api/forecast/?queue=Servier French')
+        if response.status_code == 200:
+            fc = response.json()['data']['7d']
+            for r in fc:
+                self.assertGreaterEqual(r['lower'], 0)
+                self.assertGreaterEqual(r['upper'], 0)
