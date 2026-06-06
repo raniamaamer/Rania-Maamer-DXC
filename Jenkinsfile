@@ -59,7 +59,7 @@ pipeline {
             steps {
                 bat "copy \"%ENV_FILE%\" backend\\.env"
                 bat "docker-compose -p rania-maamer up -d db sonarqube"
-                bat "ping -n 91 127.0.0.1 > nul"   // 90 secondes au lieu de 60
+                bat "ping -n 121 127.0.0.1 > nul"   
             }
         }
 
@@ -93,7 +93,7 @@ pipeline {
 
         stage('SonarQube Quality Gate') {
             steps {
-                timeout(time: 10, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: false
                 }
             }
