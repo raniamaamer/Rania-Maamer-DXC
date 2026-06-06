@@ -767,7 +767,7 @@ export default function Forecasting() {
             {isLoading
               ? <><span style={{ display: 'inline-block', animation: 'spin 0.8s linear infinite' }}>⟳</span> XGBoost + Prophet en cours...</>
               : hasData
-              ? '🔄 Relancer XGBoost'
+              ? '🔄 Relancer'
               : '🚀 Lancer la prévision'}
           </button>
         </div>
@@ -806,7 +806,7 @@ export default function Forecasting() {
                 Prévision non lancée
               </div>
               <div style={{ fontSize: 13, maxWidth: 400, margin: '0 auto', lineHeight: 1.7 }}>
-                Cliquez sur <strong>Lancer la prévision Prophet</strong>.
+                Cliquez sur <strong>Lancer la prévision</strong>.
               </div>
               <div style={{ marginTop: 20, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {['📈 Intervalles de confiance 80%', '📴 Jours fériés', '📅 Marqueurs weekends', '📉 Métriques MAE / MAPE'].map(f => (

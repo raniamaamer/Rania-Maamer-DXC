@@ -1588,9 +1588,17 @@ class ForecastView(APIView):
 
         # ── 7. Métriques sur test set ─────────────────────────────────────
         preds_test = np.maximum(model.predict(X_test_s), 0)
-        mae  = round(float(mean_absolute_error(y_test, preds_test)), 1)
-        mape = round(float(np.mean(np.abs((y_test - preds_test) / (y_test + 1e-9))) * 100), 1)
-        sigma = float((y_test - preds_test).std())   # pour l'intervalle de confiance
+        mae = round(float(mean_absolute_error(y_test, preds_test)), 1)
+
+        # MAPE uniquement sur jours ouvrés (y_true > 0)
+        mask = y_test > 0
+        if mask.sum() > 0:
+            mape = round(float(
+                np.mean(np.abs((y_test[mask] - preds_test[mask]) / y_test[mask])) * 100
+            ), 1)
+        else:
+            mape = 0.0
+        sigma = float((y_test - preds_test).std())
 
         # ── 7b. Entraîner Prophet ─────────────────────────────────────────
         warnings.filterwarnings("ignore")
@@ -1626,7 +1634,13 @@ class ForecastView(APIView):
 
         # Aligner les tailles en cas de mismatch (ex: mock Prophet)
         min_len = min(len(y_test), len(prophet_test_pred))
-        mae_prophet = round(float(mean_absolute_error(y_test[:min_len], prophet_test_pred[:min_len])), 1)
+        mask_p = y_test[:min_len] > 0
+        if mask_p.sum() > 0:
+            mae_prophet = round(float(
+                mean_absolute_error(y_test[:min_len][mask_p], prophet_test_pred[:min_len][mask_p])
+            ), 1)
+        else:
+            mae_prophet = 0.0
 
         # Poids ensemble
         w_xgb     = 1 / max(mae, 0.1)
