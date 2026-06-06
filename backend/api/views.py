@@ -1352,37 +1352,48 @@ def forecast_view(request):
     logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
 
     try:
-        # ── 1. Charger les données depuis la DB ──────────────────────────
-        from .models import DailySnapshot  # adapte selon ton modèle réel
-        qs = DailySnapshot.objects.values('date', 'total_offered').order_by('date')
-        df_raw = pd.DataFrame(list(qs))
+        # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
+        queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        if df_raw.empty:
-            return JsonResponse({'status': 'error', 'message': 'Aucune donnée dans DailySnapshot'}, status=500)
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
-        df_raw.rename(columns={'date': 'Day', 'total_offered': 'Offered contacts'}, inplace=True)
-        
-        # ── 2. Agrégation + nettoyage ────────────────────────────────────
-        df_raw['Day'] = pd.to_datetime(df_raw['Day'])
-        df = df_raw.groupby('Day')['Offered contacts'].sum().reset_index()
-        df = df.sort_values('Day').set_index('Day')
+        if not CSV_PATH.exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Fichier introuvable : {CSV_PATH}',
+            }, status=404)
 
-        # Réindexation pour combler les trous
+        raw = pd.read_csv(CSV_PATH, sep=None, engine='python', low_memory=False)
+        raw = raw[raw['Queue'].str.strip() == queue.strip()]
+        if raw.empty:
+            return JsonResponse({
+                'status': 'error',
+                'message': f"No data for queue '{queue}'",
+                'available_queues': ['Servier English', 'Servier French', 'Servier French Password', 'Servier Spanish'],
+            }, status=404)
+
+        # ── 2. Agrégation journalière ─────────────────────────────────────
+        raw['day'] = pd.to_datetime(raw['Day'], dayfirst=True, errors='coerce')
+        raw = raw.dropna(subset=['day'])
+
+        df = (raw.groupby('day')['Offered contacts'].sum()
+              .reset_index().set_index('day').sort_index())
+        df.columns = ['offered']  # ✅ renommé
+
         full_idx = pd.date_range(df.index.min(), df.index.max(), freq='D')
         df = df.reindex(full_idx)
-        df['Offered contacts'] = df['Offered contacts'].interpolate(method='time').ffill().bfill()
+        df['offered'] = df['offered'].interpolate('time').ffill().bfill()  # ✅ FIX: 'offered' pas self.TARGET
 
-        # Winsorisation douce
-        roll_med = df['Offered contacts'].rolling(7, min_periods=1, center=True).median()
-        Q1, Q3 = df['Offered contacts'].quantile(0.25), df['Offered contacts'].quantile(0.75)
-        IQR = Q3 - Q1
-        mask = (df['Offered contacts'] < Q1 - 1.5*IQR) | (df['Offered contacts'] > Q3 + 1.5*IQR)
-        df.loc[mask, 'Offered contacts'] = roll_med[mask]
+        if len(df) < 30:
+            return JsonResponse({
+                'status': 'error',
+                'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
+            }, status=422)
 
         # ── 3. Préparer Prophet ──────────────────────────────────────────
         prophet_df = pd.DataFrame({
             'ds': df.index,
-            'y': df['Offered contacts'].values
+            'y': df['offered'].values  # ✅ FIX: 'offered' pas 'Offered contacts'
         })
 
         # Jours fériés France 
@@ -1466,21 +1477,7 @@ class ForecastView(APIView):
         queue = request.GET.get('queue', 'Servier French')
         logger.info(f"ForecastView XGBoost called for queue: '{queue}'")
 
-        # ── 1. Charger données ────────────────────────────────────────────
-        qs = HistoricalMetric.objects.filter(queue=queue).values('start_date', 'offered')
-        if not qs.exists():
-            available = list(
-                HistoricalMetric.objects
-                .values_list('queue', flat=True)
-                .distinct().order_by('queue')
-            )
-            return Response({
-                'status': 'error',
-                'message': f"No data for queue '{queue}'",
-                'available_queues': available,
-            }, status=404)
-
-        # ── 2. Agrégation journalière ─────────────────────────────────────
+        # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         import numpy as np
         import pandas as pd
         import xgboost as xgb
@@ -1488,10 +1485,31 @@ class ForecastView(APIView):
         from sklearn.preprocessing import RobustScaler
         from sklearn.metrics import mean_absolute_error
 
-        df_raw = pd.DataFrame(list(qs))
-        df_raw['day'] = pd.to_datetime(df_raw['start_date']).dt.normalize()
-        df = (df_raw.groupby('day')[self.TARGET].sum()
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+
+        if not CSV_PATH.exists():
+            return Response({
+                'status': 'error',
+                'message': f'Fichier introuvable : {CSV_PATH}',
+            }, status=404)
+
+        raw = pd.read_csv(CSV_PATH, sep=None, engine='python', low_memory=False)
+        raw = raw[raw['Queue'].str.strip() == queue.strip()]
+        if raw.empty:
+            available = raw['Queue'].unique().tolist() if 'Queue' in raw.columns else []
+            return Response({
+                'status': 'error',
+                'message': f"No data for queue '{queue}'",
+                'available_queues': ['Servier English', 'Servier French', 'Servier French Password', 'Servier Spanish'],
+            }, status=404)
+
+        # ── 2. Agrégation journalière ─────────────────────────────────────
+        raw['day'] = pd.to_datetime(raw['Day'], dayfirst=True, errors='coerce')
+        raw = raw.dropna(subset=['day'])
+
+        df = (raw.groupby('day')['Offered contacts'].sum()
               .reset_index().set_index('day').sort_index())
+        df.columns = [self.TARGET]
 
         full_idx = pd.date_range(df.index.min(), df.index.max(), freq='D')
         df = df.reindex(full_idx)
@@ -1502,9 +1520,7 @@ class ForecastView(APIView):
                 'status': 'error',
                 'message': f"Not enough data ({len(df)} days) for queue '{queue}'. Minimum 30 required.",
             }, status=422)
-        # Fenêtre glissante — garder les 90 derniers jours uniquement
-        if len(df) > 120:
-            df = df.iloc[-120:]
+        # Tout l'historique disponible — pas de troncature
 
         # ── 3. Jours fériés ───────────────────────────────────────────────
         year_min = int(df.index.year.min())
@@ -1522,7 +1538,7 @@ class ForecastView(APIView):
         d['quarter']     = d.index.quarter
         d['is_holiday']  = d.index.map(lambda x: int(x.date() in hols_set))
         d['is_monday']   = (d.index.dayofweek == 0).astype(int)
-        d['trend_recent'] = (                                          # ← AJOUTER ICI
+        d['trend_recent'] = (
             d[self.TARGET].shift(1).rolling(7,  min_periods=1).mean() /
             (d[self.TARGET].shift(1).rolling(30, min_periods=1).mean() + 1e-9)
         )
@@ -1537,7 +1553,8 @@ class ForecastView(APIView):
         d['diff_1'] = d[self.TARGET].diff(1)
         d['diff_7'] = d[self.TARGET].diff(7)
         d = d.dropna()
-        # ── Guard : données suffisantes après feature engineering ────────────────
+
+        # ── Guard : données suffisantes après feature engineering ─────────
         n = len(d)
         if n < 30:
             return Response({
@@ -1545,7 +1562,7 @@ class ForecastView(APIView):
                 'message': f"Not enough data after feature engineering ({n} rows). Minimum 30 required.",
             }, status=422)
 
-        # Splits adaptatifs — garantit que d_train n'est jamais vide
+        # Splits adaptatifs
         n_test = max(5, int(n * 0.10))
         n_val  = max(5, int(n * 0.15))
         if n - n_test - n_val < 10:
@@ -1555,7 +1572,6 @@ class ForecastView(APIView):
         feature_cols = [c for c in d.columns if c != self.TARGET]
 
         # ── 5. Train / Val / Test split ───────────────────────────────────
-
         d_train = d.iloc[:-(n_test + n_val)]
         d_val   = d.iloc[-(n_test + n_val):-n_test]
         d_test  = d.iloc[-n_test:]
@@ -1590,7 +1606,6 @@ class ForecastView(APIView):
         preds_test = np.maximum(model.predict(X_test_s), 0)
         mae = round(float(mean_absolute_error(y_test, preds_test)), 1)
 
-        # MAPE uniquement sur jours ouvrés (y_true > 0)
         mask = y_test > 0
         if mask.sum() > 0:
             mape = round(float(
@@ -1605,7 +1620,6 @@ class ForecastView(APIView):
         logging.getLogger('prophet').setLevel(logging.WARNING)
         logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
 
-        # Supprimer timezone partout pour Prophet
         clean_index = df.index.tz_localize(None) if df.index.tz is None else df.index.tz_convert(None)
 
         prophet_df = pd.DataFrame({'ds': clean_index, 'y': df[self.TARGET].values})
@@ -1626,13 +1640,11 @@ class ForecastView(APIView):
         )
         prophet_model.fit(prophet_df)
 
-        # MAE Prophet sur test set
         test_dates_clean = d_test.index.tz_convert(None) if d_test.index.tz else d_test.index.tz_localize(None)
         prophet_test_pred = prophet_model.predict(
             pd.DataFrame({'ds': test_dates_clean})
         )['yhat'].clip(lower=0).values
 
-        # Aligner les tailles en cas de mismatch (ex: mock Prophet)
         min_len = min(len(y_test), len(prophet_test_pred))
         mask_p = y_test[:min_len] > 0
         if mask_p.sum() > 0:
@@ -1642,7 +1654,6 @@ class ForecastView(APIView):
         else:
             mae_prophet = 0.0
 
-        # Poids ensemble
         w_xgb     = 1 / max(mae, 0.1)
         w_prophet = (1 / max(mae_prophet, 0.1)) * 0.5
         w_total   = w_xgb + w_prophet
@@ -1692,7 +1703,6 @@ class ForecastView(APIView):
                 is_we  = bool(row['is_weekend'])
                 is_hol = bool(row['is_holiday'])
                 if is_we or is_hol:
-                    # Moyenne des vrais weekends/fériés historiques (pas zéro)
                     we_vals = history[self.TARGET][
                         pd.Series(history.index).apply(lambda x: x.dayofweek >= 5 or x.date() in hols_set).values
                     ]
@@ -1710,8 +1720,6 @@ class ForecastView(APIView):
                     'is_holiday': is_hol,
                 })
 
-
-                # Puis utiliser p_for_history au lieu de p dans le concat
                 new_row = pd.DataFrame(
                     [{**{c: row[c] for c in feature_cols}, self.TARGET: p_for_history}],
                     index=[fd]
