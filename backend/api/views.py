@@ -1364,7 +1364,7 @@ def forecast_view(request):
                 'message': f'Fichier introuvable : {CSV_PATH}',
             }, status=404)
 
-        raw = pd.read_csv(CSV_PATH, sep=None, engine='python', low_memory=False)
+        raw = pd.read_csv(CSV_PATH, sep=None, engine='python')
         raw = raw[raw['Queue'].str.strip() == queue.strip()]
         if raw.empty:
             return JsonResponse({
@@ -1495,7 +1495,7 @@ class ForecastView(APIView):
                 'message': f'Fichier introuvable : {CSV_PATH}',
             }, status=404)
 
-        raw = pd.read_csv(CSV_PATH, sep=None, engine='python', low_memory=False)
+        raw = pd.read_csv(CSV_PATH, sep=None, engine='python')
         raw = raw[raw['Queue'].str.strip() == queue.strip()]
         if raw.empty:
             available = raw['Queue'].unique().tolist() if 'Queue' in raw.columns else []
