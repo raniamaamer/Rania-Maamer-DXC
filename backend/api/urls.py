@@ -25,4 +25,5 @@ urlpatterns = [
     path('claude/',              claude_proxy,                          name='claude'),
     path('claude-proxy/',        claude_proxy,                          name='claude-proxy'),
     path('forecast/',            views.ForecastView.as_view(),          name='forecast'),
+    path('forecast-queue/',      views.forecast_view,                   name='forecast-queue'),
     path('queue-summary/',       queue_summary,                         name='queue-summary'), ]
