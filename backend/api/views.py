@@ -29,6 +29,9 @@ from .serializers import (
 
 logger = logging.getLogger('api')
 
+# ── Chemin vers le CSV Servier ────────────────────────────────────────────
+_SERVIER_CSV = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+
 
 def parse_int_param(request, key, default=None):
     val = request.GET.get(key)
@@ -1340,7 +1343,7 @@ def claude_proxy(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def queue_summary(request):
-    CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+    CSV_PATH = _SERVIER_CSV
     if not CSV_PATH.exists():
         return Response({}, status=404)
 
@@ -1392,7 +1395,7 @@ def forecast_view(request):
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+        CSV_PATH = _SERVIER_CSVx    
 
         if not CSV_PATH.exists():
             return JsonResponse({
@@ -1522,7 +1525,7 @@ class ForecastView(APIView):
         from sklearn.preprocessing import RobustScaler
         from sklearn.metrics import mean_absolute_error
 
-        CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+        CSV_PATH = _SERVIER_CSV
 
         if not CSV_PATH.exists():
             return Response({
