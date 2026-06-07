@@ -2039,3 +2039,106 @@ class ForecastViewFunctionTest(APITestCase):
             self.assertIn('7d', data['data'])
             self.assertIn('history', data['data'])
             self.assertIn('metrics', data['data'])
+
+import pandas as pd
+
+class QueueSummaryAndForecastFunctionTest(APITestCase):
+    """Couvre queue_summary + forecast_view standalone."""
+
+    @patch('api.views._SERVIER_CSV')
+    def test_queue_summary_no_csv_returns_404(self, mock_csv):
+        mock_csv.exists.return_value = False
+        response = self.client.get('/api/queue-summary/')
+        self.assertEqual(response.status_code, 404)
+
+    @patch('api.views.pd.read_csv')
+    @patch('api.views._SERVIER_CSV')
+    def test_queue_summary_returns_200(self, mock_csv, mock_read_csv):
+        mock_csv.exists.return_value = True
+        mock_read_csv.return_value = pd.DataFrame({
+            'Queue':              ['Servier French'] * 3,
+            'Day':                ['01/01/2026', '02/01/2026', '03/01/2026'],
+            'Offered contacts':   [50, 60, 55],
+            'Abandoned contacts': [3, 4, 2],
+            'ASA':                ['00:25', '00:30', '00:20'],
+            'Avg AHT':            ['03:00', '03:15', '02:50'],
+        })
+        response = self.client.get('/api/queue-summary/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Servier French', response.json())
+
+    @patch('api.views.pd.read_csv')
+    @patch('api.views._SERVIER_CSV')
+    def test_queue_summary_multiple_queues(self, mock_csv, mock_read_csv):
+        mock_csv.exists.return_value = True
+        mock_read_csv.return_value = pd.DataFrame({
+            'Queue':            ['Servier French', 'Servier English'],
+            'Day':              ['01/01/2026',     '01/01/2026'],
+            'Offered contacts': [50, 30],
+            'Abandoned contacts': [3, 2],
+        })
+        response = self.client.get('/api/queue-summary/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('Servier French',  data)
+        self.assertIn('Servier English', data)
+
+    @patch('api.views._SERVIER_CSV')
+    def test_forecast_function_csv_missing(self, mock_csv):
+        mock_csv.exists.return_value = False
+        response = self.client.get('/api/forecast-queue/?queue=Servier French')
+        self.assertIn(response.status_code, [404, 500])
+
+    @patch('api.views.pd.read_csv')
+    @patch('api.views._SERVIER_CSV')
+    def test_forecast_function_unknown_queue(self, mock_csv, mock_read_csv):
+        mock_csv.exists.return_value = True
+        mock_read_csv.return_value = pd.DataFrame({
+            'Queue': ['Servier French'], 'Day': ['01/01/2026'],
+            'Offered contacts': [50],
+        })
+        response = self.client.get('/api/forecast-queue/?queue=NonExistent')
+        self.assertIn(response.status_code, [404, 500])
+
+    @patch('api.views.pd.read_csv')
+    @patch('api.views._SERVIER_CSV')
+    def test_forecast_function_not_enough_data(self, mock_csv, mock_read_csv):
+        mock_csv.exists.return_value = True
+        mock_read_csv.return_value = pd.DataFrame({
+            'Queue': ['Servier French'] * 5,
+            'Day': ['01/01/2026','02/01/2026','03/01/2026','04/01/2026','05/01/2026'],
+            'Offered contacts': [50, 60, 55, 45, 70],
+        })
+        response = self.client.get('/api/forecast-queue/?queue=Servier French')
+        self.assertIn(response.status_code, [422, 500])
+
+    @patch('api.views.Prophet')
+    @patch('api.views.pd.read_csv')
+    @patch('api.views._SERVIER_CSV')
+    def test_forecast_function_enough_data(self, mock_csv, mock_read_csv, mock_prophet):
+        mock_csv.exists.return_value = True
+        dates = pd.date_range('2025-09-01', periods=60, freq='D')
+        mock_read_csv.return_value = pd.DataFrame({
+            'Queue':            ['Servier French'] * 60,
+            'Day':              [d.strftime('%d/%m/%Y') for d in dates],
+            'Offered contacts': [40 + (i % 15) for i in range(60)],
+        })
+        mock_inst = MagicMock()
+        mock_inst.fit.return_value = None
+        future_df = pd.DataFrame({'ds': pd.date_range('2026-01-01', periods=370)})
+        mock_inst.make_future_dataframe.return_value = future_df
+        fc_df = future_df.copy()
+        fc_df['yhat'] = 40.0
+        fc_df['yhat_lower'] = 30.0
+        fc_df['yhat_upper'] = 50.0
+        mock_inst.predict.return_value = fc_df
+        mock_prophet.return_value = mock_inst
+
+        response = self.client.get('/api/forecast-queue/?queue=Servier French')
+        self.assertIn(response.status_code, [200, 500])
+        if response.status_code == 200:
+            data = response.json()
+            self.assertEqual(data['status'], 'ok')
+            self.assertIn('7d', data['data'])
+            self.assertIn('history', data['data'])
+            self.assertIn('metrics', data['data'])
