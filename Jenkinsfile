@@ -58,8 +58,17 @@ pipeline {
         stage('Start SonarQube') {
             steps {
                 bat "copy \"%ENV_FILE%\" backend\\.env"
-                bat "docker-compose -p rania-maamer up -d db sonarqube"
-                bat "ping -n 121 127.0.0.1 > nul"   
+                bat "docker-compose -p rania-maamer up -d db"
+                bat "ping -n 16 127.0.0.1 > nul"
+                // Démarre SonarQube seulement s'il n'est pas déjà UP
+                bat """
+                docker inspect sonarqube --format={{.State.Status}} 2>nul | findstr /i running >nul && (
+                    echo SonarQube already running, skipping restart
+                ) || (
+                    docker-compose -p rania-maamer up -d sonarqube
+                    ping -n 181 127.0.0.1 > nul
+                )
+                """
             }
         }
 
@@ -94,7 +103,7 @@ pipeline {
 
         stage('SonarQube Quality Gate') {
             steps {
-                timeout(time: 30, unit: 'MINUTES') {
+                timeout(time: 60, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: false
                 }
             }
