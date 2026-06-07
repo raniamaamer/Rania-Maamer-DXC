@@ -1392,8 +1392,7 @@ def forecast_view(request):
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
-
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
         if not CSV_PATH.exists():
             return JsonResponse({
@@ -1523,7 +1522,7 @@ class ForecastView(APIView):
         from sklearn.preprocessing import RobustScaler
         from sklearn.metrics import mean_absolute_error
 
-        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
         if not CSV_PATH.exists():
             return Response({
