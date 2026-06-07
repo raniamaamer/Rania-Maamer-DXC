@@ -30,8 +30,7 @@ from .serializers import (
 logger = logging.getLogger('api')
 
 # ── Chemin vers le CSV Servier ────────────────────────────────────────────
-_SERVIER_CSV = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
-
+_SERVIER_CSV = Path(__file__).resolve().parent.parent / 'data' / 'Servier_KPIs.csv'
 
 def parse_int_param(request, key, default=None):
     val = request.GET.get(key)
@@ -1395,7 +1394,7 @@ def forecast_view(request):
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        CSV_PATH = _SERVIER_CSVx    
+        CSV_PATH = _SERVIER_CSV
 
         if not CSV_PATH.exists():
             return JsonResponse({
