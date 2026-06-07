@@ -1343,6 +1343,16 @@ def queue_summary(request):
     CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
     if not CSV_PATH.exists():
         return Response({}, status=404)
+
+    def mmss_to_sec(s):
+        try:
+            parts = str(s).strip().split(':')
+            if len(parts) == 2:
+                return int(parts[0]) * 60 + int(parts[1])
+            return float(s)
+        except:
+            return None
+
     raw = pd.read_csv(CSV_PATH, sep=None, engine='python')
     result = {}
     for queue in raw['Queue'].unique():
@@ -1357,8 +1367,8 @@ def queue_summary(request):
             'totals': {
                 'total_offered':   int(qdf['Offered contacts'].sum()),
                 'total_abandoned': int(qdf['Abandoned contacts'].sum()) if 'Abandoned contacts' in qdf.columns else 0,
-                'avg_asa':         round(float(qdf['ASA'].mean()), 1) if 'ASA' in qdf.columns else 0,
-                'avg_aht':         round(float(qdf['Avg AHT'].mean()), 1) if 'Avg AHT' in qdf.columns else 0,
+                'avg_asa':         round(float(qdf['ASA'].apply(mmss_to_sec).dropna().mean()), 1) if 'ASA' in qdf.columns else 0,
+                'avg_aht':         round(float(qdf['Avg AHT'].apply(mmss_to_sec).dropna().mean()), 1) if 'Avg AHT' in qdf.columns else 0,
             }
         }
     return Response(result)
@@ -1382,7 +1392,7 @@ def forecast_view(request):
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        CCSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
 
         if not CSV_PATH.exists():
