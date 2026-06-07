@@ -1340,7 +1340,7 @@ def claude_proxy(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def queue_summary(request):
-    CSV_PATH = Path(__file__).resolve().parent.parent / 'data' / 'Servier_KPIs.csv'
+    CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
     if not CSV_PATH.exists():
         return Response({}, status=404)
     raw = pd.read_csv(CSV_PATH, sep=None, engine='python')
@@ -1382,7 +1382,7 @@ def forecast_view(request):
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         queue = request.GET.get('queue', 'Servier French')  # ✅ FIX: queue défini
 
-        CSV_PATH = Path(__file__).resolve().parent.parent / 'data' / 'Servier_KPIs.csv'
+        CCSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
 
         if not CSV_PATH.exists():
@@ -1513,8 +1513,7 @@ class ForecastView(APIView):
         from sklearn.preprocessing import RobustScaler
         from sklearn.metrics import mean_absolute_error
 
-        CSV_PATH = Path(__file__).resolve().parent.parent / 'data' / 'Servier_KPIs.csv'
-
+        CSV_PATH = Path(__file__).resolve().parent.parent.parent / 'data' / 'Servier_KPIs.csv'
 
         if not CSV_PATH.exists():
             return Response({
