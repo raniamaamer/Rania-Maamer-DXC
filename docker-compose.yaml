@@ -226,9 +226,9 @@ services:
       - SONAR_JDBC_URL=jdbc:postgresql://db:5432/sonarqube
       - SONAR_JDBC_USERNAME=postgres
       - SONAR_JDBC_PASSWORD=20010430
-      - SONAR_CE_JAVAOPTS=-Xmx512m -Xms256m
+      - SONAR_CE_JAVAOPTS=-Xmx1g -Xms512m
       - SONAR_WEB_JAVAOPTS=-Xmx512m -Xms256m
-      - SONAR_SEARCH_JAVAOPTS=-Xmx512m -Xms256m
+      - SONAR_SEARCH_JAVAOPTS=-Xmx1g -Xms512m
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_logs:/opt/sonarqube/logs
@@ -239,7 +239,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2g
+          memory: 4g
     networks:
       - dxc-network
     healthcheck:
@@ -247,7 +247,7 @@ services:
       interval: 30s
       timeout: 30s
       retries: 15
-      start_period: 120s
+      start_period: 180s
 
   # ── SonarQube Init ───────────────────────────────────────────
   sonarqube-init:
