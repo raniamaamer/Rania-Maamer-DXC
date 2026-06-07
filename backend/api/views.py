@@ -1336,6 +1336,33 @@ def claude_proxy(request):
 
     return StreamingHttpResponse(stream(), content_type='text/event-stream')
 
+# ══ Queue Summary View ═════════════════════════════════════════════
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def queue_summary(request):
+    CSV_PATH = Path(__file__).resolve().parent.parent / 'data' / 'Servier_KPIs.csv'
+    if not CSV_PATH.exists():
+        return Response({}, status=404)
+    raw = pd.read_csv(CSV_PATH, sep=None, engine='python')
+    result = {}
+    for queue in raw['Queue'].unique():
+        qdf = raw[raw['Queue'] == queue].copy()
+        qdf['day'] = pd.to_datetime(qdf['Day'], dayfirst=True, errors='coerce')
+        qdf = qdf.dropna(subset=['day'])
+        daily = qdf.groupby('day')['Offered contacts'].sum().reset_index()
+        daily = daily.sort_values('day')
+        result[queue] = {
+            'dates':   daily['day'].dt.strftime('%Y-%m-%d').tolist(),
+            'offered': daily['Offered contacts'].tolist(),
+            'totals': {
+                'total_offered':   int(qdf['Offered contacts'].sum()),
+                'total_abandoned': int(qdf['Abandoned contacts'].sum()) if 'Abandoned contacts' in qdf.columns else 0,
+                'avg_asa':         round(float(qdf['ASA'].mean()), 1) if 'ASA' in qdf.columns else 0,
+                'avg_aht':         round(float(qdf['Avg AHT'].mean()), 1) if 'Avg AHT' in qdf.columns else 0,
+            }
+        }
+    return Response(result)
+
 @csrf_exempt
 @api_view(['GET'])
 @permission_classes([AllowAny])

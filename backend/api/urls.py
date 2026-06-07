@@ -1,7 +1,7 @@
 from django.urls import path
 from . import views
 from api.views import DebugMetricsView
-from .views import claude_proxy
+from .views import claude_proxy, queue_summary
 
 app_name = 'api'
 
@@ -25,4 +25,6 @@ urlpatterns = [
     path('claude/',              claude_proxy,                          name='claude'),
     path('claude-proxy/',        claude_proxy,                          name='claude-proxy'),
     path('forecast/',            views.ForecastView.as_view(),          name='forecast'),
+    path('queue-summary/',       queue_summary,                         name='queue-summary'),   
+
 ]
