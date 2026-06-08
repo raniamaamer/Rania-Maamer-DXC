@@ -252,6 +252,9 @@ forecast = weight_xgb * pred_xgb + weight_prophet * pred_prophet
 
 | Notebook | Description |
 |---|---|
+| `prediction/servier_forecasting_v3.ipynb` | Modèle final XGBoost + Prophet |
+| `prediction/servier_forecasting.ipynb` | Comparaison SARIMA / XGBoost / LightGBM / Prophet |
+| `prediction/servier_prediction.ipynb` | Inférence et export des prévisions |
 | `notebook/data-comprehension.ipynb` | Exploration des fichiers Excel sources |
 | `notebook/eda.ipynb` | Analyse exploratoire et visualisation |
 
