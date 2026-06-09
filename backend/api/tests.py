@@ -30,6 +30,8 @@ from api.views import (
     build_time_filter,
 )
 
+from django.test import override_settings
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 1. TESTS DES MODÈLES
@@ -1096,6 +1098,7 @@ class RealtimeViewTest(APITestCase):
         response = self.client.get("/api/realtime/?account=all")
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(REALTIME_PUSH_SECRET="DXC-AmazonConnect-Push-2026-SecretToken-ChangeMe")
     def test_post_realtime_creates_metric(self):
         payload = {
             "queue": "TestQueue",
@@ -1113,6 +1116,7 @@ class RealtimeViewTest(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIn("inserted", response.json())
 
+    @override_settings(REALTIME_PUSH_SECRET="DXC-AmazonConnect-Push-2026-SecretToken-ChangeMe")
     def test_post_realtime_missing_fields_returns_400(self):
         response = self.client.post(
             "/api/realtime/",
@@ -1123,6 +1127,7 @@ class RealtimeViewTest(APITestCase):
         # Nouveau comportement : inserted=0, errors=[...] → 400
         self.assertIn(response.status_code, [400, 201])
 
+    @override_settings(REALTIME_PUSH_SECRET="DXC-AmazonConnect-Push-2026-SecretToken-ChangeMe")
     def test_post_realtime_invalid_date_returns_400(self):
         payload = {
             "queue": "TestQueue",
@@ -1439,6 +1444,7 @@ class IntegrationSLAConfigFlowTest(APITestCase):
 
 
 class IntegrationRealtimeFlowTest(APITestCase):
+    @override_settings(REALTIME_PUSH_SECRET="DXC-AmazonConnect-Push-2026-SecretToken-ChangeMe")
     def test_create_and_retrieve_realtime(self):
         payload = {
             "queue": "IntegQueue", "account": "IntegAccount",
