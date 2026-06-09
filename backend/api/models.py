@@ -274,6 +274,13 @@ class RealtimeMetric(models.Model):
     agents_available = models.IntegerField(default=0)
     agents_busy = models.IntegerField(default=0)
     callback_contacts = models.IntegerField(default=0)
+    ans_in_sla = models.FloatField(default=0.0,
+        help_text="Contacts answered within SLA timeframe")
+    abd_in_sla = models.FloatField(default=0.0,
+        help_text="Contacts abandoned within SLA timeframe")
+
+    sla_rate = models.FloatField(default=0.0,
+        validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     sla_rate = models.FloatField(default=0.0,
         validators=[MinValueValidator(0.0), MaxValueValidator(1.0)])
     abandon_rate = models.FloatField(default=0.0,

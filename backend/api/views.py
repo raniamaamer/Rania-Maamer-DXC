@@ -957,7 +957,17 @@ class RealtimeView(APIView):
             abandoned = int(item.get('abandoned', 0))
 
             # ✅ Calcul SLA côté serveur — pas confié à Amazon Connect
-            sla_rate = round(min(answered / max(offered, 1), 1.0), 4)
+            ans_in_sla = float(item.get('ans_in_sla', 0.0))
+            abd_in_sla = float(item.get('abd_in_sla', 0.0))
+
+            # Si Amazon Connect fournit ans_in_sla → calcul précis
+            # Sinon → fallback sur answered/offered
+            if ans_in_sla > 0:
+                denom = max(offered - abd_in_sla, 1)
+                sla_rate = round(min(ans_in_sla / denom, 1.0), 4)
+            else:
+                sla_rate = round(min(answered / max(offered, 1), 1.0), 4)
+
             abd_rate = round(min(abandoned / max(offered, 1), 1.0), 4)
 
             # Timestamp
@@ -979,6 +989,8 @@ class RealtimeView(APIView):
                 offered           = offered,
                 answered          = answered,
                 abandoned         = abandoned,
+                ans_in_sla        = ans_in_sla,
+                abd_in_sla        = abd_in_sla,
                 in_queue          = int(item.get('in_queue',          0)),
                 agents_available  = int(item.get('agents_available',  0)),
                 agents_busy       = int(item.get('agents_busy',       0)),

@@ -72,8 +72,8 @@ class Command(BaseCommand):
             # ans_in_sla / abd_in_sla : pas stockés dans realtime →
             # on estime via sla_rate × (offered - 0) si pas dispo
             # Pour l'instant on met 0 — à améliorer si realtime pousse ces valeurs
-            ans_in_sla = getattr(rt, "ans_in_sla", 0.0)
-            abd_in_sla = getattr(rt, "abd_in_sla", 0.0)
+            ans_in_sla = float(rt.ans_in_sla or 0.0)
+            abd_in_sla = float(rt.abd_in_sla or 0.0)
 
             historical_rows.append(HistoricalMetric(
                 queue=rt.queue,
