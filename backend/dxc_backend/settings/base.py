@@ -14,7 +14,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dxc-dev-secret-key-change-in-p
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1').replace(',', ' ').split()
+_raw_hosts = os.environ.get('ALLOWED_HOSTS', 'localhost 127.0.0.1')
+ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.replace(',', ' ').split() if h.strip()]
 
 INSTALLED_APPS = [
     'django_prometheus',        # une seule fois suffit
@@ -101,6 +102,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'X-Push-Token',
+]
+
 # ── STATIC / MEDIA ───────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -109,7 +115,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── INTERNATIONALISATION ─────────────────────────────────────────────────────
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'Africa/Tunis'
+TIME_ZONE = 'Europe/Paris'
 USE_I18N = True
 USE_TZ = True
 
@@ -155,6 +161,15 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API de gestion des KPIs DXC',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# ── AMAZON CONNECT REALTIME PUSH ─────────────────────────────────────────────
+REALTIME_PUSH_SECRET = os.environ.get('REALTIME_PUSH_SECRET', 'change-me-in-prod')
+
+# ── TEST CONFIGURATION ───────────────────────────────────────────────────────
+DATABASES['default']['TEST'] = {
+    'NAME': 'test_dxc_kpi_db',
+    'SERIALIZE': False,
 }
 
 # ── TEST CONFIGURATION ───────────────────────────────────────────────────────

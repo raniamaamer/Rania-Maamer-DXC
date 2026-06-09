@@ -3,6 +3,8 @@ import logging
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+import hmac
+from django.conf import settings
 from prophet import Prophet
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import mean_absolute_error
@@ -808,22 +810,34 @@ class HistoricalView(APIView):
 
 
 class RealtimeView(APIView):
-    # ✅ FIX SONARCLOUD: GET + POST — permission explicite documentée
-    # POST accepte des pushes machine-to-machine (ETL/polling), pas depuis navigateur
     permission_classes = [AllowAny]
 
+    # ── GET : retourne la dernière snapshot par queue ─────────────────────
     def get(self, request):
+        from django.db.models import Subquery, OuterRef
+
         account  = request.GET.get('account')
         language = request.GET.get('language')
-        from django.db.models import Subquery, OuterRef
-        fqs = RealtimeMetric.objects.all()  # pylint: disable=no-member
+
+        # ✅ CORRECTION CRITIQUE : filtrer sur aujourd'hui uniquement
+        today = timezone.now().date()
+        fqs = RealtimeMetric.objects.filter(captured_at__date=today)
+
         if account  and account  != 'all': fqs = fqs.filter(account=account)
         if language and language != 'all': fqs = fqs.filter(language=language)
-        latest = (
+
+        # Dernière entrée par queue (pas juste globalement)
+        latest_ids = (
             fqs.filter(queue=OuterRef('queue'))
-            .order_by('-captured_at').values('id')[:1]
+               .order_by('-captured_at')
+               .values('id')[:1]
         )
-        qs = RealtimeMetric.objects.filter(id__in=Subquery(latest)).order_by('account', 'queue')  # pylint: disable=no-member
+        qs = (
+            RealtimeMetric.objects
+            .filter(id__in=Subquery(latest_ids))
+            .order_by('account', 'queue')
+        )
+
         agg = qs.aggregate(
             total_offered=Sum('offered'),
             total_abandoned=Sum('abandoned'),
@@ -835,9 +849,11 @@ class RealtimeView(APIView):
             avg_handle_time=Avg('avg_handle_time'),
             avg_longest_wait=Avg('longest_wait_time'),
         )
+
         total_offered   = int(agg['total_offered']   or 0)
         total_abandoned = int(agg['total_abandoned'] or 0)
         total_answered  = int(agg['total_answered']  or 0)
+
         queues_list = [{
             'queue':             q.queue,
             'account':           q.account,
@@ -855,12 +871,15 @@ class RealtimeView(APIView):
             'avg_handle_time':   round(q.avg_handle_time, 1),
             'longest_wait_time': round(q.longest_wait_time, 1),
             'target_ans_rate':   round(q.target_ans_rate, 2) if q.target_ans_rate > 0 else None,
+            'target_abd_rate':   round(q.target_abd_rate, 2) if q.target_abd_rate > 0 else None,
             'timeframe_bh':      q.timeframe_bh,
             'sla_compliant':     q.sla_compliant if q.target_ans_rate > 0 else None,
             'source':            q.source,
         } for q in qs]
+
         total_accounts   = len(set(q['account'] for q in queues_list if q['account']))
         compliant_queues = sum(1 for q in queues_list if q['sla_compliant'])
+
         return Response({
             'captured_at': qs.aggregate(latest=Max('captured_at'))['latest'],
             'summary': {
@@ -881,49 +900,119 @@ class RealtimeView(APIView):
             'queues': queues_list,
         })
 
+    # ── POST : reçoit le push d'Amazon Connect ────────────────────────────
     def post(self, request):
-        data     = request.data
-        required = ['queue', 'account', 'captured_at', 'offered', 'sla_rate']
-        missing  = [f for f in required if f not in data]
-        if missing:
-            return Response({'error': f'Missing fields: {missing}'}, status=400)
+        # ── Authentification par token ────────────────────────────────────
+        secret = getattr(settings, 'REALTIME_PUSH_SECRET', None)
+        if secret:
+            token = request.headers.get('X-Push-Token', '')
+            if not hmac.compare_digest(token, secret):
+                return Response(
+                    {'error': 'Token invalide'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
 
-        from django.utils.dateparse import parse_datetime
-        captured_at = parse_datetime(data['captured_at'])
-        if not captured_at:
-            return Response({'error': 'Invalid captured_at format. Use ISO 8601.'}, status=400)
-        offered   = int(data.get('offered',   0))
-        abandoned = int(data.get('abandoned', 0))
-        answered  = int(data.get('answered',  0))
-        sla_rate  = float(data.get('sla_rate', 0))
-        target    = float(data.get('target_ans_rate', 0))
-        rt = RealtimeMetric.objects.create(  # pylint: disable=no-member
-            queue=data['queue'],
-            account=data.get('account', ''),
-            language=data.get('language', ''),
-            captured_at=captured_at,
-            hour=captured_at.strftime('%H:%M'),
-            day_of_week=captured_at.strftime('%A'),
-            offered=offered,
-            abandoned=abandoned,
-            answered=answered,
-            in_queue=int(data.get('in_queue', 0)),
-            agents_available=int(data.get('agents_available', 0)),
-            agents_busy=int(data.get('agents_busy', 0)),
-            callback_contacts=int(data.get('callback_contacts', 0)),
-            sla_rate=sla_rate,
-            abandon_rate=_abandon_rate(abandoned, offered),
-            answer_rate=_answer_rate(answered, offered),
-            avg_handle_time=float(data.get('avg_handle_time', 0)),
-            avg_answer_time=float(data.get('avg_answer_time', 0)),
-            longest_wait_time=float(data.get('longest_wait_time', 0)),
-            target_ans_rate=target,
-            target_abd_rate=float(data.get('target_abd_rate', 0)),
-            timeframe_bh=int(data.get('timeframe_bh', 40)),
-            sla_compliant=sla_rate >= target if target > 0 else False,
-            source=data.get('source', 'api_push'),
+        data = request.data
+
+        # ── Normaliser : single ou batch ──────────────────────────────────
+        if 'queues' in data:
+            items = data['queues']
+            if not isinstance(items, list):
+                return Response(
+                    {'error': '`queues` doit être une liste'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            items = [data]
+
+        # ── Charger SLA configs une seule fois ────────────────────────────
+        sla_map = {s.account: s for s in SLAConfig.objects.all()}
+        now     = timezone.now()
+        objects_to_create = []
+        errors = []
+
+        for idx, item in enumerate(items):
+            queue_name = str(item.get('queue') or '').strip()
+            if not queue_name:
+                errors.append({'index': idx, 'error': 'queue est requis'})
+                continue
+
+            # Résolution account / language / desk depuis tes helpers ETL
+            from api.management.commands.run_etl import (
+                extract_account, extract_language, QUEUE_TO_DESK
+            )
+            account  = item.get('account') or extract_account(queue_name)
+            language = item.get('language') or extract_language(queue_name) or None
+            desk     = QUEUE_TO_DESK.get(queue_name, queue_name)
+            sla_cfg  = sla_map.get(account)
+
+            # Targets depuis SLAConfig DB (source de vérité)
+            target_ans = sla_cfg.target_ans_rate if sla_cfg else float(item.get('target_ans_rate', 0.8))
+            target_abd = sla_cfg.target_abd_rate if sla_cfg else float(item.get('target_abd_rate', 0.05))
+            timeframe  = sla_cfg.timeframe_bh    if sla_cfg else int(item.get('timeframe_bh', 40))
+
+            # Volumes
+            offered   = int(item.get('offered',   0))
+            answered  = int(item.get('answered',  0))
+            abandoned = int(item.get('abandoned', 0))
+
+            # ✅ Calcul SLA côté serveur — pas confié à Amazon Connect
+            sla_rate = round(min(answered / max(offered, 1), 1.0), 4)
+            abd_rate = round(min(abandoned / max(offered, 1), 1.0), 4)
+
+            # Timestamp
+            from django.utils.dateparse import parse_datetime
+            captured_at_raw = item.get('captured_at')
+            captured_at = parse_datetime(str(captured_at_raw)) if captured_at_raw else now
+            if not captured_at:
+                captured_at = now
+
+            objects_to_create.append(RealtimeMetric(
+                queue             = queue_name,
+                desk              = desk,
+                account           = account,
+                language          = language,
+                sla_config        = sla_cfg,
+                captured_at       = captured_at,
+                hour              = captured_at.strftime('%H:%M'),
+                day_of_week       = captured_at.strftime('%A'),
+                offered           = offered,
+                answered          = answered,
+                abandoned         = abandoned,
+                in_queue          = int(item.get('in_queue',          0)),
+                agents_available  = int(item.get('agents_available',  0)),
+                agents_busy       = int(item.get('agents_busy',       0)),
+                longest_wait_time = float(item.get('longest_wait_time', 0.0)),
+                callback_contacts = int(item.get('callback_contacts',  0)),
+                avg_handle_time   = float(item.get('avg_handle_time',  0.0)),
+                avg_answer_time   = float(item.get('avg_answer_time',  0.0)),
+                sla_rate          = sla_rate,
+                abandon_rate      = abd_rate,
+                answer_rate       = round(min(answered / max(offered, 1), 1.0), 4),
+                target_ans_rate   = target_ans,
+                target_abd_rate   = target_abd,
+                timeframe_bh      = timeframe,
+                sla_compliant     = sla_rate >= target_ans,
+                source            = 'webhook',
+            ))
+
+        # ── Insertion bulk ────────────────────────────────────────────────
+        if objects_to_create:
+            RealtimeMetric.objects.bulk_create(
+                objects_to_create,
+                batch_size=200,
+            )
+
+        http_status = (
+            status.HTTP_207_MULTI_STATUS  if errors and objects_to_create else
+            status.HTTP_400_BAD_REQUEST   if errors else
+            status.HTTP_201_CREATED
         )
-        return Response({'id': rt.id, 'status': 'created'}, status=201)
+        return Response({
+            'inserted':  len(objects_to_create),
+            'errors':    errors,
+            'timestamp': now.isoformat(),
+        }, http_status)
 
 
 class DeskLangueView(APIView):

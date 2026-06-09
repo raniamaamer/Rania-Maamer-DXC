@@ -36,10 +36,12 @@ def root(request):
             "/api/snapshots/",
             "/api/sla-config/",
             "/api/historical/",
-            "/api/realtime/",
+            "/api/realtime/",          
             "/api/desk-langue/",
             "/api/predictions/",
             "/api/forecast/",
+            "/api/forecast-queue/",    
+            "/api/queue-summary/",     
             "/api/claude/",
             "/api/health/",
         ]
@@ -57,5 +59,5 @@ urlpatterns = [
     path('api/redoc/',  SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
     # ── Prometheus ───────────────────────────────────────────────
-    path('metrics', metrics_view, name='prometheus-metrics'),
+    path('metrics/', metrics_view, name='prometheus-metrics'),
 ]

@@ -68,3 +68,36 @@ class Bottom5Serializer(serializers.Serializer):
     gap = serializers.FloatField()
     avg_handle_time = serializers.FloatField()
     abandon_rate = serializers.FloatField()
+    
+from .models import RealtimeMetric
+from django.utils import timezone
+
+class RealtimeMetricPushSerializer(serializers.Serializer):
+    """
+    Serializer pour le payload entrant d'Amazon Connect.
+    Amazon Connect envoie les métriques par queue — un objet par queue.
+    """
+    # ── Champs obligatoires ──────────────────────────────────────────────
+    queue = serializers.CharField(max_length=200)
+
+    # ── Volumes (Amazon Connect Current Metrics) ─────────────────────────
+    in_queue          = serializers.IntegerField(default=0, min_value=0)
+    agents_available  = serializers.IntegerField(default=0, min_value=0)
+    agents_busy       = serializers.IntegerField(default=0, min_value=0)
+    longest_wait_time = serializers.FloatField(default=0.0, min_value=0)
+
+    # ── Métriques cumulées du jour (Amazon Connect Queue Metrics) ────────
+    offered           = serializers.IntegerField(default=0, min_value=0)
+    answered          = serializers.IntegerField(default=0, min_value=0)
+    abandoned         = serializers.IntegerField(default=0, min_value=0)
+    callback_contacts = serializers.IntegerField(default=0, min_value=0)
+
+    # ── Temps moyens (en secondes) ───────────────────────────────────────
+    avg_handle_time   = serializers.FloatField(default=0.0, min_value=0)
+    avg_answer_time   = serializers.FloatField(default=0.0, min_value=0)
+
+    # ── Timestamp (optionnel — défaut = now) ─────────────────────────────
+    captured_at = serializers.DateTimeField(required=False, default=None)
+
+    def validate_captured_at(self, value):
+        return value if value else timezone.now()
