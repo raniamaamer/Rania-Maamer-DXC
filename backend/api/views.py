@@ -12,7 +12,7 @@ from collections import defaultdict
 from django.conf import settings
 from prophet import Prophet
 from sklearn.preprocessing import RobustScaler
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 import holidays as hols
 import json
 from django.http import JsonResponse, StreamingHttpResponse
@@ -1525,7 +1525,7 @@ def forecast_view(request):
         })
 
         # Jours fériés France 
-        fr_hol = holidays.country_holidays('FR', years=range(
+        fr_hol = hols.country_holidays('FR', years=range(
             prophet_df['ds'].dt.year.min(),
             prophet_df['ds'].dt.year.max() + 3
         ))
