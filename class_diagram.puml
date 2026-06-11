@@ -1,0 +1,84 @@
+@startuml
+left to right direction
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 11
+skinparam class {
+    BackgroundColor #F8F9FA
+    BorderColor #495057
+    ArrowColor #495057
+    HeaderBackgroundColor #D0E8FF
+}
+skinparam packageStyle rectangle
+
+package "Métriques" {
+    class HistoricalMetric {
+        + id : AutoField
+        + account : CharField
+        + queue : CharField
+        + language : CharField
+        + date : DateField
+        + interval_start : TimeField
+        + interval_end : TimeField
+        + hour_type : CharField
+        + contacts_offered : IntegerField
+        + contacts_handled : IntegerField
+        + contacts_abandoned : IntegerField
+        + avg_handle_time : FloatField
+        + avg_speed_answer : FloatField
+        + service_level : FloatField
+        + sla_target : FloatField
+        + sla_met : BooleanField
+    }
+}
+
+package "Configuration & Prédiction" {
+    class SLAConfig {
+        + id : AutoField
+        + account : CharField
+        + queue : CharField
+        + language : CharField
+        + sla_target : FloatField
+        + threshold_seconds : IntegerField
+        + business_hours_only : BooleanField
+        + active : BooleanField
+    }
+
+    class ForecastResult {
+        + id : AutoField
+        + account : CharField
+        + queue : CharField
+        + language : CharField
+        + forecast_date : DateField
+        + interval_start : TimeField
+        + predicted_volume : FloatField
+        + predicted_sla : FloatField
+        + model_used : CharField
+        + created_at : DateTimeField
+    }
+}
+
+package "Agrégats" {
+    class AccountSummary {
+        + id : AutoField
+        + account : CharField
+        + period_type : CharField
+        + period_value : CharField
+        + language : CharField
+        + total_offered : IntegerField
+        + total_handled : IntegerField
+        + total_abandoned : IntegerField
+        + avg_sla : FloatField
+        + avg_aht : FloatField
+        + avg_asa : FloatField
+        + sla_breaches : IntegerField
+    }
+}
+
+' Relations
+HistoricalMetric "1..*" --> "1" SLAConfig : "config"
+HistoricalMetric "1..*" --> "1..*" AccountSummary : "agrégé dans"
+HistoricalMetric "1..*" ..> "1..*" ForecastResult : "alimente"
+SLAConfig "1" --> "1..*" ForecastResult : "paramètre"
+
+@enduml

@@ -4,6 +4,10 @@ import pandas as pd
 import numpy as np
 import xgboost as xgb
 import hmac
+import os
+import httpx
+from django.utils.dateparse import parse_datetime
+from collections import defaultdict
 from django.conf import settings
 from prophet import Prophet
 from sklearn.preprocessing import RobustScaler
@@ -11,8 +15,9 @@ from sklearn.metrics import mean_absolute_error
 import holidays as hols
 import json
 from pathlib import Path
-from django.http import JsonResponse
-from django.db.models import Avg, Sum, Q, F, Max
+from django.http import JsonResponse, StreamingHttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import Avg, Sum, Q, F, Max, ExpressionWrapper, FloatField as FF, Subquery, OuterRef
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from rest_framework import status
@@ -814,7 +819,6 @@ class RealtimeView(APIView):
 
     # ── GET : retourne la dernière snapshot par queue ─────────────────────
     def get(self, request):
-        from django.db.models import Subquery, OuterRef
 
         account  = request.GET.get('account')
         language = request.GET.get('language')
@@ -971,7 +975,6 @@ class RealtimeView(APIView):
             abd_rate = round(min(abandoned / max(offered, 1), 1.0), 4)
 
             # Timestamp
-            from django.utils.dateparse import parse_datetime
             captured_at_raw = item.get('captured_at')
             captured_at = parse_datetime(str(captured_at_raw)) if captured_at_raw else now
             if not captured_at:
@@ -1068,7 +1071,6 @@ class DeskLangueView(APIView):
             .order_by('account', 'desk')
         )
 
-        from django.db.models import ExpressionWrapper, FloatField as FF
         qs_q = qs.annotate(
             weighted_ttc=ExpressionWrapper(F('avg_ttc') * F('answered'), output_field=FF()),
         )
@@ -1147,7 +1149,6 @@ class DeskLangueView(APIView):
                 queues_by_desk[desk_key] = []
             queues_by_desk[desk_key].append(queue_row)
 
-        from collections import defaultdict
         _w = defaultdict(lambda: {'sum_ttc': 0.0, 'sum_hold': 0.0, 'hold_contacts': 0, 'w': 0})
         for row in qs.values('desk', 'account', 'answered', 'avg_ttc',
                               'total_hold_time', 'contacts_put_on_hold'):
@@ -1308,7 +1309,6 @@ class DebugMetricsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        from django.db.models import Sum
         qs = HistoricalMetric.objects.all()  # pylint: disable=no-member
         account = request.GET.get('account')
         if account and account != 'all':
@@ -1323,12 +1323,11 @@ class DebugMetricsView(APIView):
             qs = qs.filter(time_filter)
             qs = qs.filter(answered__gt=0, contacts_put_on_hold__gt=0)
 
-        from django.db.models import F, ExpressionWrapper, FloatField
         qs2 = qs.annotate(
-            weighted_ttc         = ExpressionWrapper(F('avg_ttc')           * F('answered'),            output_field=FloatField()),
-            weighted_handle      = ExpressionWrapper(F('avg_handle_time')   * F('answered'),            output_field=FloatField()),
-            weighted_answer_time = ExpressionWrapper(F('avg_answer_time')   * F('answered'),            output_field=FloatField()),
-            weighted_hold        = ExpressionWrapper(F('average_hold_time') * F('contacts_put_on_hold'), output_field=FloatField()),
+            weighted_ttc         = ExpressionWrapper(F('avg_ttc')           * F('answered'),            output_field=FF()),
+            weighted_handle      = ExpressionWrapper(F('avg_handle_time')   * F('answered'),            output_field=FF()),
+            weighted_answer_time = ExpressionWrapper(F('avg_answer_time')   * F('answered'),            output_field=FF()),
+            weighted_hold        = ExpressionWrapper(F('average_hold_time') * F('contacts_put_on_hold'), output_field=FF()),
         )
         agg2 = qs2.values('desk', 'account').annotate(
             total_offered=Sum('offered'),
@@ -1402,15 +1401,10 @@ class PredictionsView(APIView):
             "feature_importance": data.get("feature_imp", []),
         })
 
-import httpx, os
-from django.http import StreamingHttpResponse
-from django.views.decorators.csrf import csrf_exempt
-
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def claude_proxy(request):
-    import httpx, os, json
     
     try:
         body = json.loads(request.body)
@@ -1480,13 +1474,7 @@ def queue_summary(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def forecast_view(request):
-    import json, warnings
-    import numpy as np
-    import pandas as pd
-    import holidays
-    from prophet import Prophet
-    import logging
-
+    
     warnings.filterwarnings("ignore")
     logging.getLogger("prophet").setLevel(logging.WARNING)
     logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
@@ -1618,13 +1606,6 @@ class ForecastView(APIView):
         logger.info(f"ForecastView XGBoost called for queue: '{queue}'")
 
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
-        import numpy as np
-        import pandas as pd
-        import xgboost as xgb
-        import holidays as hols
-        from sklearn.preprocessing import RobustScaler
-        from sklearn.metrics import mean_absolute_error
-
         CSV_PATH = _SERVIER_CSV
 
         if not CSV_PATH.exists():

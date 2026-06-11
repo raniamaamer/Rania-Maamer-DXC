@@ -1,0 +1,58 @@
+@startuml
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor #F8F9FA
+    BorderColor #495057
+    ArrowColor #495057
+}
+skinparam actor {
+    BackgroundColor #D0E8FF
+    BorderColor #0066CC
+}
+
+top to bottom direction
+
+actor "Superviseur" as SUP
+actor "Administrateur" as ADMIN
+actor "Équipe WFM" as WFM
+
+rectangle "Data Intelligence Dashboard pour DXC Technology" {
+    package "Visualisation & Filtrage" {
+        usecase "Consulter les KPIs\nen temps réel" as UC01
+        usecase "Filtrer par compte,\nlangue et période" as UC02
+        usecase "Visualiser les\nviolations SLA" as UC03
+        usecase "Consulter les alertes\nSLA en temps réel" as UC04
+    }
+    package "Prédiction ML" {
+        usecase "Consulter les\nprédictions ML" as UC05
+        usecase "Anticiper les\nrisques SLA" as UC06
+        usecase "Prévoir le volume\nde contacts" as UC07
+        usecase "Analyser les incidents\nSLA (Assistant IA)" as UC08
+    }
+    package "Administration & ETL" {
+        usecase "Déclencher le\npipeline ETL" as UC09
+        usecase "Configurer les\nrègles SLA" as UC10
+        usecase "Valider les\nmodèles ML" as UC11
+        usecase "Exposer les KPIs\nvia API REST" as UC12
+    }
+}
+
+' Acteurs en haut
+SUP --> UC01
+SUP --> UC02
+SUP --> UC03
+SUP --> UC04
+SUP --> UC05
+SUP --> UC08
+
+WFM --> UC06
+WFM --> UC07
+WFM --> UC05
+
+ADMIN --> UC09
+ADMIN --> UC10
+ADMIN --> UC11
+ADMIN --> UC12
+
+@enduml

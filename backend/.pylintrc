@@ -1,0 +1,8 @@
+[MASTER]
+load-plugins=pylint_django
+
+[DJANGO]
+django-settings-module=dxc_backend.settings.base
+
+[MESSAGES CONTROL]
+disable=E0401,C0412,C0415,W0621,W0404

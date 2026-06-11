@@ -1,9 +1,23 @@
 import warnings
 import pandas as pd
 from pathlib import Path
-from django.core.management.base import BaseCommand
-from django.db import transaction
-from django.utils import timezone
+try:
+    from django.db import transaction
+except ImportError:
+    transaction = None
+try:
+    from django.core.management.base import BaseCommand
+except ImportError:
+    BaseCommand = object
+try:
+    from django.utils import timezone
+except ImportError:
+    from datetime import datetime, timezone as _dt_timezone
+    class TimezoneFallback:
+        @staticmethod
+        def now():
+            return datetime.now(_dt_timezone.utc)
+    timezone = TimezoneFallback()
 
 from api.models import RealtimeMetric, SLAConfig
 from api.management.commands.run_etl import extract_account, extract_language, load_sla_dataframe
