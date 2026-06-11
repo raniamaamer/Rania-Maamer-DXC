@@ -1775,8 +1775,13 @@ class ForecastView(APIView):
         else:
             mae_prophet = 0.0
 
-        w_xgb     = 1 / max(mae, 0.1)
-        w_prophet = (1 / max(mae_prophet, 0.1)) * 0.5
+        rmse_xgb     = float(np.sqrt(mean_squared_error(y_test, preds_test)))
+        rmse_prophet = float(np.sqrt(mean_squared_error(
+            y_test[:min_len][mask_p], prophet_test_pred[:min_len][mask_p]
+        ))) if mask_p.sum() > 0 else rmse_xgb * 5
+
+        w_xgb     = 1 / max(rmse_xgb,     0.1)
+        w_prophet = 1 / max(rmse_prophet,  0.1)
         w_total   = w_xgb + w_prophet
 
         # ── 8. Prévision itérative ────────────────────────────────────────
