@@ -6,6 +6,7 @@ import xgboost as xgb
 import hmac
 import os
 import httpx
+from pathlib import Path
 from django.utils.dateparse import parse_datetime
 from collections import defaultdict
 from django.conf import settings
@@ -14,7 +15,6 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import mean_absolute_error
 import holidays as hols
 import json
-from pathlib import Path
 from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Avg, Sum, Q, F, Max, ExpressionWrapper, FloatField as FF, Subquery, OuterRef
@@ -1474,7 +1474,7 @@ def queue_summary(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def forecast_view(request):
-    
+
     warnings.filterwarnings("ignore")
     logging.getLogger("prophet").setLevel(logging.WARNING)
     logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
