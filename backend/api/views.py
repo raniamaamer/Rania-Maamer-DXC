@@ -1551,8 +1551,8 @@ def forecast_view(request):
         )
         model.fit(prophet_df)
 
-        # ── 5. Prévisions J+7, J+30, J+365 ──────────────────────────────
-        horizons = {'7d': 7, '30d': 30, '365d': 365}
+        # ── 5. Prévisions J+7, J+30 ──────────────────────────────
+        horizons = {'7d': 7, '30d': 30}
         result = {}
 
         for key, days in horizons.items():
