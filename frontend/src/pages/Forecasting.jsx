@@ -600,7 +600,7 @@ function QueueSummaryCard({ queue, selected, onClick, summaryData }) {
         <div>
           <div style={{ fontSize: 18 }}>{icon}</div>
           <div style={{ fontSize: 13, fontWeight: 800, color: DXC.text, marginTop: 4 }}>{queue}</div>
-          <div style={{ fontSize: 10, color: DXC.textMuted }}>{data.dates.length} jours historique</div>
+          <div style={{ fontSize: 10, color: DXC.textMuted }}>{dates.length} jours historique</div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 20, fontWeight: 800, color }}>{t.total_offered.toLocaleString('fr-FR')}</div>
@@ -619,7 +619,7 @@ function QueueSummaryCard({ queue, selected, onClick, summaryData }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         {[
           { label: 'Abandon', value: `${abandonRate}%`, color: parseFloat(abandonRate) > 5 ? DXC.red : DXC.green },
-          { label: 'Avg AHT', value: `${Math.round(t.avg_aht)}s`, color: DXC.text },
+          { label: 'Avg AHT', value: `${Math.round(totals.avg_aht)}s`, color: DXC.text },
         ].map(s => (
           <div key={s.label} style={{ background: DXC.bgSurface, borderRadius: 6, padding: '5px 8px', border: `1px solid ${DXC.border}` }}>
             <div style={{ fontSize: 9, color: DXC.textMuted, fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
@@ -693,11 +693,6 @@ export default function Forecasting() {
     }
   }, [selectedQueue, queueData])
 
-  useEffect(() => {
-    if (!forecastData[selectedQueue]) {
-      launchForecast()
-    }
-  }, [selectedQueue])
 
   const horizonTabs = [
     { id: '7d',   label: '📅 J+7' },
@@ -759,7 +754,7 @@ export default function Forecasting() {
             <div>
               <span style={{ fontSize: 16, fontWeight: 800, color: DXC.text }}>{selectedQueue}</span>
               <span style={{ fontSize: 12, color: DXC.textMuted, marginLeft: 10 }}>
-                · {REAL_DATA[selectedQueue].dates.length} jours d'historique
+                · {(queueSummary[selectedQueue]?.dates?.length || 0)} jours d'historique
               </span>
               {hasData && queueData.metrics && (
                 <span style={{ fontSize: 11, color: DXC.green, marginLeft: 10, fontWeight: 700 }}>
