@@ -1596,14 +1596,42 @@ def forecast_view(request):
         return JsonResponse({'status': 'error', 'message': str(e), 'trace': traceback.format_exc()}, status=500)
 
 # ══ Forecast View ══════════════════════════════════════════════════
+CACHE_DIR = Path(__file__).parent.parent / "outputs" / "forecast_cache"
+
 class ForecastView(APIView):
     permission_classes = [AllowAny]
-
     TARGET = 'offered'
+
+    def _cache_path(self, queue: str) -> Path:
+        safe = queue.replace(' ', '_').lower()
+        return CACHE_DIR / f"forecast_{safe}.json"
+
+    def _is_cache_valid(self, cache_file: Path, csv_mtime: float) -> bool:
+        if not cache_file.exists():
+            return False
+        cache_mtime = cache_file.stat().st_mtime
+        # Cache valide si généré APRÈS la dernière modif du CSV
+        return cache_mtime > csv_mtime
 
     def get(self, request):
         queue = request.GET.get('queue', 'Servier French')
-        logger.info(f"ForecastView XGBoost called for queue: '{queue}'")
+        force = request.GET.get('force', 'false').lower() == 'true'
+
+        CSV_PATH = _SERVIER_CSV
+        if not CSV_PATH.exists():
+            return Response({'status': 'error', 'message': f'Fichier introuvable : {CSV_PATH}'}, status=404)
+
+        # ── CHECK CACHE ──────────────────────────────────────────────────
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        cache_file = self._cache_path(queue)
+        csv_mtime  = CSV_PATH.stat().st_mtime
+
+        if not force and self._is_cache_valid(cache_file, csv_mtime):
+            logger.info(f"ForecastView: cache HIT pour '{queue}'")
+            cached = json.loads(cache_file.read_text(encoding='utf-8'))
+            return Response({'status': 'ok', 'data': cached, 'cached': True})
+
+        logger.info(f"ForecastView: cache MISS — entraînement pour '{queue}'")
 
         # ── 1. Charger données depuis Servier_KPIs.csv ───────────────────
         CSV_PATH = _SERVIER_CSV
@@ -1885,18 +1913,22 @@ class ForecastView(APIView):
             for idx, val in df[self.TARGET].dropna().tail(60).items()
         ]
 
-        return Response({
-            'status': 'ok',
-            'data': {
-                **results,
-                'history': history_points,
-                'metrics': {
-                    'mae':         round((mae * w_xgb + mae_prophet * w_prophet) / w_total, 1),
-                    'mape':        mape,
-                    'mae_xgb':     mae,
-                    'mae_prophet': mae_prophet,
-                    'w_xgb':       round(w_xgb / w_total * 100, 1),
-                    'w_prophet':   round(w_prophet / w_total * 100, 1),
-                },
-            }
-        })
+        response_data = {
+            **results,
+            'history': history_points,
+            'metrics': {
+                'mae':         round((mae * w_xgb + mae_prophet * w_prophet) / w_total, 1),
+                'mape':        mape,
+                'mae_xgb':     mae,
+                'mae_prophet': mae_prophet,
+                'w_xgb':       round(w_xgb / w_total * 100, 1),
+                'w_prophet':   round(w_prophet / w_total * 100, 1),
+            },
+        }
+        # ── SAVE CACHE ───────────────────────────────────────────────────
+        try:
+            cache_file.write_text(json.dumps(response_data, ensure_ascii=False), encoding='utf-8')
+            logger.info(f"ForecastView: cache sauvegardé pour '{queue}'")
+        except Exception as e:
+            logger.warning(f"ForecastView: impossible de sauvegarder cache: {e}")
+        return Response({'status': 'ok', 'data': response_data})

@@ -573,13 +573,19 @@ function HorizonTab({ data, horizon, color }) {
 }
 
 /* ══ QueueSummaryCard ════════════════════════════════════════════════ */
-function QueueSummaryCard({ queue, selected, onClick }) {
-  const data = REAL_DATA[queue]
+function QueueSummaryCard({ queue, selected, onClick, summaryData }) {
   const color = QUEUE_COLORS[queue]
-  const icon = QUEUE_ICONS[queue]
-  const t = data.totals
-  const abandonRate = t.total_offered > 0 ? ((t.total_abandoned / t.total_offered) * 100).toFixed(1) : '0.0'
-  const sparkData = data.offered.slice(-14)
+  const icon  = QUEUE_ICONS[queue]
+
+  // Fallback si API pas encore chargée
+  const dates   = summaryData?.dates   || []
+  const offered = summaryData?.offered || []
+  const totals  = summaryData?.totals  || { total_offered: 0, total_abandoned: 0, avg_asa: 0, avg_aht: 0 }
+
+  const abandonRate = totals.total_offered > 0
+    ? ((totals.total_abandoned / totals.total_offered) * 100).toFixed(1)
+    : '0.0'
+  const sparkData = offered.slice(-14)
 
   return (
     <div onClick={onClick} style={{
@@ -626,16 +632,26 @@ function QueueSummaryCard({ queue, selected, onClick }) {
 }
 
 /* ══ Main Component ══════════════════════════════════════════════════ */
+// ── Remplace REAL_DATA hardcodé par un state dynamique ──
 export default function Forecasting() {
   const [selectedQueue, setSelectedQueue] = useState('Servier French')
   const [horizon, setHorizon] = useState('7d')
-  const [forecastData, setForecastData] = useState({})   // { queue: { 7d, 30d, 365d, history, metrics, loading, error } }
+  const [forecastData, setForecastData] = useState({})
+  const [queueSummary, setQueueSummary] = useState({})   // ← NOUVEAU
 
-  const queues = Object.keys(REAL_DATA)
+  const queues = Object.keys(QUEUE_COLORS)
   const color  = QUEUE_COLORS[selectedQueue]
   const queueData = forecastData[selectedQueue]
 
-  const launchForecast = useCallback(async () => {
+  // Charger queue_summary au mount
+  useEffect(() => {
+    fetch('/api/queue-summary/')
+      .then(r => r.json())
+      .then(data => setQueueSummary(data))
+      .catch(() => {})
+  }, [])
+
+  const launchForecast = useCallback(async (force = false) => {
     if (queueData?.loading) return
 
     setForecastData(prev => ({
@@ -644,7 +660,7 @@ export default function Forecasting() {
     }))
 
     try {
-      const res = await fetch(`/api/forecast/?queue=${encodeURIComponent(selectedQueue)}`, {
+      const res = await fetch(`/api/forecast/?queue=${encodeURIComponent(selectedQueue)}${force ? '&force=true' : ''}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -720,6 +736,7 @@ export default function Forecasting() {
             queue={q}
             selected={selectedQueue === q}
             onClick={() => setSelectedQueue(q)}
+            summaryData={queueSummary[q]}   // ← NOUVEAU
           />
         ))}
       </div>
@@ -753,7 +770,7 @@ export default function Forecasting() {
           </div>
 
           <button
-            onClick={launchForecast}
+            onClick={() => launchForecast(hasData)}
             disabled={isLoading}
             style={{
               background: isLoading ? DXC.bgAlt : `linear-gradient(135deg,${color},${DXC.purple})`,

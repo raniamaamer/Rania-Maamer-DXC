@@ -1,17 +1,3 @@
-"""
-Management command : archive_realtime
---------------------------------------
-Déclenché automatiquement à 23:59 par le scheduler APScheduler.
-
-Ce qu'il fait :
-  1. Lit toutes les lignes de realtime_metrics pour AUJOURD'HUI
-  2. Les copie dans historical_metrics (archivage)
-  3. Vide realtime_metrics → prêt pour les données du lendemain (00:00)
-
-Usage manuel (pour test) :
-  python manage.py archive_realtime
-"""
-
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.db import transaction
