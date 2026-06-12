@@ -1,9 +1,3 @@
-"""
-tests.py — Suite de tests complète pour le projet DXC KPI Dashboard
-Couvre : modèles, vues API, serializers, helpers, logique métier
-Cible  : coverage ≥ 80 %
-"""
-
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
