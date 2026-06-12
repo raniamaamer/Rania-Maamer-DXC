@@ -342,7 +342,7 @@ function ForecastChart({ history, forecast, color, horizon }) {
   // Weekend / holiday reference areas
   const specialDays = fcstPoints.filter(f => f.is_weekend || f.is_holiday)
 
-  const horizonLabels = { '7d': 'J+7', '30d': 'J+30', '365d': '1 an' }
+  const horizonLabels = { '7d': 'J+7', '30d': 'J+30'}
 
   return (
     <div style={{ background: DXC.bg, borderRadius: 12, padding: '20px', border: `1px solid ${DXC.border}` }}>
@@ -603,7 +603,7 @@ function QueueSummaryCard({ queue, selected, onClick, summaryData }) {
           <div style={{ fontSize: 10, color: DXC.textMuted }}>{dates.length} jours historique</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color }}>{t.total_offered.toLocaleString('fr-FR')}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color }}>{totals.total_offered.toLocaleString('fr-FR')}</div>
           <div style={{ fontSize: 9, color: DXC.textMuted, fontWeight: 700 }}>OFFERED TOTAL</div>
         </div>
       </div>
@@ -680,7 +680,6 @@ export default function Forecasting() {
           error: null,
           '7d':    json.data['7d'],
           '30d':   json.data['30d'],
-          '365d':  json.data['365d'],
           history: json.data.history,
           metrics: json.data.metrics,
         }
@@ -697,7 +696,6 @@ export default function Forecasting() {
   const horizonTabs = [
     { id: '7d',   label: '📅 J+7' },
     { id: '30d',  label: '📅 J+30' },
-    { id: '365d', label: '📆 1 an' },
   ]
 
   const isLoading = queueData?.loading

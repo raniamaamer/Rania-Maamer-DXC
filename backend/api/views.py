@@ -1885,7 +1885,7 @@ class ForecastView(APIView):
         # ── 9. Générer les 3 horizons ─────────────────────────────────────
         to_save = []
         results = {}
-        for horizon, days in [('7d', 7), ('30d', 30), ('365d', 365)]:
+        for horizon, days in [('7d', 7), ('30d', 30)]:
             fc_rows = run_forecast(days)
             results[horizon] = fc_rows
             for r in fc_rows:
