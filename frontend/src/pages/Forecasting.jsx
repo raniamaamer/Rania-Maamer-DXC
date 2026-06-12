@@ -692,6 +692,11 @@ export default function Forecasting() {
     }
   }, [selectedQueue, queueData])
 
+  useEffect(() => {
+    if (!forecastData[selectedQueue]) {
+      launchForecast()
+    }
+  }, [selectedQueue])
 
   const horizonTabs = [
     { id: '7d',   label: '📅 J+7' },
