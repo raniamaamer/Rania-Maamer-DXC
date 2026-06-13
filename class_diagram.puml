@@ -12,73 +12,147 @@ skinparam class {
 skinparam packageStyle rectangle
 
 package "Métriques" {
-    class HistoricalMetric {
-        + id : AutoField
-        + account : CharField
-        + queue : CharField
-        + language : CharField
-        + date : DateField
-        + interval_start : TimeField
-        + interval_end : TimeField
-        + hour_type : CharField
-        + contacts_offered : IntegerField
-        + contacts_handled : IntegerField
-        + contacts_abandoned : IntegerField
+
+    class RealtimeMetric {
+        + id : BigAutoField (PK)
+        + queue : CharField(200)
+        + account : CharField(100)
+        + language : CharField(10)
+        + hour : CharField(5)
+        + day_of_week : CharField(20)
+        --
+        + offered : IntegerField
+        + abandoned : IntegerField
+        + answered : IntegerField
+        + in_queue : IntegerField
+        + agents_available : IntegerField
+        + agents_busy : IntegerField
+        + callback_contacts : IntegerField
+        --
+        + sla_rate : FloatField
+        + abandon_rate : FloatField
+        + answer_rate : FloatField
         + avg_handle_time : FloatField
-        + avg_speed_answer : FloatField
-        + service_level : FloatField
-        + sla_target : FloatField
-        + sla_met : BooleanField
+        + avg_answer_time : FloatField
+        + target_ans_rate : FloatField
+        + target_abd_rate : FloatField
+        --
+        + timeframe_bh : IntegerField
+        + abd_in_sla : FloatField
+        + ans_in_sla : FloatField
+        + abd_out_sla : FloatField
+        + ans_out_sla : FloatField
+        + is_ooh : BooleanField
+        + sla_config_id : BigIntegerField (FK)
+        + created_at : DateTimeField (tz)
     }
+
+    class HistoricalMetric {
+        + id : AutoField (PK)
+        + queue : CharField
+        + account : CharField
+        + language : CharField
+        + start_date : DateTimeField (tz)
+        + end_date : DateTimeField (tz)
+        --
+        + offered : IntegerField
+        + abandoned : IntegerField
+        + answered : IntegerField
+        + ans_in_sla : FloatField
+        + abd_in_sla : FloatField
+        + abd_out_sla : FloatField
+        + ans_out_sla : FloatField
+        --
+        + sla_rate : FloatField
+        + abandon_rate : FloatField
+        + answer_rate : FloatField
+        + avg_handle_time : FloatField
+        + avg_answer_time : FloatField
+        + average_hold_time : FloatField
+        + avg_ttc : FloatField
+        + total_answer_time : FloatField
+        + total_hold_time : FloatField
+        --
+        + target_ans_rate : FloatField
+        + target_abd_rate : FloatField
+        + sla_compliant : BooleanField
+        + abd_compliant : BooleanField
+        + is_ooh : BooleanField
+        + sla_config_id : IntegerField (FK)
+    }
+
+    class ArchiveJob {
+        + schedule : "every day at 23:59"
+        --
+        + run() : void
+        + transfer_records() : void
+        + flush_table() : void
+    }
+
+    RealtimeMetric "1..*" ..> "1..*" HistoricalMetric : "archivé vers\n(APScheduler 23:59)"
+    ArchiveJob ..> RealtimeMetric : "lit & vide"
+    ArchiveJob ..> HistoricalMetric : "transfère vers"
 }
 
 package "Configuration & Prédiction" {
+
     class SLAConfig {
-        + id : AutoField
+        + id : AutoField (PK)
         + account : CharField
-        + queue : CharField
-        + language : CharField
-        + sla_target : FloatField
-        + threshold_seconds : IntegerField
-        + business_hours_only : BooleanField
-        + active : BooleanField
+        + ans_rate_formula : CharField
+        + abd_rate_formula : CharField
+        + timeframe_bh : IntegerField
+        + ooh : IntegerField
+        + ans_sla : CharField
+        + abd_sla : CharField
+        + target_ans_rate : FloatField
+        + target_abd_rate : FloatField
+        + target_other_rate : FloatField
+        + created_at : DateTimeField
+        + updated_at : DateTimeField
     }
 
     class ForecastResult {
-        + id : AutoField
-        + account : CharField
+        + id : AutoField (PK)
         + queue : CharField
-        + language : CharField
-        + forecast_date : DateField
-        + interval_start : TimeField
-        + predicted_volume : FloatField
-        + predicted_sla : FloatField
-        + model_used : CharField
-        + created_at : DateTimeField
+        + horizon : CharField
+        + forecast_date : DateTimeField
+        + predicted : IntegerField
+        + lower : IntegerField
+        + upper : IntegerField
+        + is_weekend : BooleanField
+        + is_holiday : BooleanField
+        + generated_at : DateTimeField
     }
 }
 
 package "Agrégats" {
+
     class AccountSummary {
-        + id : AutoField
+        + id : AutoField (PK)
         + account : CharField
-        + period_type : CharField
-        + period_value : CharField
-        + language : CharField
-        + total_offered : IntegerField
-        + total_handled : IntegerField
-        + total_abandoned : IntegerField
-        + avg_sla : FloatField
-        + avg_aht : FloatField
-        + avg_asa : FloatField
-        + sla_breaches : IntegerField
+        + offered : IntegerField
+        + abandoned : IntegerField
+        + answered : IntegerField
+        + ans_in_sla : IntegerField
+        + abd_in_sla : IntegerField
+        + sla_rate : IntegerField
+        + abandon_rate : IntegerField
+        + answer_rate : IntegerField
+        + avg_handle_time : IntegerField
+        + avg_answer_time : IntegerField
+        + avg_ttc : IntegerField
+        + target_ans_rate : IntegerField
+        + target_abd_rate : IntegerField
+        + timeframe_bh : IntegerField
+        + updated_at : DateTimeField
     }
 }
 
 ' Relations
-HistoricalMetric "1..*" --> "1" SLAConfig : "config"
+RealtimeMetric "1..*" --> "1" SLAConfig : "sla_config_id (FK)"
+HistoricalMetric "1..*" --> "1" SLAConfig : "sla_config_id (FK)"
 HistoricalMetric "1..*" --> "1..*" AccountSummary : "agrégé dans"
 HistoricalMetric "1..*" ..> "1..*" ForecastResult : "alimente"
-SLAConfig "1" --> "1..*" ForecastResult : "paramètre"
 
 @enduml
