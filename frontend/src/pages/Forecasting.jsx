@@ -235,14 +235,14 @@ function ForecastCalendar({ forecastData, horizon }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 1,
-                  background: c ? c.bg : isWE ? DXC.bgAlt : 'transparent',
+                  background: c ? c.bg : isWE ? DXC.purplePale : 'transparent',
                   border: isSelected ? `1.5px solid ${DXC.blue}` : '1.5px solid transparent',
                   opacity: isWE ? 0.7 : 1,
                 }}
               >
-                <div style={{ fontSize: 10, fontWeight: 600, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>{d}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: c ? c.txt : isWE ? DXC.purple : DXC.textMuted, lineHeight: 1 }}>{d}</div>
                 {fc && fc.predicted > 0 && (
-                  <div style={{ fontSize: 8, color: c ? c.txt : DXC.textMuted, lineHeight: 1 }}>
+                  <div style={{ fontSize: 8, color: c ? c.txt : isWE ? DXC.purple : DXC.textMuted, lineHeight: 1 }}>
                     {fc.predicted >= 1000 ? (Math.round(fc.predicted / 100) / 10) + 'k' : fc.predicted < 10 ? fc.predicted.toFixed(1): Math.round(fc.predicted)}
                   </div>
                 )}
@@ -253,7 +253,7 @@ function ForecastCalendar({ forecastData, horizon }) {
 
         {/* Légende */}
         <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-          {[['#dcfce7','#166534','Calme'],['#fef3c7','#92400e','Moyen'],['#fee2e2','#991b1b','Pic']].map(([bg,txt,label]) => (
+          {[['#dcfce7','#166534','Calme'],['#fef3c7','#92400e','Moyen'],['#fee2e2','#991b1b','Pic'],[DXC.purplePale, DXC.purple, 'WE']].map(([bg,txt,label]) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: DXC.textMuted }}>
               <div style={{ width: 9, height: 9, borderRadius: 3, background: bg, border: `1px solid ${txt}33` }} />
               {label}

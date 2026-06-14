@@ -1715,8 +1715,8 @@ class ForecastView(APIView):
         n_test = max(20, int(n * 0.10))
         n_val  = max(20, int(n * 0.15))
         if n - n_test - n_val < 10:
-            n_test = max(10, n // 5)
-            n_val  = max(10, n // 6)
+            n_test = max(20, n // 5)
+            n_val  = max(20, n // 6)
 
         feature_cols = [c for c in d.columns if c != self.TARGET]
 
