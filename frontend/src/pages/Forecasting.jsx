@@ -292,7 +292,9 @@ function ForecastCalendar({ forecastData, horizon }) {
             const val = fc ? fc.predicted : null
             const isWE = dowIdx >= 5
             const c = val !== null ? getColor(val, isWE) : null
-            const barColor = c ? (val < q1 ? '#22c55e' : val < q2 ? '#f59e0b' : '#ef4444') : DXC.border
+            const barColor = isWE
+              ? DXC.purple
+              : c ? (val < q1 ? '#22c55e' : val < q2 ? '#f59e0b' : '#ef4444') : DXC.border
             const barW = val !== null ? Math.round(val / maxBar * 100) : 0
             return (
               <div key={d} style={{ display: 'grid', gridTemplateColumns: '52px 1fr 56px', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${DXC.border}` }}>
@@ -300,7 +302,7 @@ function ForecastCalendar({ forecastData, horizon }) {
                 <div style={{ height: 8, background: DXC.bgAlt, borderRadius: 4, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${barW}%`, background: barColor, borderRadius: 4, transition: 'width .3s' }} />
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: c ? c.txt : DXC.textMuted, textAlign: 'right' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: isWE ? DXC.purple : c ? c.txt : DXC.textMuted, textAlign: 'right' }}>
                   {val !== null ? Math.round(val).toLocaleString('fr-FR') : '—'}
                 </div>
               </div>
