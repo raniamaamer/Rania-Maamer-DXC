@@ -1751,17 +1751,18 @@ class ForecastView(APIView):
             verbose=False,
         )
 
-        # ── 7. Métriques sur test set ─────────────────────────────────────
-        preds_test = np.maximum(model.predict(X_test_s), 0)
-        mae = round(float(mean_absolute_error(y_test, preds_test)), 1)
+        # ── 7. Métriques XGBoost sur test set ────────────────────────────
+        from sklearn.metrics import r2_score
 
+        preds_test = np.maximum(model.predict(X_test_s), 0)
+
+        mae  = round(float(mean_absolute_error(y_test, preds_test)), 1)
+        rmse = round(float(np.sqrt(mean_squared_error(y_test, preds_test))), 1)
+        r2   = round(float(r2_score(y_test, preds_test)), 4)
         mask = y_test > 0
-        if mask.sum() > 0:
-            mape = round(float(
-                np.mean(np.abs((y_test[mask] - preds_test[mask]) / y_test[mask])) * 100
-            ), 1)
-        else:
-            mape = 0.0
+        mape = round(float(
+            np.mean(np.abs((y_test[mask] - preds_test[mask]) / y_test[mask])) * 100
+        ), 1) if mask.sum() > 0 else 0.0
         sigma = float((y_test - preds_test).std())
 
         # ── 7b. Entraîner Prophet ─────────────────────────────────────────
@@ -1770,7 +1771,6 @@ class ForecastView(APIView):
         logging.getLogger('cmdstanpy').setLevel(logging.WARNING)
 
         clean_index = df.index.tz_localize(None) if df.index.tz is None else df.index.tz_convert(None)
-
         prophet_df = pd.DataFrame({'ds': clean_index, 'y': df[self.TARGET].values})
         hol_df = pd.DataFrame({
             'holiday':      'public_holiday',
@@ -1789,50 +1789,55 @@ class ForecastView(APIView):
         )
         prophet_model.fit(prophet_df)
 
-        test_dates_clean = d_test.index.tz_convert(None) if d_test.index.tz else d_test.index.tz_localize(None)
+        # Métriques Prophet sur test set (pour info seulement)
+        test_dates_clean = (
+            d_test.index.tz_convert(None) if d_test.index.tz
+            else d_test.index.tz_localize(None)
+        )
         prophet_test_pred = prophet_model.predict(
             pd.DataFrame({'ds': test_dates_clean})
         )['yhat'].clip(lower=0).values
 
-        min_len = min(len(y_test), len(prophet_test_pred))
-        mask_p = y_test[:min_len] > 0
-        if mask_p.sum() > 0:
-            mae_prophet = round(float(
-                mean_absolute_error(y_test[:min_len][mask_p], prophet_test_pred[:min_len][mask_p])
-            ), 1)
-        else:
-            mae_prophet = 0.0
-
-        rmse_xgb     = float(np.sqrt(mean_squared_error(y_test, preds_test)))
-        rmse_prophet = float(np.sqrt(mean_squared_error(
-            y_test[:min_len][mask_p], prophet_test_pred[:min_len][mask_p]
-        ))) if mask_p.sum() > 0 else rmse_xgb * 5
-
-        w_xgb     = 1 / max(mae,          0.1)
-        w_prophet = 1 / max(mae_prophet,   0.1)
-        w_total   = w_xgb + w_prophet
+        min_len  = min(len(y_test), len(prophet_test_pred))
+        mask_p   = y_test[:min_len] > 0
+        mae_prophet = round(float(
+            mean_absolute_error(y_test[:min_len], prophet_test_pred[:min_len])
+        ), 1)
 
         # ── 8. Prévision itérative ────────────────────────────────────────
+        # XGBoost  → précision (MAE/MAPE/R²)
+        # Prophet  → saisonnalité + jours fériés + weekends
+        # Ensemble → combinaison pondérée par inverse MAE
+
+        w_xgb     = 1 / max(mae,         0.1)
+        w_prophet = 1 / max(mae_prophet,  0.1)
+        w_total   = w_xgb + w_prophet
+
         def run_forecast(horizon_days):
-            history = d.copy()
+            history   = d.copy()
             last_date = history.index[-1]
-            rows = []
+            rows      = []
 
             for step in range(horizon_days):
                 fd = last_date + pd.Timedelta(days=step + 1)
 
+                is_we  = bool(fd.dayofweek >= 5)
+                is_hol = bool(fd.date() in hols_set)
+
+                # ── Features pour XGBoost ─────────────────────────────────
                 row = {
-                    'day_of_week': fd.dayofweek,
-                    'month':       fd.month,
-                    'week':        fd.isocalendar()[1],
-                    'is_weekend':  int(fd.dayofweek >= 5),
-                    'quarter':     fd.quarter,
-                    'is_holiday':  int(fd.date() in hols_set),
-                    'is_monday':   int(fd.dayofweek == 0),
+                    'day_of_week':  fd.dayofweek,
+                    'month':        fd.month,
+                    'week':         fd.isocalendar()[1],
+                    'is_weekend':   int(is_we),
+                    'quarter':      fd.quarter,
+                    'is_holiday':   int(is_hol),
+                    'is_monday':    int(fd.dayofweek == 0),
                 }
                 recent_7  = float(history[self.TARGET].iloc[-7:].mean())
                 recent_30 = float(history[self.TARGET].iloc[-30:].mean())
                 row['trend_recent'] = recent_7 / (recent_30 + 1e-9)
+
                 for lag in [1, 2, 3, 7, 14, 21, 28]:
                     row[f'lag_{lag}'] = (
                         history[self.TARGET].iloc[-lag]
@@ -1847,42 +1852,49 @@ class ForecastView(APIView):
                 row['diff_1'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-2]) if len(history) >= 2 else 0.0
                 row['diff_7'] = float(history[self.TARGET].iloc[-1] - history[self.TARGET].iloc[-7]) if len(history) >= 7 else 0.0
 
-                x_row   = np.array([[row.get(c, 0.0) for c in feature_cols]])
-                p_xgb   = float(max(model.predict(scaler.transform(x_row))[0], 0))
-                p_proph = float(max(
-                    prophet_model.predict(pd.DataFrame({'ds': [fd.tz_localize(None) if fd.tzinfo is None else fd.tz_convert(None)]}))['yhat'].iloc[0], 0
-                ))
-                p = (p_xgb * w_xgb + p_proph * w_prophet) / w_total
+                # ── Prédiction XGBoost (précision) ───────────────────────
+                x_row = np.array([[row.get(c, 0.0) for c in feature_cols]])
+                p_xgb = float(max(model.predict(scaler.transform(x_row))[0], 0))
 
-                is_we  = bool(row['is_weekend'])
-                is_hol = bool(row['is_holiday'])
+                # ── Prédiction Prophet (saisonnalité + fériés + weekends) ─
+                fd_clean = fd.tz_localize(None) if fd.tzinfo is None else fd.tz_convert(None)
+                p_prophet = float(max(
+                    prophet_model.predict(
+                        pd.DataFrame({'ds': [fd_clean]})
+                    )['yhat'].iloc[0], 0
+                ))
+
+                # ── Ensemble pondéré ──────────────────────────────────────
+                # Weekend / férié → Prophet prend le dessus (saisonnalité)
+                # Jour ouvré      → XGBoost prend le dessus (précision)
                 if is_we or is_hol:
-                    we_vals = history[self.TARGET][
-                        pd.Series(history.index).apply(lambda x: x.dayofweek >= 5 or x.date() in hols_set).values
-                    ]
-                    p = round(float(we_vals.tail(8).mean()), 1) if len(we_vals) >= 3 else round(p * 0.15, 1)
-                    p_for_history = p
+                    p_final = p_prophet  # Prophet seul pour weekends/fériés
                 else:
-                    p_for_history = p
+                    p_final = (p_xgb * w_xgb + p_prophet * w_prophet) / w_total
+
+                p_final = round(max(p_final, 0.0), 1)
 
                 rows.append({
                     'date':       fd.strftime('%Y-%m-%d'),
-                    'predicted':  round(p, 1),
-                    'lower':      round(max(0.0, p - 1.28 * sigma), 1),
-                    'upper':      round(p + 1.28 * sigma, 1),
+                    'predicted':  p_final,
+                    'lower':      round(max(0.0, p_final - 1.28 * sigma), 1),
+                    'upper':      round(p_final + 1.28 * sigma, 1),
                     'is_weekend': is_we,
                     'is_holiday': is_hol,
+                    'p_xgb':     round(p_xgb,     1),  # debug optionnel
+                    'p_prophet': round(p_prophet,  1),  # debug optionnel
                 })
 
+                # Historique mis à jour avec la prédiction finale
                 new_row = pd.DataFrame(
-                    [{**{c: row[c] for c in feature_cols}, self.TARGET: p_for_history}],
+                    [{**{c: row[c] for c in feature_cols}, self.TARGET: p_final}],
                     index=[fd]
                 )
                 history = pd.concat([history, new_row[history.columns]])
 
             return rows
 
-        # ── 9. Générer les 3 horizons ─────────────────────────────────────
+        # ── 9. Générer les horizons ───────────────────────────────────────
         to_save = []
         results = {}
         for horizon, days in [('7d', 7), ('30d', 30)]:
@@ -1898,7 +1910,6 @@ class ForecastView(APIView):
                     is_weekend=r['is_weekend'],
                     is_holiday=r['is_holiday'],
                 ))
-            logger.info(f"XGBoost forecast '{horizon}' for '{queue}': {len(fc_rows)} rows")
 
         # ── 10. Sauvegarder en DB ─────────────────────────────────────────
         try:
@@ -1907,7 +1918,7 @@ class ForecastView(APIView):
         except Exception as e:
             logger.error(f"DB save error for '{queue}': {e}")
 
-        # ── 11. Historique (60 derniers jours pour le graphe) ─────────────
+        # ── 11. Historique + réponse finale ──────────────────────────────
         history_points = [
             {'date': str(idx.date()), 'actual': round(float(val), 1)}
             for idx, val in df[self.TARGET].dropna().tail(60).items()
@@ -1917,18 +1928,25 @@ class ForecastView(APIView):
             **results,
             'history': history_points,
             'metrics': {
-                'mae':         round((mae * w_xgb + mae_prophet * w_prophet) / w_total, 1),
+                # XGBoost — métriques principales
+                'mae':         mae,
+                'rmse':        rmse,
                 'mape':        mape,
-                'mae_xgb':     mae,
+                'r2':          r2,
+                # Prophet — info seulement
                 'mae_prophet': mae_prophet,
-                'w_xgb':       round(w_xgb / w_total * 100, 1),
-                'w_prophet':   round(w_prophet / w_total * 100, 1),
+                # Poids ensemble
+                'w_xgb':     round(w_xgb / w_total * 100, 1),
+                'w_prophet': round(w_prophet / w_total * 100, 1),
             },
         }
-        # ── SAVE CACHE ───────────────────────────────────────────────────
+
+        # ── SAVE CACHE ────────────────────────────────────────────────────
         try:
-            cache_file.write_text(json.dumps(response_data, ensure_ascii=False), encoding='utf-8')
-            logger.info(f"ForecastView: cache sauvegardé pour '{queue}'")
+            cache_file.write_text(
+                json.dumps(response_data, ensure_ascii=False), encoding='utf-8'
+            )
         except Exception as e:
             logger.warning(f"ForecastView: impossible de sauvegarder cache: {e}")
+
         return Response({'status': 'ok', 'data': response_data})

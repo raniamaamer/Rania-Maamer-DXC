@@ -456,8 +456,9 @@ function MetricsBar({ forecast, metrics }) {
     { label: 'Weekends', value: weekends, color: DXC.purple },
     { label: 'Jours fériés', value: holidays, color: DXC.amber },
     ...(metrics ? [
-      { label: 'MAE (30j)',   value: metrics.mae?.toLocaleString('fr-FR'), color: DXC.textMuted },
-      { label: 'MAPE (30j)',  value: `${metrics.mape}%`,                   color: DXC.textMuted },
+      { label: 'MAE',   value: metrics.mae?.toLocaleString('fr-FR'), color: DXC.textMuted },
+      { label: 'MAPE',  value: `${metrics.mape}%`,                   color: DXC.textMuted },
+      { label: 'R²',    value: metrics.r2 != null ? metrics.r2 : '—', color: metrics.r2 >= 0.8 ? DXC.green : metrics.r2 >= 0.5 ? DXC.amber : DXC.red },
       ...(metrics.w_xgb != null ? [
         { label: '% XGBoost', value: `${metrics.w_xgb}%`,     color: DXC.blue },
         { label: '% Prophet', value: `${metrics.w_prophet}%`, color: DXC.orange },
@@ -761,7 +762,7 @@ export default function Forecasting() {
               </span>
               {hasData && queueData.metrics && (
                 <span style={{ fontSize: 11, color: DXC.green, marginLeft: 10, fontWeight: 700 }}>
-                  ✓ MAPE {queueData.metrics.mape}% · MAE {queueData.metrics.mae}
+                  ✓ MAPE {queueData.metrics.mape}% · MAE {queueData.metrics.mae} · R² {queueData.metrics.r2}
                 </span>
               )}
             </div>
@@ -824,7 +825,7 @@ export default function Forecasting() {
                 Cliquez sur <strong>Lancer la prévision</strong>.
               </div>
               <div style={{ marginTop: 20, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {['📈 Intervalles de confiance 80%', '📴 Jours fériés', '📅 Marqueurs weekends', '📉 Métriques MAE / MAPE'].map(f => (
+                {['📈 Intervalles de confiance 80%', '📴 Jours fériés', '📅 Marqueurs weekends', '📉 MAE / MAPE / R²'].map(f => (
                   <span key={f} style={{ background: DXC.bluePale, color: DXC.blue, fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8 }}>{f}</span>
                 ))}
               </div>
