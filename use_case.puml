@@ -11,7 +11,7 @@ skinparam actor {
     BorderColor #0066CC
 }
 
-top to bottom direction
+left to right direction
 
 actor "Superviseur" as SUP
 actor "Administrateur" as ADMIN
@@ -38,7 +38,6 @@ rectangle "Data Intelligence Dashboard pour DXC Technology" {
     }
 }
 
-' Acteurs en haut
 SUP --> UC01
 SUP --> UC02
 SUP --> UC03

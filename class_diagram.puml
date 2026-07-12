@@ -81,17 +81,7 @@ package "Métriques" {
         + sla_config_id : IntegerField (FK)
     }
 
-    class ArchiveJob {
-        + schedule : "every day at 23:59"
-        --
-        + run() : void
-        + transfer_records() : void
-        + flush_table() : void
-    }
-
     RealtimeMetric "1..*" ..> "1..*" HistoricalMetric : "archivé vers\n(APScheduler 23:59)"
-    ArchiveJob ..> RealtimeMetric : "lit & vide"
-    ArchiveJob ..> HistoricalMetric : "transfère vers"
 }
 
 package "Configuration & Prédiction" {
