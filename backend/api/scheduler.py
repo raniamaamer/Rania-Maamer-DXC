@@ -32,9 +32,6 @@ def refresh_metrics_job():
 def start():
     global scheduler
 
-    # Gunicorn fork : chaque worker hérite du process parent.
-    # On ne démarre le scheduler que dans le process master (pid == own pid)
-    # en utilisant la variable d'environnement injectée par gunicorn.
     if os.environ.get("GUNICORN_WORKER") == "true":
         logger.info("[SCHEDULER] Worker gunicorn détecté — scheduler ignoré")
         return
@@ -43,10 +40,22 @@ def start():
         logger.info("[SCHEDULER] Scheduler déjà actif — ignoré")
         return
 
+    import threading
+
+    def _delayed_start():
+        import time
+        time.sleep(5)  # laisse Django/Gunicorn stabiliser la connexion DB
+        _start_scheduler()
+
+    threading.Thread(target=_delayed_start, daemon=True).start()
+
+
+def _start_scheduler():
+    global scheduler
+
     scheduler = BackgroundScheduler()
     scheduler.add_jobstore(DjangoJobStore(), "default")
 
-    # ── Job 1 : Archive realtime → historical (23:59) ──────────
     scheduler.add_job(
         archive_realtime_job,
         trigger=CronTrigger(hour=23, minute=59, timezone="Europe/Paris"),
@@ -59,7 +68,6 @@ def start():
         coalesce=True,
     )
 
-    # ── Job 2 : Rafraîchissement métriques Prometheus (toutes les 5 min) ──
     scheduler.add_job(
         refresh_metrics_job,
         trigger=IntervalTrigger(minutes=5),
@@ -77,7 +85,6 @@ def start():
         "[SCHEDULER] APScheduler démarré — "
         "archive_realtime @ 23:59 | métriques Prometheus toutes les 5 min"
     )
-
 
 def stop():
     global scheduler

@@ -2,6 +2,7 @@
 DXC KPI Dashboard - Django Settings (Base)
 """
 import os
+import dj_database_url
 from pathlib import Path
 
 # ── PROMETHEUS MULTIPROCESS ──────────────────────────────────────────────────
@@ -67,20 +68,38 @@ WSGI_APPLICATION = 'dxc_backend.wsgi.application'
 
 # ── POSTGRESQL DATABASE ──────────────────────────────────────────────────────
 # django-prometheus surveille automatiquement les requêtes DB
-# grâce au backend wrapper ci-dessous
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_prometheus.db.backends.postgresql',  # ← remplace django.db.backends.postgresql
-        'NAME': os.environ.get('DB_NAME', 'dxc_kpi_db'),
-        'USER': os.environ.get('DB_USER', 'dxc_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'dxc_secure_pass'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-        'OPTIONS': {
-            'connect_timeout': 10,
-        },
+# grâce au backend wrapper ci-dessous.
+#
+# En production (Render), la variable d'environnement DATABASE_URL est
+# fournie automatiquement/manuellement et contient l'URL complète de
+# connexion PostgreSQL (postgresql://user:password@host:port/dbname).
+#
+# En local (développement), si DATABASE_URL n'existe pas, on retombe sur
+# les variables DB_NAME / DB_USER / DB_PASSWORD / DB_HOST / DB_PORT.
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            engine='django_prometheus.db.backends.postgresql',
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_prometheus.db.backends.postgresql',  # ← remplace django.db.backends.postgresql
+            'NAME': os.environ.get('DB_NAME', 'dxc_kpi_db'),
+            'USER': os.environ.get('DB_USER', 'dxc_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'dxc_secure_pass'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+            'OPTIONS': {
+                'connect_timeout': 10,
+            },
+        }
+    }
 
 # ── REST FRAMEWORK ───────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -170,10 +189,4 @@ REALTIME_PUSH_SECRET = os.environ.get('REALTIME_PUSH_SECRET', 'change-me-in-prod
 DATABASES['default']['TEST'] = {
     'NAME': 'test_dxc_kpi_db',
     'SERIALIZE': False,
-}
-
-# ── TEST CONFIGURATION ───────────────────────────────────────────────────────
-DATABASES['default']['TEST'] = {
-    'NAME': 'test_dxc_kpi_db',
-    'SERIALIZE': False,  
 }
