@@ -1,6 +1,8 @@
 import { useState, useCallback } from "react"
 import ChatBot from "./ChatBot";
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 const DXC = {
   blue:        '#3B6AC8',
   blueLight:   '#6B8FD4',
@@ -139,7 +141,7 @@ export default function SlaBreachAnalyzer() {
   }, [])
 
   const streamClaude = async (prompt, onChunk) => {
-    const response = await fetch('/api/claude/', {
+    const response = await fetch(`${API_BASE}/claude/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

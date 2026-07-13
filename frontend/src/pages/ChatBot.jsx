@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 export default function ChatBot({ csvContext = "" }) {
   const [messages, setMessages] = useState([
     {
@@ -30,7 +32,7 @@ ${csvContext ? `Voici les données SLA disponibles :\n${csvContext}` : ""}
 Réponds en français de manière concise et professionnelle.`;
 
     try {
-      const res = await fetch("/api/claude/", {
+      const res = await fetch(`${API_BASE}/claude/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

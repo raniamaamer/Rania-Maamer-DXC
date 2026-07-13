@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useFilters } from '../App'
 
-const API_BASE = '/api'
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 const DESK_QUEUES = {
   "Viatris ARABIC": ["Mylan ARABIC"],

@@ -5,6 +5,8 @@ import {
   ResponsiveContainer, ReferenceLine, ReferenceArea,
 } from 'recharts'
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 /* ══ Design Tokens ═══════════════════════════════════════════════════ */
 const DXC = {
   blue:       '#3B6AC8', blueLight: '#6B8FD4', bluePale: '#EAF0FA',
@@ -648,7 +650,7 @@ export default function Forecasting() {
 
   // Charger queue_summary au mount
   useEffect(() => {
-    fetch('/api/queue-summary/')
+    fetch(`${API_BASE}/queue-summary/`)
       .then(r => r.json())
       .then(data => setQueueSummary(data))
       .catch(() => {})
@@ -663,7 +665,7 @@ export default function Forecasting() {
     }))
 
     try {
-      const res = await fetch(`/api/forecast/?queue=${encodeURIComponent(selectedQueue)}${force ? '&force=true' : ''}`, {
+      const res = await fetch(`${API_BASE}/forecast/?queue=${encodeURIComponent(selectedQueue)}${force ? '&force=true' : ''}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       })
