@@ -581,11 +581,13 @@ class DailySnapshotView(APIView):
 
 
 class SLAConfigView(APIView):
-    # ✅ FIX SONARCLOUD: permission explicite — GET + POST gérés explicitement
     permission_classes = [AllowAny]
 
     def get(self, request):
         configs = SLAConfig.objects.all().order_by('account')  # pylint: disable=no-member
+        account = request.GET.get('account')
+        if account:
+            configs = configs.filter(account__iexact=account)
         return Response(SLAConfigSerializer(configs, many=True).data)
 
     def post(self, request):
