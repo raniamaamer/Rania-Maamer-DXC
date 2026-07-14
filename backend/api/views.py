@@ -1614,8 +1614,10 @@ class ForecastView(APIView):
         if not cache_file.exists():
             return False
         cache_mtime = cache_file.stat().st_mtime
-        # Cache valide si généré APRÈS la dernière modif du CSV
-        return cache_mtime > csv_mtime
+        try:
+            return cache_mtime > csv_mtime
+        except TypeError:
+            return False
 
     def get(self, request):
         queue = request.GET.get('queue', 'Servier French')
@@ -1934,6 +1936,7 @@ class ForecastView(APIView):
             'metrics': {
                 # XGBoost — métriques principales
                 'mae':         mae,
+                'mae_xgb':     mae,
                 'rmse':        rmse,
                 'mape':        mape,
                 'r2':          r2,
