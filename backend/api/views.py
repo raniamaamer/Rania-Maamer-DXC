@@ -10,6 +10,8 @@ from pathlib import Path
 from django.utils.dateparse import parse_datetime
 from collections import defaultdict
 from django.conf import settings
+import matplotlib
+matplotlib.use('Agg')
 from prophet import Prophet
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
